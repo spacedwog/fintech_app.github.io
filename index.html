@@ -141,18 +141,30 @@
         <div class="mb-8 hidden md:flex items-center justify-between">
           <div>
             <h1 id="page-title" class="text-2xl font-bold text-white">Dashboard</h1>
-            <p id="page-subtitle" class="text-gray-400 text-sm mt-1">Junho 2026 · Bem-vindo, Felipe!</p>
+            <p id="page-subtitle" class="text-gray-400 text-sm mt-1">Bem-vindo(a), Usuário!</p>
           </div>
-          <button type="button" id="btn-new-expense"
-                  class="inline-flex items-center gap-2
-                         bg-emerald-500 hover:bg-emerald-400
-                         text-gray-900 font-semibold text-sm
-                         px-4 py-2.5 rounded-xl transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Nova Despesa
-          </button>
+          <div class="flex items-center gap-3">
+            <button type="button" id="btn-open-auth-topbar"
+                    class="hidden inline-flex items-center gap-2
+                           bg-gray-800 hover:bg-gray-700 border border-gray-700
+                           text-white font-semibold text-sm
+                           px-4 py-2.5 rounded-xl transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
+              </svg>
+              Entrar / Cadastrar
+            </button>
+            <button type="button" id="btn-new-expense"
+                    class="inline-flex items-center gap-2
+                           bg-emerald-500 hover:bg-emerald-400
+                           text-gray-900 font-semibold text-sm
+                           px-4 py-2.5 rounded-xl transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Nova Despesa
+            </button>
+          </div>
         </div>
 
         <!-- -------------------- ALERTAS -------------------- -->

@@ -43,7 +43,7 @@
   var ALL_SECTIONS = ['alerts-section', 'kpis-section', 'reports-section', 'expenses-section'];
 
   var VIEW_TITLES = {
-    dashboard: ['Dashboard', 'Junho 2026 · Bem-vindo, Felipe!'],
+    dashboard: ['Dashboard', 'Bem-vindo(a), Usuário!'],
     despesas: ['Despesas', 'Todas as suas despesas registradas'],
     relatorios: ['Relatórios', 'Gastos mensais e distribuição por categoria'],
     alertas: ['Alertas', 'Avisos sobre o seu orçamento']
@@ -266,10 +266,17 @@
       '<div class="hidden md:block md:col-span-2 text-sm text-gray-400">' +
       dateBR +
       '</div>' +
-      '<div class="md:col-span-3 text-right ml-auto md:ml-0">' +
+      '<div class="md:col-span-3 flex items-center justify-end gap-3 ml-auto md:ml-0">' +
       '<span class="text-sm font-semibold text-red-400">- R$ ' +
       formatMoney(exp.value) +
       '</span>' +
+      '<button type="button" class="expense-delete w-6 h-6 flex items-center justify-center flex-shrink-0 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition" data-id="' +
+      escapeHtml(exp.id) +
+      '" aria-label="Excluir despesa" title="Excluir despesa">' +
+      '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">' +
+      '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />' +
+      '</svg>' +
+      '</button>' +
       '</div>' +
       '</div>'
     );
@@ -400,6 +407,7 @@
     var subtitleEl = document.getElementById('page-subtitle');
     if (titleEl && titleInfo) titleEl.textContent = titleInfo[0];
     if (subtitleEl && titleInfo) subtitleEl.textContent = titleInfo[1];
+    if (view === 'dashboard') updateGreeting();
 
     // a lista de despesas muda de tamanho dependendo da view (completa em "Despesas")
     renderExpenses();
@@ -469,6 +477,34 @@
         });
       }
     }
+  }
+
+  /* -----------------------------------------------------------
+     5b. DESPESAS — EXCLUIR (botão ícone X em cada linha)
+     ----------------------------------------------------------- */
+
+  function deleteExpense(id) {
+    var idx = -1;
+    for (var i = 0; i < state.expenses.length; i++) {
+      if (state.expenses[i].id === id) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) return;
+
+    var exp = state.expenses[idx];
+    if (!window.confirm('Excluir a despesa "' + exp.desc + '"?')) return;
+
+    state.expenses.splice(idx, 1);
+    state.categoryTotals[exp.category] = Math.max(0, (Number(state.categoryTotals[exp.category]) || 0) - exp.value);
+    state.gastosMes = Math.max(0, state.gastosMes - exp.value);
+    state.saldo += exp.value;
+    state.lancamentosCount = Math.max(0, state.lancamentosCount - 1);
+
+    saveState();
+    renderAll();
+    showToast('Despesa "' + exp.desc + '" excluída.');
   }
 
   /* -----------------------------------------------------------
@@ -604,9 +640,15 @@
 
   function setupAlertDelegation() {
     document.addEventListener('click', function (e) {
-      var target = e.target.closest ? e.target.closest('.alert-dismiss') : null;
-      if (target) {
-        dismissAlert(target.getAttribute('data-id'));
+      var dismissBtn = e.target.closest ? e.target.closest('.alert-dismiss') : null;
+      if (dismissBtn) {
+        dismissAlert(dismissBtn.getAttribute('data-id'));
+        return;
+      }
+
+      var deleteBtn = e.target.closest ? e.target.closest('.expense-delete') : null;
+      if (deleteBtn) {
+        deleteExpense(deleteBtn.getAttribute('data-id'));
       }
     });
   }
@@ -745,10 +787,22 @@
     }
   }
 
+  function updateGreeting() {
+    var subtitleEl = document.getElementById('page-subtitle');
+    if (!subtitleEl || state.view !== 'dashboard') return;
+    var user = loadSession();
+    var firstName = user && user.name ? user.name.trim().split(' ')[0] : 'Usuário';
+    subtitleEl.textContent = 'Bem-vindo(a), ' + firstName + '!';
+  }
+
   function renderAccount() {
     var sidebar = document.getElementById('sidebar-account');
     var mobileAvatar = document.getElementById('mobile-account-avatar');
+    var topbarBtn = document.getElementById('btn-open-auth-topbar');
     var user = loadSession();
+
+    if (topbarBtn) topbarBtn.classList.toggle('hidden', !!user);
+    updateGreeting();
 
     if (user) {
       var initial = escapeHtml(user.name.trim().charAt(0).toUpperCase() || '?');
@@ -932,6 +986,9 @@
     var registerTab = document.getElementById('auth-tab-register');
     if (loginTab) loginTab.addEventListener('click', function () { setAuthMode('login'); });
     if (registerTab) registerTab.addEventListener('click', function () { setAuthMode('register'); });
+
+    var topbarBtn = document.getElementById('btn-open-auth-topbar');
+    if (topbarBtn) topbarBtn.addEventListener('click', function () { openAuthModal('login'); });
 
     var mobileAvatar = document.getElementById('mobile-account-avatar');
     if (mobileAvatar) {
