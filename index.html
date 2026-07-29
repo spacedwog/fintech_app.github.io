@@ -106,28 +106,18 @@
                        m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
             Alertas
-            <span id="alert-badge-desktop" class="ml-auto bg-red-500 text-white text-xs font-bold
+            <span id="alert-badge-desktop" class="hidden ml-auto bg-red-500 text-white text-xs font-bold
                          w-5 h-5 flex items-center justify-center
                          rounded-full">
-              2
+              0
             </span>
           </a>
 
         </nav>
 
-        <!-- Usuário logado -->
-        <div class="mt-auto border-t border-gray-800 pt-5">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-emerald-500
-                        flex items-center justify-center
-                        font-bold text-sm text-gray-900">
-              F
-            </div>
-            <div>
-              <p class="text-sm font-medium text-white">Felipe Santos</p>
-              <p class="text-xs text-gray-500">CPF: •••.•••.088-00</p>
-            </div>
-          </div>
+        <!-- Usuário logado / Entrar / Cadastrar -->
+        <div id="sidebar-account" class="mt-auto border-t border-gray-800 pt-5">
+          <!-- populado via JavaScript (js/app.js) -->
         </div>
 
       </aside>
@@ -139,11 +129,12 @@
         <!-- Topbar mobile -->
         <div class="flex items-center justify-between mb-8 md:hidden">
           <span class="text-xl font-extrabold text-emerald-400">💰 Fintech</span>
-          <div class="w-9 h-9 rounded-full bg-emerald-500
+          <button type="button" id="mobile-account-avatar"
+                  class="w-9 h-9 rounded-full bg-emerald-500
                       flex items-center justify-center
                       font-bold text-sm text-gray-900">
-            F
-          </div>
+            ?
+          </button>
         </div>
 
         <!-- Título da página (desktop) -->
@@ -177,20 +168,20 @@
           <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
             <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Saldo Atual</p>
             <p id="kpi-saldo" class="text-2xl font-bold text-white">
-              R$ 4.320
+              R$ 0
               <span class="text-base font-normal text-gray-500">,00</span>
             </p>
-            <p id="kpi-saldo-change" class="text-emerald-400 text-xs mt-2">▲ 8,2% vs mês anterior</p>
+            <p id="kpi-saldo-change" class="text-gray-500 text-xs mt-2">Nenhum registro ainda</p>
           </div>
 
           <!-- Gastos do Mês -->
           <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Gastos Jun</p>
+            <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Gastos do Mês</p>
             <p id="kpi-gastos" class="text-2xl font-bold text-white">
-              R$ 3.158
-              <span class="text-base font-normal text-gray-500">,40</span>
+              R$ 0
+              <span class="text-base font-normal text-gray-500">,00</span>
             </p>
-            <p id="kpi-gastos-change" class="text-red-400 text-xs mt-2">▲ 12,1% vs mês anterior</p>
+            <p id="kpi-gastos-change" class="text-gray-500 text-xs mt-2">Nenhuma despesa registrada ainda</p>
           </div>
 
           <!-- Orçamento -->
@@ -202,11 +193,11 @@
             </p>
             <div class="mt-3">
               <div class="flex justify-between text-xs text-gray-400 mb-1">
-                <span id="kpi-orcamento-used-label">90% usado</span>
-                <span id="kpi-orcamento-remaining">R$ 341,60 restante</span>
+                <span id="kpi-orcamento-used-label">0% usado</span>
+                <span id="kpi-orcamento-remaining">R$ 3.500,00 restante</span>
               </div>
               <div class="w-full bg-gray-800 rounded-full h-1.5">
-                <div id="kpi-orcamento-bar" class="bg-amber-400 h-1.5 rounded-full" style="width:90%"></div>
+                <div id="kpi-orcamento-bar" class="bg-emerald-400 h-1.5 rounded-full" style="width:0%"></div>
               </div>
             </div>
           </div>
@@ -215,10 +206,10 @@
           <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
             <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Despesas</p>
             <p class="text-2xl font-bold text-white">
-              <span id="kpi-lancamentos-count">23</span>
+              <span id="kpi-lancamentos-count">0</span>
               <span class="text-base font-normal text-gray-500">lançamentos</span>
             </p>
-            <p id="kpi-lancamentos-sub" class="text-gray-400 text-xs mt-2">+5 esta semana</p>
+            <p id="kpi-lancamentos-sub" class="text-gray-400 text-xs mt-2">Adicione sua primeira despesa</p>
           </div>
 
         </div>
@@ -240,38 +231,38 @@
             <div class="flex items-end justify-between gap-3 h-36">
 
               <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">1,9k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[42%]"></div>
+                <span class="text-xs text-gray-400">0,0k</span>
+                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full" style="height:6%"></div>
                 <span class="text-xs text-gray-500">Jan</span>
               </div>
 
               <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">2,4k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[55%]"></div>
+                <span class="text-xs text-gray-400">0,0k</span>
+                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full" style="height:6%"></div>
                 <span class="text-xs text-gray-500">Fev</span>
               </div>
 
               <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">2,1k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[48%]"></div>
+                <span class="text-xs text-gray-400">0,0k</span>
+                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full" style="height:6%"></div>
                 <span class="text-xs text-gray-500">Mar</span>
               </div>
 
               <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">2,8k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[64%]"></div>
+                <span class="text-xs text-gray-400">0,0k</span>
+                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full" style="height:6%"></div>
                 <span class="text-xs text-gray-500">Abr</span>
               </div>
 
               <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">2,6k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[59%]"></div>
+                <span class="text-xs text-gray-400">0,0k</span>
+                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full" style="height:6%"></div>
                 <span class="text-xs text-gray-500">Mai</span>
               </div>
 
               <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span id="chart-jun-value" class="text-xs text-emerald-400 font-semibold">3,2k</span>
-                <div id="chart-jun-bar" class="chart-bar chart-bar-active bg-emerald-400 rounded-t-md w-full" style="height:73%"></div>
+                <span id="chart-jun-value" class="text-xs text-emerald-400 font-semibold">0,0k</span>
+                <div id="chart-jun-bar" class="chart-bar chart-bar-active bg-emerald-400 rounded-t-md w-full" style="height:6%"></div>
                 <span class="text-xs text-emerald-400 font-semibold">Jun</span>
               </div>
 
@@ -292,10 +283,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
                     <span class="text-sm text-gray-300">Alimentação</span>
                   </div>
-                  <span id="cat-alimentacao-value" class="text-sm font-semibold text-white">R$ 1.280,00</span>
+                  <span id="cat-alimentacao-value" class="text-sm font-semibold text-white">R$ 0,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-alimentacao-bar" class="category-bar bg-red-400 h-1.5 rounded-full" style="width:40%"></div>
+                  <div id="cat-alimentacao-bar" class="category-bar bg-red-400 h-1.5 rounded-full" style="width:0%"></div>
                 </div>
               </div>
 
@@ -306,10 +297,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
                     <span class="text-sm text-gray-300">Moradia</span>
                   </div>
-                  <span id="cat-moradia-value" class="text-sm font-semibold text-white">R$ 900,00</span>
+                  <span id="cat-moradia-value" class="text-sm font-semibold text-white">R$ 0,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-moradia-bar" class="category-bar bg-blue-400 h-1.5 rounded-full" style="width:28%"></div>
+                  <div id="cat-moradia-bar" class="category-bar bg-blue-400 h-1.5 rounded-full" style="width:0%"></div>
                 </div>
               </div>
 
@@ -320,10 +311,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
                     <span class="text-sm text-gray-300">Transporte</span>
                   </div>
-                  <span id="cat-transporte-value" class="text-sm font-semibold text-white">R$ 480,00</span>
+                  <span id="cat-transporte-value" class="text-sm font-semibold text-white">R$ 0,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-transporte-bar" class="category-bar bg-purple-400 h-1.5 rounded-full" style="width:15%"></div>
+                  <div id="cat-transporte-bar" class="category-bar bg-purple-400 h-1.5 rounded-full" style="width:0%"></div>
                 </div>
               </div>
 
@@ -334,10 +325,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
                     <span class="text-sm text-gray-300">Lazer</span>
                   </div>
-                  <span id="cat-lazer-value" class="text-sm font-semibold text-white">R$ 310,00</span>
+                  <span id="cat-lazer-value" class="text-sm font-semibold text-white">R$ 0,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-lazer-bar" class="category-bar bg-amber-400 h-1.5 rounded-full" style="width:10%"></div>
+                  <div id="cat-lazer-bar" class="category-bar bg-amber-400 h-1.5 rounded-full" style="width:0%"></div>
                 </div>
               </div>
 
@@ -348,10 +339,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
                     <span class="text-sm text-gray-300">Outros</span>
                   </div>
-                  <span id="cat-outros-value" class="text-sm font-semibold text-white">R$ 188,00</span>
+                  <span id="cat-outros-value" class="text-sm font-semibold text-white">R$ 0,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-outros-bar" class="category-bar bg-gray-400 h-1.5 rounded-full" style="width:6%"></div>
+                  <div id="cat-outros-bar" class="category-bar bg-gray-400 h-1.5 rounded-full" style="width:0%"></div>
                 </div>
               </div>
 
@@ -458,16 +449,83 @@
                    m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         <span class="text-xs">Alertas</span>
-        <span id="alert-badge-mobile" class="absolute top-0 right-1
+        <span id="alert-badge-mobile" class="hidden absolute top-0 right-1
                      bg-red-500 text-white text-xs font-bold
                      w-4 h-4 flex items-center justify-center
                      rounded-full leading-none">
-          2
+          0
         </span>
       </a>
 
     </nav>
     <!-- /NAV INFERIOR -->
+
+    <!-- ============================================================
+         MODAL — ENTRAR / CADASTRAR (Nome + CPF)
+    ============================================================ -->
+    <div id="auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div id="auth-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 z-10">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-lg font-semibold text-white">Acessar o sistema</h2>
+          <button type="button" id="auth-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+
+        <!-- Abas Entrar / Criar conta -->
+        <div class="flex gap-2 bg-gray-800 rounded-xl p-1 mb-5">
+          <button type="button" id="auth-tab-login"
+                  class="auth-tab flex-1 text-sm font-medium py-2 rounded-lg transition">
+            Entrar
+          </button>
+          <button type="button" id="auth-tab-register"
+                  class="auth-tab flex-1 text-sm font-medium py-2 rounded-lg transition">
+            Criar conta
+          </button>
+        </div>
+
+        <form id="auth-form" class="space-y-4" novalidate>
+          <div>
+            <label for="auth-nome" class="block text-xs text-gray-400 mb-1.5">Nome completo</label>
+            <input id="auth-nome" name="nome" type="text" required maxlength="80" autocomplete="name"
+                   placeholder="Ex.: Felipe Santos"
+                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
+                          text-sm text-white placeholder-gray-500
+                          focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <div>
+            <label for="auth-cpf" class="block text-xs text-gray-400 mb-1.5">CPF</label>
+            <input id="auth-cpf" name="cpf" type="text" required inputmode="numeric" maxlength="14"
+                   autocomplete="off" placeholder="000.000.000-00"
+                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
+                          text-sm text-white placeholder-gray-500
+                          focus:outline-none focus:border-emerald-500" />
+            <p class="text-xs text-gray-500 mt-1.5">
+              O CPF é validado localmente pelo algoritmo oficial de dígitos verificadores da Receita Federal.
+            </p>
+          </div>
+
+          <p id="auth-form-error" class="hidden text-red-400 text-xs"></p>
+          <p id="auth-form-success" class="hidden text-emerald-400 text-xs"></p>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button type="button" id="auth-modal-cancel"
+                    class="flex-1 text-center text-sm font-medium text-gray-300
+                           border border-gray-700 rounded-xl py-2.5
+                           hover:bg-gray-800 transition">
+              Cancelar
+            </button>
+            <button type="submit" id="auth-submit-btn"
+                    class="flex-1 text-center text-sm font-semibold text-gray-900
+                           bg-emerald-500 hover:bg-emerald-400 rounded-xl py-2.5 transition">
+              Entrar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- /MODAL AUTENTICAÇÃO -->
 
     <!-- ============================================================
          MODAL — NOVA DESPESA

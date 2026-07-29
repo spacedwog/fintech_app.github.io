@@ -129,11 +129,13 @@ body {
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
 }
 
-#expense-modal {
+#expense-modal,
+#auth-modal {
   animation: fintech-fade-in 0.15s ease-out;
 }
 
-#expense-modal > div.relative {
+#expense-modal > div.relative,
+#auth-modal > div.relative {
   animation: fintech-modal-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -143,6 +145,19 @@ body {
 
 .side-nav-link,
 .bottom-nav-link {
+  cursor: pointer;
+}
+
+.auth-tab {
+  color: #9ca3af; /* gray-400 */
+  cursor: pointer;
+}
+
+.auth-tab.bg-emerald-500 {
+  color: #111827; /* gray-900, garante contraste na aba ativa */
+}
+
+#mobile-account-avatar {
   cursor: pointer;
 }
 
