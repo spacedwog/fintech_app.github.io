@@ -37,13 +37,13 @@
         <!-- Navegação -->
         <nav class="flex-1 space-y-1">
 
-          <!-- Dashboard (ativo) -->
-          <a href="#"
-             class="nav-active flex items-center gap-3
+          <!-- Dashboard -->
+          <a href="#" data-view="dashboard"
+             class="side-nav-link flex items-center gap-3
                     px-4 py-3 rounded-xl
-                    text-sm font-medium text-white
-                    bg-emerald-500/20 border border-emerald-500/30">
-            <svg class="w-5 h-5 text-emerald-400"
+                    text-sm font-medium transition
+                    text-gray-400 hover:text-white hover:bg-gray-800">
+            <svg class="side-nav-icon w-5 h-5"
                  fill="none" stroke="currentColor" stroke-width="2"
                  viewBox="0 0 24 24">
               <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3
@@ -55,12 +55,12 @@
           </a>
 
           <!-- Despesas -->
-          <a href="#"
-             class="nav-item flex items-center gap-3
+          <a href="#" data-view="despesas"
+             class="side-nav-link flex items-center gap-3
                     px-4 py-3 rounded-xl
-                    text-sm font-medium text-gray-400
-                    hover:text-white hover:bg-gray-800 transition">
-            <svg class="w-5 h-5"
+                    text-sm font-medium transition
+                    text-gray-400 hover:text-white hover:bg-gray-800">
+            <svg class="side-nav-icon w-5 h-5"
                  fill="none" stroke="currentColor" stroke-width="2"
                  viewBox="0 0 24 24">
               <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10
@@ -72,12 +72,12 @@
           </a>
 
           <!-- Relatórios -->
-          <a href="#"
-             class="nav-item flex items-center gap-3
+          <a href="#" data-view="relatorios"
+             class="side-nav-link flex items-center gap-3
                     px-4 py-3 rounded-xl
-                    text-sm font-medium text-gray-400
-                    hover:text-white hover:bg-gray-800 transition">
-            <svg class="w-5 h-5"
+                    text-sm font-medium transition
+                    text-gray-400 hover:text-white hover:bg-gray-800">
+            <svg class="side-nav-icon w-5 h-5"
                  fill="none" stroke="currentColor" stroke-width="2"
                  viewBox="0 0 24 24">
               <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6
@@ -91,12 +91,12 @@
           </a>
 
           <!-- Alertas -->
-          <a href="#"
-             class="nav-item flex items-center gap-3
+          <a href="#" data-view="alertas"
+             class="side-nav-link flex items-center gap-3
                     px-4 py-3 rounded-xl
-                    text-sm font-medium text-gray-400
-                    hover:text-white hover:bg-gray-800 transition">
-            <svg class="w-5 h-5"
+                    text-sm font-medium transition
+                    text-gray-400 hover:text-white hover:bg-gray-800">
+            <svg class="side-nav-icon w-5 h-5"
                  fill="none" stroke="currentColor" stroke-width="2"
                  viewBox="0 0 24 24">
               <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11
@@ -106,7 +106,7 @@
                        m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
             Alertas
-            <span class="ml-auto bg-red-500 text-white text-xs font-bold
+            <span id="alert-badge-desktop" class="ml-auto bg-red-500 text-white text-xs font-bold
                          w-5 h-5 flex items-center justify-center
                          rounded-full">
               2
@@ -147,61 +147,50 @@
         </div>
 
         <!-- Título da página (desktop) -->
-        <div class="mb-8 hidden md:block">
-          <h1 class="text-2xl font-bold text-white">Dashboard</h1>
-          <p class="text-gray-400 text-sm mt-1">Junho 2026 · Bem-vindo, Felipe!</p>
-        </div>
-
-        <!-- -------------------- ALERTA -------------------- -->
-        <div class="bg-red-500/10 border border-red-500/30 rounded-2xl
-                    px-5 py-4 mb-6 flex items-center gap-4">
-
-          <div class="w-10 h-10 rounded-full bg-red-500/20
-                      flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-red-400"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 viewBox="0 0 24 24">
-              <path d="M12 9v2m0 4h.01
-                       M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94
-                       a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        <div class="mb-8 hidden md:flex items-center justify-between">
+          <div>
+            <h1 id="page-title" class="text-2xl font-bold text-white">Dashboard</h1>
+            <p id="page-subtitle" class="text-gray-400 text-sm mt-1">Junho 2026 · Bem-vindo, Felipe!</p>
+          </div>
+          <button type="button" id="btn-new-expense"
+                  class="inline-flex items-center gap-2
+                         bg-emerald-500 hover:bg-emerald-400
+                         text-gray-900 font-semibold text-sm
+                         px-4 py-2.5 rounded-xl transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-          </div>
-
-          <div class="flex-1 min-w-0">
-            <p class="text-red-300 font-semibold text-sm">
-              ⚠️ Orçamento ultrapassado em Alimentação
-            </p>
-            <p class="text-red-400 text-xs mt-0.5">
-              Você gastou R$ 1.280 de R$ 1.000 planejados este mês.
-            </p>
-          </div>
-
-          <span class="text-red-400 text-xl leading-none flex-shrink-0">&times;</span>
-
+            Nova Despesa
+          </button>
         </div>
-        <!-- /ALERTA -->
+
+        <!-- -------------------- ALERTAS -------------------- -->
+        <div id="alerts-section" class="space-y-3 mb-6">
+          <!-- populado via JavaScript (js/app.js) -->
+        </div>
+        <!-- /ALERTAS -->
 
         <!-- -------------------- KPI CARDS -------------------- -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div id="kpis-section" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
           <!-- Saldo Atual -->
           <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
             <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Saldo Atual</p>
-            <p class="text-2xl font-bold text-white">
+            <p id="kpi-saldo" class="text-2xl font-bold text-white">
               R$ 4.320
               <span class="text-base font-normal text-gray-500">,00</span>
             </p>
-            <p class="text-emerald-400 text-xs mt-2">▲ 8,2% vs mês anterior</p>
+            <p id="kpi-saldo-change" class="text-emerald-400 text-xs mt-2">▲ 8,2% vs mês anterior</p>
           </div>
 
           <!-- Gastos do Mês -->
           <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
             <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Gastos Jun</p>
-            <p class="text-2xl font-bold text-white">
+            <p id="kpi-gastos" class="text-2xl font-bold text-white">
               R$ 3.158
               <span class="text-base font-normal text-gray-500">,40</span>
             </p>
-            <p class="text-red-400 text-xs mt-2">▲ 12,1% vs mês anterior</p>
+            <p id="kpi-gastos-change" class="text-red-400 text-xs mt-2">▲ 12,1% vs mês anterior</p>
           </div>
 
           <!-- Orçamento -->
@@ -213,11 +202,11 @@
             </p>
             <div class="mt-3">
               <div class="flex justify-between text-xs text-gray-400 mb-1">
-                <span>90% usado</span>
-                <span>R$ 341,60 restante</span>
+                <span id="kpi-orcamento-used-label">90% usado</span>
+                <span id="kpi-orcamento-remaining">R$ 341,60 restante</span>
               </div>
               <div class="w-full bg-gray-800 rounded-full h-1.5">
-                <div class="bg-amber-400 h-1.5 rounded-full w-[90%]"></div>
+                <div id="kpi-orcamento-bar" class="bg-amber-400 h-1.5 rounded-full" style="width:90%"></div>
               </div>
             </div>
           </div>
@@ -226,17 +215,17 @@
           <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
             <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Despesas</p>
             <p class="text-2xl font-bold text-white">
-              23
+              <span id="kpi-lancamentos-count">23</span>
               <span class="text-base font-normal text-gray-500">lançamentos</span>
             </p>
-            <p class="text-gray-400 text-xs mt-2">+5 esta semana</p>
+            <p id="kpi-lancamentos-sub" class="text-gray-400 text-xs mt-2">+5 esta semana</p>
           </div>
 
         </div>
         <!-- /KPI CARDS -->
 
         <!-- -------------------- GRÁFICO + CATEGORIAS -------------------- -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div id="reports-section" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 
           <!-- Gráfico de barras -->
           <div class="md:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-6">
@@ -281,8 +270,8 @@
               </div>
 
               <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-emerald-400 font-semibold">3,2k</span>
-                <div class="chart-bar chart-bar-active bg-emerald-400 rounded-t-md w-full h-[73%]"></div>
+                <span id="chart-jun-value" class="text-xs text-emerald-400 font-semibold">3,2k</span>
+                <div id="chart-jun-bar" class="chart-bar chart-bar-active bg-emerald-400 rounded-t-md w-full" style="height:73%"></div>
                 <span class="text-xs text-emerald-400 font-semibold">Jun</span>
               </div>
 
@@ -303,10 +292,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
                     <span class="text-sm text-gray-300">Alimentação</span>
                   </div>
-                  <span class="text-sm font-semibold text-white">R$ 1.280</span>
+                  <span id="cat-alimentacao-value" class="text-sm font-semibold text-white">R$ 1.280,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div class="bg-red-400 h-1.5 rounded-full w-[40%]"></div>
+                  <div id="cat-alimentacao-bar" class="category-bar bg-red-400 h-1.5 rounded-full" style="width:40%"></div>
                 </div>
               </div>
 
@@ -317,10 +306,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
                     <span class="text-sm text-gray-300">Moradia</span>
                   </div>
-                  <span class="text-sm font-semibold text-white">R$ 900</span>
+                  <span id="cat-moradia-value" class="text-sm font-semibold text-white">R$ 900,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div class="bg-blue-400 h-1.5 rounded-full w-[28%]"></div>
+                  <div id="cat-moradia-bar" class="category-bar bg-blue-400 h-1.5 rounded-full" style="width:28%"></div>
                 </div>
               </div>
 
@@ -331,10 +320,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
                     <span class="text-sm text-gray-300">Transporte</span>
                   </div>
-                  <span class="text-sm font-semibold text-white">R$ 480</span>
+                  <span id="cat-transporte-value" class="text-sm font-semibold text-white">R$ 480,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div class="bg-purple-400 h-1.5 rounded-full w-[15%]"></div>
+                  <div id="cat-transporte-bar" class="category-bar bg-purple-400 h-1.5 rounded-full" style="width:15%"></div>
                 </div>
               </div>
 
@@ -345,10 +334,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
                     <span class="text-sm text-gray-300">Lazer</span>
                   </div>
-                  <span class="text-sm font-semibold text-white">R$ 310</span>
+                  <span id="cat-lazer-value" class="text-sm font-semibold text-white">R$ 310,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div class="bg-amber-400 h-1.5 rounded-full w-[10%]"></div>
+                  <div id="cat-lazer-bar" class="category-bar bg-amber-400 h-1.5 rounded-full" style="width:10%"></div>
                 </div>
               </div>
 
@@ -359,10 +348,10 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
                     <span class="text-sm text-gray-300">Outros</span>
                   </div>
-                  <span class="text-sm font-semibold text-white">R$ 188</span>
+                  <span id="cat-outros-value" class="text-sm font-semibold text-white">R$ 188,00</span>
                 </div>
                 <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div class="bg-gray-400 h-1.5 rounded-full w-[6%]"></div>
+                  <div id="cat-outros-bar" class="category-bar bg-gray-400 h-1.5 rounded-full" style="width:6%"></div>
                 </div>
               </div>
 
@@ -374,11 +363,11 @@
         <!-- /GRÁFICO + CATEGORIAS -->
 
         <!-- -------------------- DESPESAS RECENTES -------------------- -->
-        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+        <div id="expenses-section" class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
 
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-base font-semibold text-white">Despesas Recentes</h2>
-            <a href="#" class="text-emerald-400 text-sm hover:underline">Ver todas</a>
+            <a href="#" id="link-ver-todas" class="text-emerald-400 text-sm hover:underline">Ver todas</a>
           </div>
 
           <!-- Cabeçalho da tabela (desktop) -->
@@ -391,155 +380,9 @@
             <span class="col-span-3 text-right">Valor</span>
           </div>
 
-          <!-- Linhas -->
-          <div class="divide-y divide-gray-800">
+          <!-- Linhas (renderizadas via js/app.js) -->
+          <div id="expenses-tbody" class="divide-y divide-gray-800"></div>
 
-            <!-- Supermercado -->
-            <div class="expense-row grid md:grid-cols-12 items-center
-                        py-4 px-2 gap-2 rounded-xl
-                        hover:bg-gray-800/50 transition">
-              <div class="md:col-span-5 flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-red-500/10
-                            flex items-center justify-center
-                            flex-shrink-0 text-base">
-                  🛒
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white">Supermercado Extra</p>
-                  <p class="text-xs text-gray-500 md:hidden">Alimentação · 17/06</p>
-                </div>
-              </div>
-              <div class="hidden md:block md:col-span-2">
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                             bg-red-500/10 text-red-300">
-                  Alimentação
-                </span>
-              </div>
-              <div class="hidden md:block md:col-span-2 text-sm text-gray-400">
-                17/06/2026
-              </div>
-              <div class="md:col-span-3 text-right ml-auto md:ml-0">
-                <span class="text-sm font-semibold text-red-400">- R$ 245,80</span>
-              </div>
-            </div>
-
-            <!-- Aluguel -->
-            <div class="expense-row grid md:grid-cols-12 items-center
-                        py-4 px-2 gap-2 rounded-xl
-                        hover:bg-gray-800/50 transition">
-              <div class="md:col-span-5 flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-blue-500/10
-                            flex items-center justify-center
-                            flex-shrink-0 text-base">
-                  🏠
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white">Aluguel Junho</p>
-                  <p class="text-xs text-gray-500 md:hidden">Moradia · 05/06</p>
-                </div>
-              </div>
-              <div class="hidden md:block md:col-span-2">
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                             bg-blue-500/10 text-blue-300">
-                  Moradia
-                </span>
-              </div>
-              <div class="hidden md:block md:col-span-2 text-sm text-gray-400">
-                05/06/2026
-              </div>
-              <div class="md:col-span-3 text-right ml-auto md:ml-0">
-                <span class="text-sm font-semibold text-red-400">- R$ 900,00</span>
-              </div>
-            </div>
-
-            <!-- Uber -->
-            <div class="expense-row grid md:grid-cols-12 items-center
-                        py-4 px-2 gap-2 rounded-xl
-                        hover:bg-gray-800/50 transition">
-              <div class="md:col-span-5 flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-purple-500/10
-                            flex items-center justify-center
-                            flex-shrink-0 text-base">
-                  🚌
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white">Uber – trabalho</p>
-                  <p class="text-xs text-gray-500 md:hidden">Transporte · 16/06</p>
-                </div>
-              </div>
-              <div class="hidden md:block md:col-span-2">
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                             bg-purple-500/10 text-purple-300">
-                  Transporte
-                </span>
-              </div>
-              <div class="hidden md:block md:col-span-2 text-sm text-gray-400">
-                16/06/2026
-              </div>
-              <div class="md:col-span-3 text-right ml-auto md:ml-0">
-                <span class="text-sm font-semibold text-red-400">- R$ 38,50</span>
-              </div>
-            </div>
-
-            <!-- Netflix + Spotify -->
-            <div class="expense-row grid md:grid-cols-12 items-center
-                        py-4 px-2 gap-2 rounded-xl
-                        hover:bg-gray-800/50 transition">
-              <div class="md:col-span-5 flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-amber-500/10
-                            flex items-center justify-center
-                            flex-shrink-0 text-base">
-                  🎬
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white">Netflix + Spotify</p>
-                  <p class="text-xs text-gray-500 md:hidden">Lazer · 10/06</p>
-                </div>
-              </div>
-              <div class="hidden md:block md:col-span-2">
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                             bg-amber-500/10 text-amber-300">
-                  Lazer
-                </span>
-              </div>
-              <div class="hidden md:block md:col-span-2 text-sm text-gray-400">
-                10/06/2026
-              </div>
-              <div class="md:col-span-3 text-right ml-auto md:ml-0">
-                <span class="text-sm font-semibold text-red-400">- R$ 75,90</span>
-              </div>
-            </div>
-
-            <!-- Farmácia -->
-            <div class="expense-row grid md:grid-cols-12 items-center
-                        py-4 px-2 gap-2 rounded-xl
-                        hover:bg-gray-800/50 transition">
-              <div class="md:col-span-5 flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-emerald-500/10
-                            flex items-center justify-center
-                            flex-shrink-0 text-base">
-                  💊
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white">Farmácia</p>
-                  <p class="text-xs text-gray-500 md:hidden">Saúde · 14/06</p>
-                </div>
-              </div>
-              <div class="hidden md:block md:col-span-2">
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                             bg-emerald-500/10 text-emerald-300">
-                  Saúde
-                </span>
-              </div>
-              <div class="hidden md:block md:col-span-2 text-sm text-gray-400">
-                14/06/2026
-              </div>
-              <div class="md:col-span-3 text-right ml-auto md:ml-0">
-                <span class="text-sm font-semibold text-red-400">- R$ 52,30</span>
-              </div>
-            </div>
-
-          </div>
         </div>
         <!-- /DESPESAS RECENTES -->
 
@@ -558,7 +401,7 @@
                 py-3 px-4 z-30">
 
       <!-- Home -->
-      <a href="#" class="flex flex-col items-center gap-1 text-emerald-400">
+      <a href="#" data-view="dashboard" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
         <svg class="w-6 h-6" fill="none" stroke="currentColor"
              stroke-width="2" viewBox="0 0 24 24">
           <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3
@@ -570,7 +413,7 @@
       </a>
 
       <!-- Despesas -->
-      <a href="#" class="flex flex-col items-center gap-1 text-gray-500">
+      <a href="#" data-view="despesas" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
         <svg class="w-6 h-6" fill="none" stroke="currentColor"
              stroke-width="2" viewBox="0 0 24 24">
           <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10
@@ -582,16 +425,16 @@
       </a>
 
       <!-- Nova despesa -->
-      <a href="#" class="flex flex-col items-center gap-1 text-gray-500">
+      <button type="button" id="btn-new-expense-mobile" class="flex flex-col items-center gap-1 text-gray-500">
         <svg class="w-6 h-6" fill="none" stroke="currentColor"
              stroke-width="2" viewBox="0 0 24 24">
           <path d="M12 4v16m8-8H4" />
         </svg>
         <span class="text-xs">Nova</span>
-      </a>
+      </button>
 
       <!-- Relatórios -->
-      <a href="#" class="flex flex-col items-center gap-1 text-gray-500">
+      <a href="#" data-view="relatorios" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
         <svg class="w-6 h-6" fill="none" stroke="currentColor"
              stroke-width="2" viewBox="0 0 24 24">
           <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6
@@ -605,7 +448,7 @@
       </a>
 
       <!-- Alertas -->
-      <a href="#" class="flex flex-col items-center gap-1 text-gray-500 relative">
+      <a href="#" data-view="alertas" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500 relative">
         <svg class="w-6 h-6" fill="none" stroke="currentColor"
              stroke-width="2" viewBox="0 0 24 24">
           <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11
@@ -615,7 +458,7 @@
                    m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         <span class="text-xs">Alertas</span>
-        <span class="absolute top-0 right-1
+        <span id="alert-badge-mobile" class="absolute top-0 right-1
                      bg-red-500 text-white text-xs font-bold
                      w-4 h-4 flex items-center justify-center
                      rounded-full leading-none">
@@ -625,6 +468,90 @@
 
     </nav>
     <!-- /NAV INFERIOR -->
+
+    <!-- ============================================================
+         MODAL — NOVA DESPESA
+    ============================================================ -->
+    <div id="expense-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div id="expense-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 z-10">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-lg font-semibold text-white">Nova Despesa</h2>
+          <button type="button" id="expense-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+
+        <form id="expense-form" class="space-y-4" novalidate>
+          <div>
+            <label for="expense-desc" class="block text-xs text-gray-400 mb-1.5">Descrição</label>
+            <input id="expense-desc" name="desc" type="text" required maxlength="60"
+                   placeholder="Ex.: Supermercado, Uber, Aluguel..."
+                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
+                          text-sm text-white placeholder-gray-500
+                          focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="expense-category" class="block text-xs text-gray-400 mb-1.5">Categoria</label>
+              <select id="expense-category" name="category" required
+                      class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
+                             text-sm text-white
+                             focus:outline-none focus:border-emerald-500">
+                <option value="alimentacao">Alimentação</option>
+                <option value="moradia">Moradia</option>
+                <option value="transporte">Transporte</option>
+                <option value="lazer">Lazer</option>
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div>
+              <label for="expense-date" class="block text-xs text-gray-400 mb-1.5">Data</label>
+              <input id="expense-date" name="date" type="date" required
+                     class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
+                            text-sm text-white
+                            focus:outline-none focus:border-emerald-500" />
+            </div>
+          </div>
+
+          <div>
+            <label for="expense-value" class="block text-xs text-gray-400 mb-1.5">Valor (R$)</label>
+            <input id="expense-value" name="value" type="number" step="0.01" min="0.01" required
+                   placeholder="0,00"
+                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
+                          text-sm text-white placeholder-gray-500
+                          focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <p id="expense-form-error" class="hidden text-red-400 text-xs"></p>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button type="button" id="expense-modal-cancel"
+                    class="flex-1 text-center text-sm font-medium text-gray-300
+                           border border-gray-700 rounded-xl py-2.5
+                           hover:bg-gray-800 transition">
+              Cancelar
+            </button>
+            <button type="submit"
+                    class="flex-1 text-center text-sm font-semibold text-gray-900
+                           bg-emerald-500 hover:bg-emerald-400 rounded-xl py-2.5 transition">
+              Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- /MODAL -->
+
+    <!-- Toast de confirmação -->
+    <div id="toast"
+         class="hidden fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2
+                bg-emerald-500 text-gray-900 text-sm font-semibold
+                px-5 py-3 rounded-xl shadow-lg z-50">
+      Despesa adicionada com sucesso!
+    </div>
+
+    <script src="js/app.js"></script>
 
   </body>
 
