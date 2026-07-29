@@ -1,0 +1,11 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="1200" fill="#0b0f19"/>
+  <rect x="0" y="0" width="1200" height="14" fill="#f59e0b"/>
+  <text x="600" y="150" font-family="Arial, sans-serif" font-size="38" font-weight="800" fill="#f59e0b" text-anchor="middle">Fintech Inteligente</text>
+  <text x="600" y="560" font-family="Arial, sans-serif" font-size="60" font-weight="800" fill="#ffffff" text-anchor="middle">Orçamento</text>
+  <text x="600" y="630" font-family="Arial, sans-serif" font-size="60" font-weight="800" fill="#ffffff" text-anchor="middle">Sob Controle</text>
+  <text x="600" y="700" font-family="Arial, sans-serif" font-size="28" fill="#9ca3af" text-anchor="middle">Alertas automáticos de gastos</text>
+  <rect x="420" y="800" width="360" height="86" rx="20" fill="#f59e0b"/>
+  <text x="600" y="855" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#0b0f19" text-anchor="middle">Ativar Alertas</text>
+  <circle cx="600" cy="1020" r="110" fill="none" stroke="#f59e0b" stroke-width="10" opacity="0.5"/>
+</svg>

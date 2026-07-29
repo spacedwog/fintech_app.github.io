@@ -1,0 +1,15 @@
+<svg width="1200" height="628" viewBox="0 0 1200 628" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="628" fill="#0b0f19"/>
+  <rect x="0" y="0" width="1200" height="10" fill="#a78bfa"/>
+  <text x="80" y="110" font-family="Arial, sans-serif" font-size="34" font-weight="800" fill="#a78bfa">Fintech Inteligente</text>
+  <text x="80" y="250" font-family="Arial, sans-serif" font-size="56" font-weight="800" fill="#ffffff">Organize suas Finanças</text>
+  <text x="80" y="310" font-family="Arial, sans-serif" font-size="26" fill="#9ca3af">Do orçamento ao relatório, tudo em um app</text>
+  <rect x="80" y="460" width="240" height="80" rx="18" fill="#a78bfa"/>
+  <text x="200" y="510" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#0b0f19" text-anchor="middle">Saiba Mais</text>
+  <g opacity="0.55">
+    <rect x="950" y="420" width="40" height="60" rx="6" fill="#a78bfa"/>
+    <rect x="1000" y="380" width="40" height="100" rx="6" fill="#a78bfa"/>
+    <rect x="1050" y="340" width="40" height="140" rx="6" fill="#a78bfa"/>
+    <rect x="1100" y="300" width="40" height="180" rx="6" fill="#a78bfa"/>
+  </g>
+</svg>
