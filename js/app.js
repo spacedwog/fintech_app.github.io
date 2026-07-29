@@ -37,16 +37,18 @@
     dashboard: ['alerts-section', 'kpis-section', 'reports-section', 'expenses-section'],
     despesas: ['kpis-section', 'expenses-section'],
     relatorios: ['reports-section'],
-    alertas: ['alerts-section']
+    alertas: ['alerts-section'],
+    produtos: ['products-section']
   };
 
-  var ALL_SECTIONS = ['alerts-section', 'kpis-section', 'reports-section', 'expenses-section'];
+  var ALL_SECTIONS = ['alerts-section', 'kpis-section', 'reports-section', 'expenses-section', 'products-section'];
 
   var VIEW_TITLES = {
     dashboard: ['Dashboard', 'Bem-vindo(a), Usuário!'],
     despesas: ['Despesas', 'Todas as suas despesas registradas'],
     relatorios: ['Relatórios', 'Gastos mensais e distribuição por categoria'],
-    alertas: ['Alertas', 'Avisos sobre o seu orçamento']
+    alertas: ['Alertas', 'Avisos sobre o seu orçamento'],
+    produtos: ['Produtos e Serviços', 'Soluções sob medida em desenvolvimento de software (CNAE 62.01-5-01)']
   };
 
   function defaultState() {
@@ -157,6 +159,7 @@
   function renderKPIs() {
     renderMoneySplit(document.getElementById('kpi-saldo'), state.saldo);
     renderMoneySplit(document.getElementById('kpi-gastos'), state.gastosMes);
+    renderMoneySplit(document.getElementById('kpi-orcamento-value'), state.orcamentoTotal);
 
     var saldoChangeEl = document.getElementById('kpi-saldo-change');
     if (saldoChangeEl) {
@@ -446,36 +449,56 @@
     renderAlerts();
   }
 
-  function maybeCreateAlerts(category, categoryValue) {
-    var budget = CATEGORY_BUDGETS[category];
-    if (budget && categoryValue > budget) {
-      var alertId = 'alert-cat-' + category;
-      var already = state.alerts.some(function (a) {
+  // Confere despesas por categoria + orçamento total contra os limites
+  // planejados e mantém os alertas em dia: cria quando estoura, remove
+  // quando volta a ficar dentro do orçamento (nova despesa, exclusão de
+  // despesa ou edição do valor do orçamento passam por aqui).
+  function reevaluateBudgetAlerts() {
+    Object.keys(CATEGORY_BUDGETS).forEach(function (cat) {
+      var alertId = 'alert-cat-' + cat;
+      var budget = CATEGORY_BUDGETS[cat];
+      var value = Number(state.categoryTotals[cat]) || 0;
+      var over = budget && value > budget;
+      var exists = state.alerts.some(function (a) {
         return a.id === alertId;
       });
-      if (!already) {
-        var cfg = CATEGORY_CONFIG[category];
+
+      if (over && !exists) {
+        var cfg = CATEGORY_CONFIG[cat];
         state.alerts.push({
           id: alertId,
           title: '⚠️ Orçamento ultrapassado em ' + cfg.label,
           message:
-            'Você gastou R$ ' + formatMoney(categoryValue) + ' de R$ ' + formatMoney(budget) + ' planejados este mês.'
+            'Você gastou R$ ' + formatMoney(value) + ' de R$ ' + formatMoney(budget) + ' planejados este mês.'
+        });
+      } else if (!over && exists) {
+        state.alerts = state.alerts.filter(function (a) {
+          return a.id !== alertId;
         });
       }
-    }
+    });
 
-    if (state.orcamentoTotal > 0 && state.gastosMes >= state.orcamentoTotal) {
-      var totalAlertId = 'alert-total-estourado';
-      var alreadyTotal = state.alerts.some(function (a) {
-        return a.id === totalAlertId;
+    var totalAlertId = 'alert-total-estourado';
+    var overTotal = state.orcamentoTotal > 0 && state.gastosMes >= state.orcamentoTotal;
+    var existsTotal = state.alerts.some(function (a) {
+      return a.id === totalAlertId;
+    });
+
+    if (overTotal && !existsTotal) {
+      state.alerts.push({
+        id: totalAlertId,
+        title: '⚠️ Orçamento mensal estourado',
+        message:
+          'Seus gastos (R$ ' +
+          formatMoney(state.gastosMes) +
+          ') já superam o orçamento total de R$ ' +
+          formatMoney(state.orcamentoTotal) +
+          '.'
       });
-      if (!alreadyTotal) {
-        state.alerts.push({
-          id: totalAlertId,
-          title: '⚠️ Orçamento mensal estourado',
-          message: 'Seus gastos (R$ ' + formatMoney(state.gastosMes) + ') já superam o orçamento total do mês.'
-        });
-      }
+    } else if (!overTotal && existsTotal) {
+      state.alerts = state.alerts.filter(function (a) {
+        return a.id !== totalAlertId;
+      });
     }
   }
 
@@ -502,6 +525,7 @@
     state.saldo += exp.value;
     state.lancamentosCount = Math.max(0, state.lancamentosCount - 1);
 
+    reevaluateBudgetAlerts();
     saveState();
     renderAll();
     showToast('Despesa "' + exp.desc + '" excluída.');
@@ -599,7 +623,7 @@
     state.lancamentosCount += 1;
     state.novosNestaSessao += 1;
 
-    maybeCreateAlerts(category, state.categoryTotals[category]);
+    reevaluateBudgetAlerts();
 
     saveState();
     renderAll();
@@ -632,6 +656,93 @@
     });
 
     if (form) form.addEventListener('submit', handleExpenseSubmit);
+  }
+
+  /* -----------------------------------------------------------
+     6b. MODAL "EDITAR ORÇAMENTO"
+     ----------------------------------------------------------- */
+
+  var budgetModal = null;
+  var budgetForm = null;
+  var budgetFormError = null;
+
+  function openBudgetModal() {
+    if (!budgetModal) return;
+    hideBudgetFormError();
+    var valueInput = document.getElementById('budget-value');
+    if (valueInput) {
+      valueInput.value = state.orcamentoTotal > 0 ? state.orcamentoTotal.toFixed(2) : '';
+    }
+    budgetModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (valueInput) {
+      valueInput.focus();
+      valueInput.select();
+    }
+  }
+
+  function closeBudgetModal() {
+    if (!budgetModal) return;
+    budgetModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    hideBudgetFormError();
+  }
+
+  function showBudgetFormError(message) {
+    if (!budgetFormError) return;
+    budgetFormError.textContent = message;
+    budgetFormError.classList.remove('hidden');
+  }
+
+  function hideBudgetFormError() {
+    if (!budgetFormError) return;
+    budgetFormError.textContent = '';
+    budgetFormError.classList.add('hidden');
+  }
+
+  function handleBudgetSubmit(e) {
+    e.preventDefault();
+    hideBudgetFormError();
+
+    var rawValue = document.getElementById('budget-value').value;
+    var value = parseFloat(String(rawValue).replace(',', '.'));
+
+    if (!value || isNaN(value) || value <= 0) {
+      showBudgetFormError('Informe um valor de orçamento válido, maior que zero.');
+      return;
+    }
+
+    state.orcamentoTotal = Math.round(value * 100) / 100;
+    reevaluateBudgetAlerts();
+    saveState();
+    renderAll();
+    closeBudgetModal();
+    showToast('Orçamento atualizado para R$ ' + formatMoney(state.orcamentoTotal) + '.');
+  }
+
+  function setupBudgetModal() {
+    budgetModal = document.getElementById('budget-modal');
+    budgetForm = document.getElementById('budget-form');
+    budgetFormError = document.getElementById('budget-form-error');
+
+    var openBtn = document.getElementById('btn-edit-budget');
+    if (openBtn) openBtn.addEventListener('click', openBudgetModal);
+
+    var closeBtn = document.getElementById('budget-modal-close');
+    var cancelBtn = document.getElementById('budget-modal-cancel');
+    var backdrop = document.getElementById('budget-modal-backdrop');
+
+    if (closeBtn) closeBtn.addEventListener('click', closeBudgetModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeBudgetModal);
+    if (backdrop) backdrop.addEventListener('click', closeBudgetModal);
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && budgetModal && !budgetModal.classList.contains('hidden')) {
+        closeBudgetModal();
+      }
+    });
+
+    if (budgetForm) budgetForm.addEventListener('submit', handleBudgetSubmit);
   }
 
   /* -----------------------------------------------------------
@@ -1022,14 +1133,76 @@
   }
 
   /* -----------------------------------------------------------
+     8b. PRODUTOS E SERVIÇOS — COPIAR CHAVE/CÓDIGO PIX
+     ----------------------------------------------------------- */
+
+  function copyTextToClipboard(text, btn) {
+    var restoreLabel = btn ? btn.textContent : '';
+
+    function onCopied() {
+      if (!btn) return;
+      btn.textContent = 'Copiado!';
+      window.setTimeout(function () {
+        btn.textContent = restoreLabel;
+      }, 1800);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onCopied, function () {
+        fallbackCopy(text);
+        onCopied();
+      });
+    } else {
+      fallbackCopy(text);
+      onCopied();
+    }
+  }
+
+  function fallbackCopy(text) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      document.execCommand('copy');
+    } catch (err) {
+      /* navegador sem suporte a copy — ignora silenciosamente */
+    }
+    document.body.removeChild(textarea);
+  }
+
+  function setupPixCopyButtons() {
+    var copyKeyBtn = document.getElementById('btn-copy-pix-key');
+    var copyCodeBtn = document.getElementById('btn-copy-pix-code');
+    var keyEl = document.getElementById('pix-key');
+    var codeEl = document.getElementById('pix-copy-paste');
+
+    if (copyKeyBtn && keyEl) {
+      copyKeyBtn.addEventListener('click', function () {
+        copyTextToClipboard(keyEl.textContent.trim(), copyKeyBtn);
+      });
+    }
+    if (copyCodeBtn && codeEl) {
+      copyCodeBtn.addEventListener('click', function () {
+        copyTextToClipboard(codeEl.textContent.trim(), copyCodeBtn);
+      });
+    }
+  }
+
+  /* -----------------------------------------------------------
      9. INICIALIZAÇÃO
      ----------------------------------------------------------- */
 
   function init() {
     setupMenu();
     setupModal();
+    setupBudgetModal();
     setupAlertDelegation();
     setupAuth();
+    setupPixCopyButtons();
     renderAll();
     applyView('dashboard', { skipScroll: true });
   }

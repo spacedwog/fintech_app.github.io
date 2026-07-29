@@ -130,12 +130,14 @@ body {
 }
 
 #expense-modal,
-#auth-modal {
+#auth-modal,
+#budget-modal {
   animation: fintech-fade-in 0.15s ease-out;
 }
 
 #expense-modal > div.relative,
-#auth-modal > div.relative {
+#auth-modal > div.relative,
+#budget-modal > div.relative {
   animation: fintech-modal-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

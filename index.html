@@ -113,6 +113,21 @@
             </span>
           </a>
 
+          <!-- Produtos e Serviços -->
+          <a href="#" data-view="produtos"
+             class="side-nav-link flex items-center gap-3
+                    px-4 py-3 rounded-xl
+                    text-sm font-medium transition
+                    text-gray-400 hover:text-white hover:bg-gray-800">
+            <svg class="side-nav-icon w-5 h-5"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            Produtos e Serviços
+          </a>
+
         </nav>
 
         <!-- Usuário logado / Entrar / Cadastrar -->
@@ -198,8 +213,16 @@
 
           <!-- Orçamento -->
           <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Orçamento</p>
-            <p class="text-2xl font-bold text-white">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-gray-400 text-xs uppercase tracking-wider">Orçamento</p>
+              <button type="button" id="btn-edit-budget" aria-label="Editar orçamento" title="Editar orçamento"
+                      class="text-gray-500 hover:text-emerald-400 transition -mt-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
+            <p id="kpi-orcamento-value" class="text-2xl font-bold text-white">
               R$ 3.500
               <span class="text-base font-normal text-gray-500">,00</span>
             </p>
@@ -389,6 +412,170 @@
         </div>
         <!-- /DESPESAS RECENTES -->
 
+        <!-- -------------------- PRODUTOS E SERVIÇOS -------------------- -->
+        <div id="products-section" class="space-y-6" style="display:none">
+
+          <!-- Ficha da empresa -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+              <h2 class="text-base font-semibold text-white">SPACECWORP</h2>
+              <span class="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full">
+                CNPJ 62.904.267/0001-60
+              </span>
+            </div>
+            <p class="text-sm text-gray-400">
+              Atividade econômica principal (CNAE 62.01-5-01): desenvolvimento de programas de
+              computador sob encomenda. Os produtos e serviços abaixo refletem essa atividade.
+            </p>
+          </div>
+          <!-- /Ficha da empresa -->
+
+          <!-- Grid de produtos/serviços -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+            <!-- Desenvolvimento de sistemas web sob encomenda -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16M6 8L2 12l4 4m12-8l4 4-4 4" />
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold text-white mb-1.5">Desenvolvimento de Sistemas Web sob Encomenda</h3>
+              <p class="text-sm text-gray-400">
+                Sistemas e plataformas web personalizados, desenhados a partir da necessidade
+                específica de cada cliente, como este próprio dashboard financeiro.
+              </p>
+            </div>
+
+            <!-- Aplicativos e dashboards personalizados -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+              <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold text-white mb-1.5">Aplicativos e Dashboards Personalizados</h3>
+              <p class="text-sm text-gray-400">
+                Painéis de gestão, indicadores (KPIs) e relatórios sob medida para acompanhar
+                dados financeiros, operacionais ou de negócio em tempo real.
+              </p>
+            </div>
+
+            <!-- MVPs e provas de conceito -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4">
+                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m0 14v1m8-8h1M3 12h1m13.657-5.657l.707.707M5.636 18.364l.707-.707m0-11.314l-.707.707M18.364 18.364l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold text-white mb-1.5">MVPs e Provas de Conceito</h3>
+              <p class="text-sm text-gray-400">
+                Construção rápida de versões iniciais de software para validar uma ideia de
+                negócio antes de investir no produto completo.
+              </p>
+            </div>
+
+            <!-- Integração de sistemas e APIs -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+              <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4">
+                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold text-white mb-1.5">Integração de Sistemas e APIs</h3>
+              <p class="text-sm text-gray-400">
+                Conexão entre sistemas já existentes do cliente (ERPs, planilhas, bancos de
+                dados, serviços externos) por meio de APIs sob medida.
+              </p>
+            </div>
+
+            <!-- Automação de processos -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+              <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
+                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold text-white mb-1.5">Automação de Processos e Rotinas</h3>
+              <p class="text-sm text-gray-400">
+                Scripts e rotinas sob encomenda para eliminar tarefas manuais repetitivas,
+                como geração de relatórios, importação de dados e envio de alertas.
+              </p>
+            </div>
+
+            <!-- Consultoria e manutenção evolutiva -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-4">
+                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold text-white mb-1.5">Consultoria e Manutenção Evolutiva</h3>
+              <p class="text-sm text-gray-400">
+                Levantamento de requisitos, arquitetura de software e evolução contínua de
+                sistemas já entregues, com correções e novas funcionalidades.
+              </p>
+            </div>
+
+          </div>
+          <!-- /Grid -->
+
+          <!-- Forma de pagamento — PIX -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <h2 class="text-base font-semibold text-white mb-5">Forma de Pagamento — PIX</h2>
+
+            <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
+
+              <!-- QR Code -->
+              <div class="bg-white p-3 rounded-2xl flex-shrink-0">
+                <img src="assets/img/pix-qrcode.png" alt="QR Code PIX - SPACECWORP" class="w-40 h-40 md:w-44 md:h-44" />
+              </div>
+
+              <!-- Dados da chave -->
+              <div class="flex-1 w-full min-w-0 space-y-4">
+
+                <div>
+                  <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Chave PIX (CNPJ)</p>
+                  <div class="flex items-center gap-2">
+                    <code id="pix-key" class="text-sm text-white bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 flex-1 truncate">
+                      62.904.267/0001-60
+                    </code>
+                    <button type="button" id="btn-copy-pix-key"
+                            class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700
+                                   text-gray-300 text-xs font-medium px-3 py-2.5 rounded-xl transition flex-shrink-0">
+                      Copiar
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">PIX Copia e Cola</p>
+                  <div class="flex items-center gap-2">
+                    <code id="pix-copy-paste" class="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 flex-1 truncate">00020101021126360014br.gov.bcb.pix0114629042670001605204000053039865802BR5910SPACECWORP6006OSASCO62070503***63049351</code>
+                    <button type="button" id="btn-copy-pix-code"
+                            class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700
+                                   text-gray-300 text-xs font-medium px-3 py-2.5 rounded-xl transition flex-shrink-0">
+                      Copiar
+                    </button>
+                  </div>
+                </div>
+
+                <p class="text-xs text-gray-500">
+                  Favorecido: SPACECWORP (FELIPE RODRIGUES DOS SANTOS DESENVOLVIMENTO DE SOFTWARE LTDA) ·
+                  CNPJ 62.904.267/0001-60 · Osasco/SP. Código estático sem valor fixo — informe o valor
+                  desejado no app do seu banco ao pagar.
+                </p>
+
+              </div>
+
+            </div>
+          </div>
+          <!-- /Forma de pagamento -->
+
+        </div>
+        <!-- /PRODUTOS E SERVIÇOS -->
+
       </main>
       <!-- /CONTEÚDO PRINCIPAL -->
 
@@ -469,8 +656,59 @@
         </span>
       </a>
 
+      <!-- Produtos e Serviços -->
+      <a href="#" data-view="produtos" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <span class="text-xs">Produtos</span>
+      </a>
+
     </nav>
     <!-- /NAV INFERIOR -->
+
+    <!-- ============================================================
+         MODAL — EDITAR ORÇAMENTO
+    ============================================================ -->
+    <div id="budget-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div id="budget-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 z-10">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-lg font-semibold text-white">Editar Orçamento</h2>
+          <button type="button" id="budget-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+
+        <form id="budget-form" class="space-y-4" novalidate>
+          <div>
+            <label for="budget-value" class="block text-xs text-gray-400 mb-1.5">Orçamento mensal (R$)</label>
+            <input id="budget-value" name="value" type="number" step="0.01" min="0.01" required
+                   placeholder="0,00"
+                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
+                          text-sm text-white placeholder-gray-500
+                          focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <p id="budget-form-error" class="hidden text-red-400 text-xs"></p>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button type="button" id="budget-modal-cancel"
+                    class="flex-1 text-center text-sm font-medium text-gray-300
+                           border border-gray-700 rounded-xl py-2.5
+                           hover:bg-gray-800 transition">
+              Cancelar
+            </button>
+            <button type="submit"
+                    class="flex-1 text-center text-sm font-semibold text-gray-900
+                           bg-emerald-500 hover:bg-emerald-400 rounded-xl py-2.5 transition">
+              Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- /MODAL ORÇAMENTO -->
 
     <!-- ============================================================
          MODAL — ENTRAR / CADASTRAR (Nome + CPF)
