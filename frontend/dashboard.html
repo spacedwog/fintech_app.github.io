@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fintech SaaS - Painel</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <h2 id="tenant-name">Empresa</h2>
+      <div class="tenant-plan">Plano: <span id="tenant-plan-badge" class="badge free">Free</span></div>
+
+      <button class="nav-item active" data-view="expenses">Registrar Despesa</button>
+      <button class="nav-item" data-view="reports">Resumo Mensal</button>
+      <button class="nav-item" data-view="alerts">Alertas / Orçamento</button>
+      <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
+      <button class="nav-item" data-view="plan">Plano</button>
+
+      <div class="sidebar-footer">
+        Logado como <strong id="user-name"></strong><br />
+        <button class="secondary" id="logout-btn" style="margin-top:10px;">Sair</button>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <!-- Registrar Despesa -->
+      <section class="view" id="view-expenses">
+        <div class="top-bar"><h1>Nova Despesa</h1></div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div id="expense-error" class="error-box hidden"></div>
+            <div id="expense-success" class="success-box hidden"></div>
+            <form id="expense-form">
+              <div class="field">
+                <label>Valor (R$)</label>
+                <input type="number" step="0.01" min="0.01" id="expense-amount" required />
+              </div>
+              <div class="field">
+                <label>Data</label>
+                <input type="date" id="expense-date" required />
+              </div>
+              <div class="field">
+                <label>Categoria</label>
+                <select id="expense-category"></select>
+              </div>
+              <div class="field">
+                <label>Descrição</label>
+                <input type="text" id="expense-description" />
+              </div>
+              <button type="submit" class="primary">Salvar</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Nova categoria</h3>
+            <form id="category-form">
+              <div class="field">
+                <input type="text" id="new-category-name" placeholder="Nome da categoria" />
+              </div>
+              <button type="submit" class="secondary">Adicionar categoria</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">Minhas despesas</h3>
+          <table>
+            <thead>
+              <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th></th></tr>
+            </thead>
+            <tbody id="expenses-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Resumo Mensal -->
+      <section class="view hidden" id="view-reports">
+        <div class="top-bar"><h1>Resumo Mensal</h1></div>
+        <div class="grid-2">
+          <div class="card"><canvas id="monthly-chart" height="220"></canvas></div>
+          <div class="card"><canvas id="category-chart" height="220"></canvas></div>
+        </div>
+      </section>
+
+      <!-- Alertas -->
+      <section class="view hidden" id="view-alerts">
+        <div class="top-bar"><h1>Alertas / Orçamento</h1></div>
+        <div class="card">
+          <div id="alerts-box" class="alert-ok">Carregando...</div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Definir orçamento mensal</h3>
+          <form id="budget-form">
+            <div class="field">
+              <label>Mês (AAAA-MM)</label>
+              <input type="month" id="budget-month" required />
+            </div>
+            <div class="field">
+              <label>Limite (R$)</label>
+              <input type="number" step="0.01" min="0" id="budget-limit" required />
+            </div>
+            <button type="submit" class="primary">Salvar orçamento</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Equipe -->
+      <section class="view hidden" id="view-team">
+        <div class="top-bar"><h1>Equipe</h1></div>
+        <div class="card">
+          <h3 style="margin-top:0;">Convidar usuário</h3>
+          <div id="invite-error" class="error-box hidden"></div>
+          <form id="invite-form">
+            <div class="field"><label>Nome</label><input type="text" id="invite-name" required /></div>
+            <div class="field"><label>E-mail</label><input type="email" id="invite-email" required /></div>
+            <div class="field"><label>Senha inicial</label><input type="password" id="invite-password" required minlength="6" /></div>
+            <div class="field">
+              <label>Papel</label>
+              <select id="invite-role">
+                <option value="member">Membro</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <button type="submit" class="primary">Convidar</button>
+          </form>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Usuários da empresa</h3>
+          <table>
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th></tr></thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Plano -->
+      <section class="view hidden" id="view-plan">
+        <div class="top-bar"><h1>Plano da empresa</h1></div>
+        <div class="grid-2" id="plans-container" style="grid-template-columns: repeat(3, 1fr);"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="js/plans.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/crypto-utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
