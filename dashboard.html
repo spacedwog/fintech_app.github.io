@@ -41,6 +41,7 @@
       <button class="nav-item" data-view="alerts">Alertas / Orçamento</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
       <button class="nav-item" data-view="plan">Plano</button>
+      <button class="nav-item" data-view="storage" data-admin-only>Banco de Dados</button>
 
       <div class="sidebar-footer">
         Logado como <strong id="user-name"></strong><br />
@@ -173,6 +174,44 @@
         </div>
       </section>
 
+      <!-- Banco de Dados (arquivo local) -->
+      <section class="view hidden" id="view-storage">
+        <div class="top-bar"><h1>Banco de Dados</h1></div>
+
+        <div class="card">
+          <p class="small-muted" style="margin-top:0;">
+            Este app não tem servidor: por padrão, os dados ficam salvos no <code>localStorage</code>
+            do navegador. Aqui você pode conectar um <strong>arquivo .xml de verdade no seu
+            computador</strong> — a partir da conexão, toda leitura e gravação passa a acontecer
+            nesse arquivo automaticamente (o localStorage continua sendo mantido como cópia de
+            segurança). Isso funciona em navegadores baseados em Chromium (Chrome, Edge); em
+            outros (Firefox, Safari) essa opção não fica disponível e o app segue normalmente
+            só com localStorage.
+          </p>
+
+          <div id="storage-status" class="alert-ok" style="margin-bottom:16px;">Verificando…</div>
+          <div id="storage-error" class="error-box hidden"></div>
+          <div id="storage-success" class="success-box hidden"></div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="button" id="storage-connect-new" class="primary" style="margin-top:0; flex:1; min-width:200px;">
+              Criar/escolher arquivo novo (migra os dados atuais)
+            </button>
+            <button type="button" id="storage-connect-existing" class="secondary" style="flex:1; min-width:200px;">
+              Abrir arquivo .xml existente
+            </button>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+            <button type="button" id="storage-reconnect" class="secondary hidden" style="flex:1; min-width:200px;">
+              Reconectar arquivo autorizado
+            </button>
+            <button type="button" id="storage-disconnect" class="secondary hidden" style="flex:1; min-width:200px;">
+              Desconectar (voltar a usar só localStorage)
+            </button>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -225,6 +264,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/plans.js"></script>
+  <script src="js/file-store.js"></script>
   <script src="js/db.js"></script>
   <script src="js/crypto-utils.js"></script>
   <script src="js/pix.js"></script>

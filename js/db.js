@@ -13,10 +13,30 @@
 // formato antigo (JSON puro em localStorage). Esse fallback em JSON
 // também é mantido atualizado a cada gravação, como cópia de segurança
 // — se o XML falhar a qualquer momento, nenhum dado é perdido.
+//
+// Arquivos em database/ (db.xml e db.json): são o banco "de fábrica",
+// versionado junto com o código, usado só para inicializar o app na
+// PRIMEIRA visita (quando ainda não há nada salvo no localStorage nem
+// nenhum arquivo local conectado). Como o site é 100% estático (GitHub
+// Pages, sem backend), o navegador não tem como gravar de volta nesses
+// arquivos remotos.
+//
+// Arquivo local conectado (js/file-store.js): quando o usuário conecta um
+// arquivo .xml no próprio computador (botão "Banco de Dados" no painel),
+// esse arquivo passa a ser a fonte de leitura/gravação PRINCIPAL — tem
+// prioridade sobre o localStorage. O localStorage continua sendo mantido
+// como cópia de segurança/fallback em qualquer um dos casos.
+//
+// Ordem de prioridade em loadDb(): arquivo local conectado > XML em
+// localStorage > JSON em localStorage > banco de fábrica (database/) >
+// schema vazio.
 // ===============================
 
-const DB_XML_KEY = "fintech_saas_db_xml_v1"; // banco "oficial" (XML)
-const DB_JSON_KEY = "fintech_saas_db_v1"; // fallback / cópia de segurança (JSON)
+const DB_XML_KEY = "fintech_saas_db_xml_v1"; // banco "oficial" (XML) em localStorage
+const DB_JSON_KEY = "fintech_saas_db_v1"; // fallback / cópia de segurança (JSON) em localStorage
+
+const DB_SEED_XML_URL = "database/db.xml"; // banco de fábrica (XML), só para o 1º carregamento
+const DB_SEED_JSON_URL = "database/db.json"; // banco de fábrica (JSON), fallback do fallback
 
 const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros"];
 
@@ -166,10 +186,70 @@ function _writeJsonFallback(db) {
   }
 }
 
-// ---------- API pública (mesma interface de antes) ----------
+// ---------- Banco de fábrica (database/db.xml e database/db.json) ----------
 
-function loadDb() {
-  // 1) Fonte primária: banco XML.
+async function _fetchSeedDb() {
+  // Só é chamado quando não há NADA salvo no localStorage ainda (1ª visita
+  // deste navegador). Tenta o seed em XML primeiro, depois em JSON; se os
+  // dois falharem (ex.: abrindo o index.html direto via file://, onde
+  // fetch() de arquivos locais costuma ser bloqueado por CORS), segue sem
+  // erro e o app parte de um schema vazio, como sempre fez.
+  if (typeof fetch !== "function") return null;
+
+  if (_xmlAvailable) {
+    try {
+      const res = await fetch(DB_SEED_XML_URL, { cache: "no-store" });
+      if (res.ok) {
+        const text = await res.text();
+        return xmlStringToDb(text);
+      }
+    } catch (e) {
+      console.warn("Fintech SaaS: não foi possível carregar o banco de fábrica em XML (database/db.xml).", e);
+    }
+  }
+
+  try {
+    const res = await fetch(DB_SEED_JSON_URL, { cache: "no-store" });
+    if (res.ok) {
+      const parsed = await res.json();
+      const base = _emptySchema();
+      return { ...base, ...parsed, _seq: { ...base._seq, ...(parsed._seq || {}) } };
+    }
+  } catch (e) {
+    console.warn("Fintech SaaS: não foi possível carregar o banco de fábrica em JSON (database/db.json).", e);
+  }
+
+  return null;
+}
+
+// ---------- API pública (mesma interface de antes, agora assíncrona) ----------
+
+function _fileStoreReady() {
+  return typeof FileStore !== "undefined" && FileStore.isSupported();
+}
+
+async function loadDb() {
+  // 0) Prioridade máxima: arquivo local conectado (leitura/gravação real
+  //    em disco). Tenta reconectar em silêncio a um arquivo já autorizado
+  //    antes; se conseguir, o conteúdo desse arquivo É o banco de dados.
+  if (_fileStoreReady()) {
+    try {
+      const handle = await FileStore.tryReconnect();
+      if (handle) {
+        const text = await FileStore.readText();
+        if (text && text.trim()) {
+          const db = xmlStringToDb(text);
+          _writeJsonFallback(db); // mantém o fallback em localStorage atualizado
+          if (_xmlAvailable) localStorage.setItem(DB_XML_KEY, text);
+          return db;
+        }
+      }
+    } catch (e) {
+      console.warn("Fintech SaaS: não foi possível ler o arquivo local conectado; usando localStorage.", e);
+    }
+  }
+
+  // 1) Fonte primária (sem arquivo conectado): banco XML em localStorage.
   if (_xmlAvailable) {
     const rawXml = localStorage.getItem(DB_XML_KEY);
     if (rawXml) {
@@ -182,31 +262,52 @@ function loadDb() {
     }
   }
 
-  // 2) Fallback: JSON em localStorage (primeira execução, XML indisponível
-  //    ou XML corrompido). Se achar dados aqui e o XML ainda for suportado,
-  //    já migra/regrava no formato XML para as próximas leituras.
+  // 2) Fallback: JSON em localStorage (XML indisponível/corrompido, mas já
+  //    existiam dados salvos por aqui). Migra de volta para XML se possível.
   const legacy = _readJsonFallback();
   if (legacy) {
-    if (_xmlAvailable) saveDb(legacy);
+    if (_xmlAvailable) await saveDb(legacy);
     return legacy;
   }
 
+  // 3) Nada em localStorage ainda: primeira visita. Tenta partir do banco
+  //    de fábrica versionado em database/db.xml (ou database/db.json).
+  const seeded = await _fetchSeedDb();
+  if (seeded) {
+    await saveDb(seeded);
+    return seeded;
+  }
+
+  // 4) Sem localStorage e sem seed acessível: schema vazio, do zero.
   const fresh = _emptySchema();
-  saveDb(fresh);
+  await saveDb(fresh);
   return fresh;
 }
 
-function saveDb(db) {
-  // Sempre atualiza a cópia de segurança em JSON, mesmo quando o XML
-  // funciona — assim nunca há perda de dados se o XML falhar depois.
+async function saveDb(db) {
+  // Sempre atualiza a cópia de segurança em JSON, mesmo quando o XML/arquivo
+  // funcionam — assim nunca há perda de dados se algum dos dois falhar.
   _writeJsonFallback(db);
 
+  let xmlText = null;
   if (_xmlAvailable) {
     try {
-      localStorage.setItem(DB_XML_KEY, dbToXmlString(db));
+      xmlText = dbToXmlString(db);
+      localStorage.setItem(DB_XML_KEY, xmlText);
     } catch (e) {
       console.warn("Fintech SaaS: falha ao salvar o banco em XML; usando apenas o fallback em localStorage (JSON).", e);
       _xmlAvailable = false;
+    }
+  }
+
+  // Grava também no arquivo local conectado (se houver), como o destino
+  // "oficial" — é essa gravação que faz os dados migrarem de fato para o
+  // arquivo dentro/fora da pasta database/ escolhida pelo usuário.
+  if (typeof FileStore !== "undefined" && FileStore.isConnected()) {
+    try {
+      await FileStore.writeText(xmlText || dbToXmlString(db));
+    } catch (e) {
+      console.warn("Fintech SaaS: falha ao gravar no arquivo local conectado; os dados continuam salvos no localStorage.", e);
     }
   }
 }

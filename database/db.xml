@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database>
+  <seq tenants="0" users="0" categories="0" expenses="0" budgets="0" />
+  <tenants>
+  </tenants>
+  <users>
+  </users>
+  <categories>
+  </categories>
+  <expenses>
+  </expenses>
+  <budgets>
+  </budgets>
+</database>

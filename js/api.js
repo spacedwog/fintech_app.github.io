@@ -88,7 +88,7 @@ const Api = {
   // ---------- Auth ----------
 
   async signup({ company_name, admin_name, email, password }) {
-    const db = loadDb();
+    const db = await loadDb();
 
     if (db.users.some((u) => u.email === email)) {
       throw new Error("E-mail já cadastrado");
@@ -115,14 +115,14 @@ const Api = {
     db.users.push(user);
 
     seedDefaultCategories(db, tenant.id);
-    saveDb(db);
+    await saveDb(db);
 
     const session = { user_id: user.id, tenant_id: tenant.id, name: user.name, role: user.role };
     return { token: JSON.stringify(session) };
   },
 
   async login({ email, password }) {
-    const db = loadDb();
+    const db = await loadDb();
     const user = db.users.find((u) => u.email === email);
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
@@ -136,7 +136,7 @@ const Api = {
       const tenant = _findTenant(db, user.tenant_id);
       if (tenant && tenant.plan !== "premium") {
         tenant.plan = "premium";
-        saveDb(db);
+        await saveDb(db);
       }
     }
 
@@ -146,7 +146,7 @@ const Api = {
 
   async me() {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const tenant = _findTenant(db, session.tenant_id);
     if (!tenant) throw new Error("Empresa não encontrada");
 
@@ -166,10 +166,10 @@ const Api = {
     const session = _requireAdmin();
     if (!planExists(plan)) throw new Error("Plano inválido");
 
-    const db = loadDb();
+    const db = await loadDb();
     const tenant = _findTenant(db, session.tenant_id);
     tenant.plan = plan;
-    saveDb(db);
+    await saveDb(db);
     return _serializeTenant(tenant);
   },
 
@@ -177,7 +177,7 @@ const Api = {
 
   async listUsers() {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     return db.users
       .filter((u) => u.tenant_id === session.tenant_id)
       .map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, created_at: u.created_at }));
@@ -185,7 +185,7 @@ const Api = {
 
   async inviteUser({ name, email, password, role }) {
     const session = _requireAdmin();
-    const db = loadDb();
+    const db = await loadDb();
     const tenant = _findTenant(db, session.tenant_id);
 
     const maxUsers = _tenantPlanDetails(tenant).max_users;
@@ -212,7 +212,7 @@ const Api = {
       role: role || "member",
       created_at: nowIso(),
     });
-    saveDb(db);
+    await saveDb(db);
     return { ok: true };
   },
 
@@ -220,7 +220,7 @@ const Api = {
 
   async listCategories() {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     return db.categories
       .filter((c) => c.tenant_id === session.tenant_id)
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -229,11 +229,11 @@ const Api = {
 
   async addCategory(name) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const exists = db.categories.some((c) => c.tenant_id === session.tenant_id && c.name === name);
     if (!exists) {
       db.categories.push({ id: nextId(db, "categories"), tenant_id: session.tenant_id, name });
-      saveDb(db);
+      await saveDb(db);
     }
     return { ok: true };
   },
@@ -242,7 +242,7 @@ const Api = {
 
   async listExpenses(allUsers = false) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const scoped = db.expenses.filter((e) => e.tenant_id === session.tenant_id);
     const filtered =
       allUsers && session.role === "admin" ? scoped : scoped.filter((e) => e.user_id === session.user_id);
@@ -269,7 +269,7 @@ const Api = {
   // Uso do limite diário de despesas do plano (para exibir "3/6 hoje" etc.)
   async getExpenseQuota() {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const tenant = _findTenant(db, session.tenant_id);
     const planDetails = _tenantPlanDetails(tenant);
     const today = nowIso().slice(0, 10);
@@ -290,7 +290,7 @@ const Api = {
 
   async addExpense({ amount, date, description, category_id }) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const tenant = _findTenant(db, session.tenant_id);
     const planDetails = _tenantPlanDetails(tenant);
 
@@ -324,16 +324,16 @@ const Api = {
       extra_charge: extraCharge,
     };
     db.expenses.push(expense);
-    saveDb(db);
+    await saveDb(db);
     return { id: expense.id, is_extra: isExtra, extra_charge: extraCharge, plan: tenant.plan };
   },
 
   async deleteExpense(id) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const before = db.expenses.length;
     db.expenses = db.expenses.filter((e) => !(e.id === id && e.tenant_id === session.tenant_id));
-    saveDb(db);
+    await saveDb(db);
     if (db.expenses.length === before) throw new Error("Despesa não encontrada");
     return { ok: true };
   },
@@ -342,7 +342,7 @@ const Api = {
 
   async setBudget({ limit_value, month }) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     let budget = db.budgets.find(
       (b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id && b.month === month
     );
@@ -357,13 +357,13 @@ const Api = {
         month,
       });
     }
-    saveDb(db);
+    await saveDb(db);
     return { ok: true };
   },
 
   async getAlerts(month) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const targetMonth = month || new Date().toISOString().slice(0, 7);
 
     const budget = db.budgets.find(
@@ -387,7 +387,7 @@ const Api = {
 
   async monthlyReport(allUsers = false) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const scoped = db.expenses.filter((e) => e.tenant_id === session.tenant_id);
     const filtered =
       allUsers && session.role === "admin" ? scoped : scoped.filter((e) => e.user_id === session.user_id);
@@ -405,7 +405,7 @@ const Api = {
 
   async categoryReport(allUsers = false) {
     const session = _requireSession();
-    const db = loadDb();
+    const db = await loadDb();
     const scoped = db.expenses.filter((e) => e.tenant_id === session.tenant_id);
     const filtered =
       allUsers && session.role === "admin" ? scoped : scoped.filter((e) => e.user_id === session.user_id);
