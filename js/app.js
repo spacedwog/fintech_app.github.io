@@ -190,17 +190,32 @@
       '</span>';
   }
 
+  // "Saldo Atual" = orçamento total menos o que já foi gasto no mês, ou
+  // seja, o quanto ainda resta do orçamento. Isso mantém o KPI coerente
+  // com o card "Orçamento" (mesma conta) em vez de um contador à parte
+  // que começava em zero e ficava negativo a cada despesa, mesmo quando
+  // o orçamento ainda estava longe de estourar.
+  function calcSaldo() {
+    return state.orcamentoTotal - state.gastosMes;
+  }
+
   function renderKPIs() {
-    renderMoneySplit(document.getElementById('kpi-saldo'), state.saldo);
+    var saldo = calcSaldo();
+    renderMoneySplit(document.getElementById('kpi-saldo'), saldo);
     renderMoneySplit(document.getElementById('kpi-gastos'), state.gastosMes);
     renderMoneySplit(document.getElementById('kpi-orcamento-value'), state.orcamentoTotal);
 
     var saldoChangeEl = document.getElementById('kpi-saldo-change');
     if (saldoChangeEl) {
       saldoChangeEl.textContent =
-        state.saldo > 0 ? '▲ saldo positivo' : state.saldo < 0 ? '▼ saldo negativo' : 'Nenhum registro ainda';
+        state.gastosMes === 0
+          ? 'Nenhum registro ainda'
+          : saldo >= 0
+          ? '▲ dentro do orçamento'
+          : '▼ orçamento estourado';
       saldoChangeEl.className =
-        (state.saldo > 0 ? 'text-emerald-400' : state.saldo < 0 ? 'text-red-400' : 'text-gray-500') + ' text-xs mt-2';
+        (state.gastosMes === 0 ? 'text-gray-500' : saldo >= 0 ? 'text-emerald-400' : 'text-red-400') +
+        ' text-xs mt-2';
     }
 
     var gastosChangeEl = document.getElementById('kpi-gastos-change');
@@ -412,11 +427,14 @@
       var el = document.getElementById(id);
       if (!el) return;
       if (id === 'locked-section') {
-        el.style.display = showLocked ? '' : 'none';
+        // usa a classe utilitária "hidden" (não o inline style) porque o
+        // elemento sempre carrega essa classe no HTML — setar apenas
+        // style.display não sobrepõe a regra .hidden{display:none} do CSS.
+        el.classList.toggle('hidden', !showLocked);
         return;
       }
       var show = !showLocked && VIEW_SECTIONS[view].indexOf(id) !== -1;
-      el.style.display = show ? '' : 'none';
+      el.classList.toggle('hidden', !show);
     });
 
     if (view === 'plano') {
@@ -569,7 +587,6 @@
     state.expenses.splice(idx, 1);
     state.categoryTotals[exp.category] = Math.max(0, (Number(state.categoryTotals[exp.category]) || 0) - exp.value);
     state.gastosMes = Math.max(0, state.gastosMes - exp.value);
-    state.saldo += exp.value;
     state.lancamentosCount = Math.max(0, state.lancamentosCount - 1);
 
     reevaluateBudgetAlerts();
@@ -688,7 +705,6 @@
       state.expenses.unshift(expense);
       state.categoryTotals[category] = (Number(state.categoryTotals[category]) || 0) + expense.value;
       state.gastosMes += expense.value;
-      state.saldo -= expense.value;
       state.lancamentosCount += 1;
       state.novosNestaSessao += 1;
 
