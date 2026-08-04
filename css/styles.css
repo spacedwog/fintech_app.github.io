@@ -1,6 +1,6 @@
 :root {
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
+  --primary: #059669;
+  --primary-dark: #047857;
   --danger: #dc2626;
   --success: #16a34a;
   --bg: #f4f6fb;
@@ -8,6 +8,9 @@
   --text: #1f2937;
   --muted: #6b7280;
   --border: #e5e7eb;
+  --emerald: #34d399;
+  --emerald-dark: #10b981;
+  --ink: #0b1120;
 }
 
 * { box-sizing: border-box; }
@@ -24,23 +27,98 @@ body {
 /* ---------- Auth screens ---------- */
 .auth-wrapper {
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+}
+
+/* Painel de marca (esquerda) */
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: radial-gradient(circle at 20% 20%, #134e3a 0%, var(--ink) 55%, #050810 100%);
+  color: #e5e7eb;
+}
+
+.auth-brand-inner { max-width: 420px; }
+
+.auth-brand-logo {
+  display: inline-block;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--emerald);
+  margin-bottom: 28px;
+  letter-spacing: -0.01em;
+}
+
+.auth-brand-inner h2 {
+  font-size: 30px;
+  line-height: 1.25;
+  margin: 0 0 14px;
+  color: #fff;
+}
+
+.auth-brand-inner > p {
+  color: #9ca3af;
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+.auth-brand-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-brand-list li {
+  font-size: 14px;
+  color: #d1d5db;
+  padding-left: 26px;
+  position: relative;
+}
+
+.auth-brand-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--emerald);
+  font-weight: 700;
+}
+
+/* Painel do formulário (direita) */
+.auth-forms {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  background: var(--bg);
 }
 
 .auth-card {
   background: var(--card);
-  padding: 32px;
-  border-radius: 12px;
+  padding: 36px 32px;
+  border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   width: 100%;
   max-width: 400px;
 }
 
+.auth-card-logo {
+  display: none;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--emerald-dark);
+  margin-bottom: 16px;
+}
+
 .auth-card h1 {
-  font-size: 22px;
+  font-size: 24px;
   margin-bottom: 4px;
 }
 
@@ -49,6 +127,12 @@ body {
   margin-top: 0;
   margin-bottom: 24px;
   font-size: 14px;
+}
+
+@media (max-width: 860px) {
+  .auth-wrapper { grid-template-columns: 1fr; }
+  .auth-brand { display: none; }
+  .auth-card-logo { display: inline-block; }
 }
 
 .field {

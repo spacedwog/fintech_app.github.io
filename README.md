@@ -6,20 +6,29 @@ Versão SaaS multi-tenant do controle de despesas, **100% em HTML, CSS e JavaScr
 
 ## Arquitetura
 
+O app da raiz (antigo dashboard estático sem login) e o app que vivia em `frontend/`
+(SaaS multi-tenant com login) foram fundidos em um único app, publicado na raiz do
+repositório (é o que o GitHub Pages serve via `CNAME`):
+
 ```
-frontend/
-  index.html            -> login / criação de conta (empresa)
-  dashboard.html         -> painel principal (SPA simples)
-  css/styles.css
-  js/
-    plans.js             -> planos (free / pro / enterprise) e limites
-    db.js                 -> "banco de dados" em localStorage (schema, seeds, ids)
-    crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
-    api.js                 -> toda a lógica de negócio (antes no FastAPI), mesma
-                              interface de antes (Auth/Api), agora sem rede
-    auth-page.js           -> lógica de login/signup
-    dashboard.js           -> lógica do painel (despesas, relatórios, alertas, equipe, plano)
+index.html            -> login / criação de conta (empresa)
+dashboard.html         -> painel principal (SPA simples)
+css/styles.css
+js/
+  plans.js             -> planos (free / pro / enterprise) e limites
+  db.js                 -> "banco de dados" em localStorage (schema, seeds, ids)
+  crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
+  api.js                 -> toda a lógica de negócio (antes no FastAPI), mesma
+                            interface de antes (Auth/Api), agora sem rede
+  auth-page.js           -> lógica de login/signup
+  dashboard.js           -> lógica do painel (despesas, relatórios, alertas, equipe, plano)
+  pix.js                  -> geração de QR Code / Pix Copia e Cola (BR Code real)
+  receipt-ai.js           -> "IA" (OCR local, Tesseract.js) que lê o comprovante do
+                              Pix e confere valor/recebedor automaticamente
 ```
+
+A pasta `frontend/` e o antigo `index.html`/`js/app.js` da raiz (dashboard sem login,
+com dados mocados) ficaram obsoletos com essa fusão e podem ser removidos.
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o projeto é só front-end estático.
 
@@ -52,21 +61,19 @@ Não precisa instalar nada. Duas opções:
 
 ### Opção 1 — abrir direto
 
-Dê duplo clique em `frontend/index.html`.
+Dê duplo clique em `index.html`.
 
 ### Opção 2 — servidor estático local (recomendado)
 
 Alguns navegadores restringem certas APIs em `file://`. Se algo não funcionar ao abrir direto, sirva a pasta com qualquer servidor estático, por exemplo:
 
 ```bash
-cd frontend
 npx serve .
 ```
 
 ou, com Python já instalado apenas como utilitário de linha de comando (não faz parte do projeto):
 
 ```bash
-cd frontend
 python -m http.server 5500
 ```
 

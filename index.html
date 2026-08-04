@@ -1,1029 +1,122 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fintech Inteligente – Dashboard</title>
-
-    <!-- Google tag (gtag.js) - Google Ads -->
-    <!-- Substitua AW-XXXXXXXXX pelo seu ID de conversão do Google Ads -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
-    <!-- Event snippet for Visualização de página (1) conversion page -->
-    <script>
-      gtag('event', 'conversion', {
-          'send_to': 'AW-10926256695/lTEfCKWou9gcELfkhdoo',
-          'value': 1.0,
-          'currency': 'BRL'
-      });
-    </script>
-
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-MCN6MLH5');</script>
-    <!-- End Google Tag Manager -->
-
-    <!-- Tailwind CSS (local) -->
-    <link rel="stylesheet" href="style/tailwind.min.css" />
-
-    <!-- CSS customizado -->
-    <link rel="stylesheet" href="style/style.css" />
-  </head>
-
-  <body class="bg-gray-950 text-white min-h-screen">
-
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MCN6MLH5"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
-
-    <!-- ============================================================
-         LAYOUT WRAPPER
-    ============================================================ -->
-    <div class="flex min-h-screen">
-
-      <!-- ==================== SIDEBAR ==================== -->
-      <aside class="w-64 bg-gray-900 border-r border-gray-800
-                    flex flex-col py-8 px-5
-                    fixed top-0 left-0 h-full z-30
-                    hidden md:flex">
-
-        <!-- Logo -->
-        <div class="mb-10">
-          <span class="text-2xl font-extrabold text-emerald-400 tracking-tight">
-            💰 Fintech
-          </span>
-          <p class="text-xs text-gray-500 mt-1">Controle Inteligente</p>
-        </div>
-
-        <!-- Navegação -->
-        <nav class="flex-1 space-y-1">
-
-          <!-- Dashboard -->
-          <a href="#" data-view="dashboard"
-             class="side-nav-link flex items-center gap-3
-                    px-4 py-3 rounded-xl
-                    text-sm font-medium transition
-                    text-gray-400 hover:text-white hover:bg-gray-800">
-            <svg class="side-nav-icon w-5 h-5"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 viewBox="0 0 24 24">
-              <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3
-                       m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3
-                       m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2
-                       a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            Dashboard
-          </a>
-
-          <!-- Despesas -->
-          <a href="#" data-view="despesas"
-             class="side-nav-link flex items-center gap-3
-                    px-4 py-3 rounded-xl
-                    text-sm font-medium transition
-                    text-gray-400 hover:text-white hover:bg-gray-800">
-            <svg class="side-nav-icon w-5 h-5"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 viewBox="0 0 24 24">
-              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10
-                       a2 2 0 002-2V7a2 2 0 00-2-2h-2
-                       M9 5a2 2 0 002 2h2a2 2 0 002-2
-                       M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            Despesas
-          </a>
-
-          <!-- Relatórios -->
-          <a href="#" data-view="relatorios"
-             class="side-nav-link flex items-center gap-3
-                    px-4 py-3 rounded-xl
-                    text-sm font-medium transition
-                    text-gray-400 hover:text-white hover:bg-gray-800">
-            <svg class="side-nav-icon w-5 h-5"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 viewBox="0 0 24 24">
-              <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6
-                       a2 2 0 002 2h2a2 2 0 002-2zm0 0V9
-                       a2 2 0 012-2h2a2 2 0 012 2v10
-                       m-6 0a2 2 0 002 2h2a2 2 0 002-2
-                       m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14
-                       a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Relatórios
-          </a>
-
-          <!-- Alertas -->
-          <a href="#" data-view="alertas"
-             class="side-nav-link flex items-center gap-3
-                    px-4 py-3 rounded-xl
-                    text-sm font-medium transition
-                    text-gray-400 hover:text-white hover:bg-gray-800">
-            <svg class="side-nav-icon w-5 h-5"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 viewBox="0 0 24 24">
-              <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11
-                       a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341
-                       C7.67 6.165 6 8.388 6 11v3.159
-                       c0 .538-.214 1.055-.595 1.436L4 17h5
-                       m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            Alertas
-            <span id="alert-badge-desktop" class="hidden ml-auto bg-red-500 text-white text-xs font-bold
-                         w-5 h-5 flex items-center justify-center
-                         rounded-full">
-              0
-            </span>
-          </a>
-
-          <!-- Produtos e Serviços -->
-          <a href="#" data-view="produtos"
-             class="side-nav-link flex items-center gap-3
-                    px-4 py-3 rounded-xl
-                    text-sm font-medium transition
-                    text-gray-400 hover:text-white hover:bg-gray-800">
-            <svg class="side-nav-icon w-5 h-5"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-            Produtos e Serviços
-          </a>
-
-          <!-- Plano -->
-          <a href="#" data-view="plano"
-             class="side-nav-link flex items-center gap-3
-                    px-4 py-3 rounded-xl
-                    text-sm font-medium transition
-                    text-gray-400 hover:text-white hover:bg-gray-800">
-            <svg class="side-nav-icon w-5 h-5"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
-            </svg>
-            Plano
-          </a>
-
-        </nav>
-
-        <!-- Usuário logado / Entrar / Cadastrar -->
-        <div id="sidebar-account" class="mt-auto border-t border-gray-800 pt-5">
-          <!-- populado via JavaScript (js/app.js) -->
-        </div>
-
-      </aside>
-      <!-- /SIDEBAR -->
-
-      <!-- ==================== CONTEÚDO PRINCIPAL ==================== -->
-      <main class="flex-1 md:ml-64 p-5 md:p-8 pb-24 md:pb-8">
-
-        <!-- Topbar mobile -->
-        <div class="flex items-center justify-between mb-8 md:hidden">
-          <span class="text-xl font-extrabold text-emerald-400">💰 Fintech</span>
-          <button type="button" id="mobile-account-avatar"
-                  class="w-9 h-9 rounded-full bg-emerald-500
-                      flex items-center justify-center
-                      font-bold text-sm text-gray-900">
-            ?
-          </button>
-        </div>
-
-        <!-- Título da página (desktop) -->
-        <div class="mb-8 hidden md:flex items-center justify-between">
-          <div>
-            <h1 id="page-title" class="text-2xl font-bold text-white">Dashboard</h1>
-            <p id="page-subtitle" class="text-gray-400 text-sm mt-1">Bem-vindo(a), Usuário!</p>
-            <p id="plan-quota-info" class="hidden text-emerald-400 text-xs mt-1"></p>
-          </div>
-          <div class="flex items-center gap-3">
-            <button type="button" id="btn-open-auth-topbar"
-                    class="hidden inline-flex items-center gap-2
-                           bg-gray-800 hover:bg-gray-700 border border-gray-700
-                           text-white font-semibold text-sm
-                           px-4 py-2.5 rounded-xl transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
-              </svg>
-              Entrar / Cadastrar
-            </button>
-            <button type="button" id="btn-new-expense"
-                    class="inline-flex items-center gap-2
-                           bg-emerald-500 hover:bg-emerald-400
-                           text-gray-900 font-semibold text-sm
-                           px-4 py-2.5 rounded-xl transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Nova Despesa
-            </button>
-          </div>
-        </div>
-
-        <!-- -------------------- BLOQUEIO (login obrigatório) -------------------- -->
-        <div id="locked-section" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center mb-6">
-          <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
-            <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h2 class="text-lg font-semibold text-white mb-2">Faça login para usar o sistema</h2>
-          <p class="text-sm text-gray-400 mb-6 max-w-sm mx-auto">
-            Despesas, relatórios, alertas e planos só ficam disponíveis para quem tem conta.
-            Entre ou cadastre-se gratuitamente — leva menos de um minuto.
-          </p>
-          <button type="button" id="btn-open-auth-locked"
-                  class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400
-                         text-gray-900 font-semibold text-sm px-5 py-2.5 rounded-xl transition">
-            Entrar / Criar conta
-          </button>
-        </div>
-        <!-- /BLOQUEIO -->
-
-        <!-- -------------------- ALERTAS -------------------- -->
-        <div id="alerts-section" class="space-y-3 mb-6">
-          <!-- populado via JavaScript (js/app.js) -->
-        </div>
-        <!-- /ALERTAS -->
-
-        <!-- -------------------- KPI CARDS -------------------- -->
-        <div id="kpis-section" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-
-          <!-- Saldo Atual -->
-          <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Saldo Atual</p>
-            <p id="kpi-saldo" class="text-2xl font-bold text-white">
-              R$ 0
-              <span class="text-base font-normal text-gray-500">,00</span>
-            </p>
-            <p id="kpi-saldo-change" class="text-gray-500 text-xs mt-2">Nenhum registro ainda</p>
-          </div>
-
-          <!-- Gastos do Mês -->
-          <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Gastos do Mês</p>
-            <p id="kpi-gastos" class="text-2xl font-bold text-white">
-              R$ 0
-              <span class="text-base font-normal text-gray-500">,00</span>
-            </p>
-            <p id="kpi-gastos-change" class="text-gray-500 text-xs mt-2">Nenhuma despesa registrada ainda</p>
-          </div>
-
-          <!-- Orçamento -->
-          <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <div class="flex items-center justify-between mb-2">
-              <p class="text-gray-400 text-xs uppercase tracking-wider">Orçamento</p>
-              <button type="button" id="btn-edit-budget" aria-label="Editar orçamento" title="Editar orçamento"
-                      class="text-gray-500 hover:text-emerald-400 transition -mt-1">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-            </div>
-            <p id="kpi-orcamento-value" class="text-2xl font-bold text-white">
-              R$ 3.500
-              <span class="text-base font-normal text-gray-500">,00</span>
-            </p>
-            <div class="mt-3">
-              <div class="flex justify-between text-xs text-gray-400 mb-1">
-                <span id="kpi-orcamento-used-label">0% usado</span>
-                <span id="kpi-orcamento-remaining">R$ 3.500,00 restante</span>
-              </div>
-              <div class="w-full bg-gray-800 rounded-full h-1.5">
-                <div id="kpi-orcamento-bar" class="bg-emerald-400 h-1.5 rounded-full w-0"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Lançamentos -->
-          <div class="kpi-card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <p class="text-gray-400 text-xs uppercase tracking-wider mb-2">Despesas</p>
-            <p class="text-2xl font-bold text-white">
-              <span id="kpi-lancamentos-count">0</span>
-              <span class="text-base font-normal text-gray-500">lançamentos</span>
-            </p>
-            <p id="kpi-lancamentos-sub" class="text-gray-400 text-xs mt-2">Adicione sua primeira despesa</p>
-          </div>
-
-        </div>
-        <!-- /KPI CARDS -->
-
-        <!-- -------------------- GRÁFICO + CATEGORIAS -------------------- -->
-        <div id="reports-section" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-          <!-- Gráfico de barras -->
-          <div class="md:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-6">
-
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-base font-semibold text-white">Gastos Mensais</h2>
-              <span class="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full">
-                Jan – Jun 2026
-              </span>
-            </div>
-
-            <div class="flex items-end justify-between gap-3 h-36">
-
-              <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">0,0k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[6%]"></div>
-                <span class="text-xs text-gray-500">Jan</span>
-              </div>
-
-              <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">0,0k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[6%]"></div>
-                <span class="text-xs text-gray-500">Fev</span>
-              </div>
-
-              <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">0,0k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[6%]"></div>
-                <span class="text-xs text-gray-500">Mar</span>
-              </div>
-
-              <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">0,0k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[6%]"></div>
-                <span class="text-xs text-gray-500">Abr</span>
-              </div>
-
-              <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span class="text-xs text-gray-400">0,0k</span>
-                <div class="chart-bar bg-emerald-500/30 rounded-t-md w-full h-[6%]"></div>
-                <span class="text-xs text-gray-500">Mai</span>
-              </div>
-
-              <div class="chart-col flex flex-col items-center gap-2 flex-1">
-                <span id="chart-jun-value" class="text-xs text-emerald-400 font-semibold">0,0k</span>
-                <div id="chart-jun-bar" class="chart-bar chart-bar-active bg-emerald-400 rounded-t-md w-full h-[6%]"></div>
-                <span class="text-xs text-emerald-400 font-semibold">Jun</span>
-              </div>
-
-            </div>
-          </div>
-          <!-- /Gráfico -->
-
-          <!-- Categorias -->
-          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <h2 class="text-base font-semibold text-white mb-5">Por Categoria</h2>
-
-            <div class="space-y-4">
-
-              <!-- Alimentação -->
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
-                    <span class="text-sm text-gray-300">Alimentação</span>
-                  </div>
-                  <span id="cat-alimentacao-value" class="text-sm font-semibold text-white">R$ 0,00</span>
-                </div>
-                <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-alimentacao-bar" class="category-bar bg-red-400 h-1.5 rounded-full w-0"></div>
-                </div>
-              </div>
-
-              <!-- Moradia -->
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-                    <span class="text-sm text-gray-300">Moradia</span>
-                  </div>
-                  <span id="cat-moradia-value" class="text-sm font-semibold text-white">R$ 0,00</span>
-                </div>
-                <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-moradia-bar" class="category-bar bg-blue-400 h-1.5 rounded-full w-0"></div>
-                </div>
-              </div>
-
-              <!-- Transporte -->
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
-                    <span class="text-sm text-gray-300">Transporte</span>
-                  </div>
-                  <span id="cat-transporte-value" class="text-sm font-semibold text-white">R$ 0,00</span>
-                </div>
-                <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-transporte-bar" class="category-bar bg-purple-400 h-1.5 rounded-full w-0"></div>
-                </div>
-              </div>
-
-              <!-- Lazer -->
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                    <span class="text-sm text-gray-300">Lazer</span>
-                  </div>
-                  <span id="cat-lazer-value" class="text-sm font-semibold text-white">R$ 0,00</span>
-                </div>
-                <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-lazer-bar" class="category-bar bg-amber-400 h-1.5 rounded-full w-0"></div>
-                </div>
-              </div>
-
-              <!-- Outros -->
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
-                    <span class="text-sm text-gray-300">Outros</span>
-                  </div>
-                  <span id="cat-outros-value" class="text-sm font-semibold text-white">R$ 0,00</span>
-                </div>
-                <div class="w-full bg-gray-800 rounded-full h-1.5">
-                  <div id="cat-outros-bar" class="category-bar bg-gray-400 h-1.5 rounded-full w-0"></div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-          <!-- /Categorias -->
-
-        </div>
-        <!-- /GRÁFICO + CATEGORIAS -->
-
-        <!-- -------------------- DESPESAS RECENTES -------------------- -->
-        <div id="expenses-section" class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="text-base font-semibold text-white">Despesas Recentes</h2>
-            <a href="#" id="link-ver-todas" class="text-emerald-400 text-sm hover:underline">Ver todas</a>
-          </div>
-
-          <!-- Cabeçalho da tabela (desktop) -->
-          <div class="hidden md:grid grid-cols-12
-                      text-xs text-gray-500 uppercase tracking-wider
-                      pb-3 border-b border-gray-800 px-2">
-            <span class="col-span-5">Descrição</span>
-            <span class="col-span-2">Categoria</span>
-            <span class="col-span-2">Data</span>
-            <span class="col-span-3 text-right">Valor</span>
-          </div>
-
-          <!-- Linhas (renderizadas via js/app.js) -->
-          <div id="expenses-tbody" class="divide-y divide-gray-800"></div>
-
-        </div>
-        <!-- /DESPESAS RECENTES -->
-
-        <!-- -------------------- PRODUTOS E SERVIÇOS -------------------- -->
-        <div id="products-section" class="space-y-6 hidden">
-
-          <!-- Ficha da empresa -->
-          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
-              <h2 class="text-base font-semibold text-white">SPACECWORP</h2>
-              <span class="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full">
-                CNPJ 62.904.267/0001-60
-              </span>
-            </div>
-            <p class="text-sm text-gray-400">
-              Atividade econômica principal (CNAE 62.01-5-01): desenvolvimento de programas de
-              computador sob encomenda. Os produtos e serviços abaixo refletem essa atividade.
-            </p>
-          </div>
-          <!-- /Ficha da empresa -->
-
-          <!-- Grid de produtos/serviços -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-
-            <!-- Desenvolvimento de sistemas web sob encomenda -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4">
-                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16M6 8L2 12l4 4m12-8l4 4-4 4" />
-                </svg>
-              </div>
-              <h3 class="text-sm font-semibold text-white mb-1.5">Desenvolvimento de Sistemas Web sob Encomenda</h3>
-              <p class="text-sm text-gray-400">
-                Sistemas e plataformas web personalizados, desenhados a partir da necessidade
-                específica de cada cliente, como este próprio dashboard financeiro.
-              </p>
-            </div>
-
-            <!-- Aplicativos e dashboards personalizados -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
-                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h3 class="text-sm font-semibold text-white mb-1.5">Aplicativos e Dashboards Personalizados</h3>
-              <p class="text-sm text-gray-400">
-                Painéis de gestão, indicadores (KPIs) e relatórios sob medida para acompanhar
-                dados financeiros, operacionais ou de negócio em tempo real.
-              </p>
-            </div>
-
-            <!-- MVPs e provas de conceito -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4">
-                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m0 14v1m8-8h1M3 12h1m13.657-5.657l.707.707M5.636 18.364l.707-.707m0-11.314l-.707.707M18.364 18.364l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
-                </svg>
-              </div>
-              <h3 class="text-sm font-semibold text-white mb-1.5">MVPs e Provas de Conceito</h3>
-              <p class="text-sm text-gray-400">
-                Construção rápida de versões iniciais de software para validar uma ideia de
-                negócio antes de investir no produto completo.
-              </p>
-            </div>
-
-            <!-- Integração de sistemas e APIs -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4">
-                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 class="text-sm font-semibold text-white mb-1.5">Integração de Sistemas e APIs</h3>
-              <p class="text-sm text-gray-400">
-                Conexão entre sistemas já existentes do cliente (ERPs, planilhas, bancos de
-                dados, serviços externos) por meio de APIs sob medida.
-              </p>
-            </div>
-
-            <!-- Automação de processos -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
-                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <h3 class="text-sm font-semibold text-white mb-1.5">Automação de Processos e Rotinas</h3>
-              <p class="text-sm text-gray-400">
-                Scripts e rotinas sob encomenda para eliminar tarefas manuais repetitivas,
-                como geração de relatórios, importação de dados e envio de alertas.
-              </p>
-            </div>
-
-            <!-- Consultoria e manutenção evolutiva -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-4">
-                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 class="text-sm font-semibold text-white mb-1.5">Consultoria e Manutenção Evolutiva</h3>
-              <p class="text-sm text-gray-400">
-                Levantamento de requisitos, arquitetura de software e evolução contínua de
-                sistemas já entregues, com correções e novas funcionalidades.
-              </p>
-            </div>
-
-          </div>
-          <!-- /Grid -->
-
-          <!-- Forma de pagamento — PIX -->
-          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <h2 class="text-base font-semibold text-white mb-5">Forma de Pagamento — PIX</h2>
-
-            <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
-
-              <!-- QR Code -->
-              <div class="bg-white p-3 rounded-2xl flex-shrink-0">
-                <img src="assets/img/pix-qrcode.png" alt="QR Code PIX - SPACECWORP" class="w-40 h-40 md:w-44 md:h-44" />
-              </div>
-
-              <!-- Dados da chave -->
-              <div class="flex-1 w-full min-w-0 space-y-4">
-
-                <div>
-                  <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Chave PIX (CNPJ)</p>
-                  <div class="flex items-center gap-2">
-                    <code id="pix-key" class="text-sm text-white bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 flex-1 truncate">
-                      62.904.267/0001-60
-                    </code>
-                    <button type="button" id="btn-copy-pix-key"
-                            class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700
-                                   text-gray-300 text-xs font-medium px-3 py-2.5 rounded-xl transition flex-shrink-0">
-                      Copiar
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">PIX Copia e Cola</p>
-                  <div class="flex items-center gap-2">
-                    <code id="pix-copy-paste" class="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 flex-1 truncate">00020101021126360014br.gov.bcb.pix0114629042670001605204000053039865802BR5910SPACECWORP6006OSASCO62070503***63049351</code>
-                    <button type="button" id="btn-copy-pix-code"
-                            class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700
-                                   text-gray-300 text-xs font-medium px-3 py-2.5 rounded-xl transition flex-shrink-0">
-                      Copiar
-                    </button>
-                  </div>
-                </div>
-
-                <p class="text-xs text-gray-500">
-                  Favorecido: SPACECWORP (FELIPE RODRIGUES DOS SANTOS DESENVOLVIMENTO DE SOFTWARE LTDA) ·
-                  CNPJ 62.904.267/0001-60 · Osasco/SP. Código estático sem valor fixo — informe o valor
-                  desejado no app do seu banco ao pagar.
-                </p>
-
-              </div>
-
-            </div>
-          </div>
-          <!-- /Forma de pagamento -->
-
-        </div>
-        <!-- /PRODUTOS E SERVIÇOS -->
-
-        <!-- -------------------- PLANO -------------------- -->
-        <div id="plans-section" class="space-y-6 hidden">
-
-          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <h2 class="text-base font-semibold text-white mb-1">Planos</h2>
-            <p class="text-sm text-gray-400">
-              Todo mundo tem acesso completo ao sistema. A diferença entre os planos é só o
-              limite de despesas por dia.
-            </p>
-          </div>
-
-          <div id="plan-cards" class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <!-- populado via JavaScript (js/app.js) -->
-          </div>
-
-          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <h2 class="text-base font-semibold text-white mb-4">Histórico de pagamentos</h2>
-            <div id="payments-history">
-              <!-- populado via JavaScript (js/app.js) -->
-            </div>
-          </div>
-
-        </div>
-        <!-- /PLANO -->
-
-      </main>
-      <!-- /CONTEÚDO PRINCIPAL -->
-
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fintech SaaS - Entrar</title>
+
+  <!-- Google tag (gtag.js) - Google Ads -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
+  <!-- Event snippet for Visualização de página (1) conversion page -->
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-10926256695');
+    gtag('event', 'conversion', {
+        'send_to': 'AW-10926256695/lTEfCKWou9gcELfkhdoo',
+        'value': 1.0,
+        'currency': 'BRL'
+    });
+  </script>
+
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-MCN6MLH5');</script>
+  <!-- End Google Tag Manager -->
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MCN6MLH5"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+
+  <div class="auth-wrapper">
+
+    <!-- Painel de marca (some em telas pequenas) -->
+    <div class="auth-brand">
+      <div class="auth-brand-inner">
+        <span class="auth-brand-logo">💰 Fintech SaaS</span>
+        <h2>Controle financeiro da sua empresa, sem complicação.</h2>
+        <p>Despesas, relatórios, orçamento e alertas em um só painel — com pagamento
+           via Pix real e leitura automática de comprovante.</p>
+        <ul class="auth-brand-list">
+          <li>Multi-empresa (tenants) com equipe e papéis</li>
+          <li>Relatórios mensais e por categoria</li>
+          <li>Alertas de orçamento em tempo real</li>
+          <li>Planos Free e Premium com Pix integrado</li>
+        </ul>
+      </div>
     </div>
-    <!-- /LAYOUT WRAPPER -->
 
-    <!-- ============================================================
-         NAV INFERIOR (mobile)
-    ============================================================ -->
-    <nav class="fixed bottom-0 left-0 right-0
-                bg-gray-900 border-t border-gray-800
-                flex md:hidden justify-around
-                py-3 px-4 z-30">
+    <!-- Painel do formulário -->
+    <div class="auth-forms">
 
-      <!-- Home -->
-      <a href="#" data-view="dashboard" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor"
-             stroke-width="2" viewBox="0 0 24 24">
-          <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3
-                   m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3
-                   m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2
-                   a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
-        <span class="text-xs font-medium">Home</span>
-      </a>
+      <div class="auth-card" id="login-box">
+        <span class="auth-card-logo">💰 Fintech SaaS</span>
+        <h1>Bem-vindo(a) de volta</h1>
+        <p class="subtitle">Entre na sua conta</p>
 
-      <!-- Despesas -->
-      <a href="#" data-view="despesas" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor"
-             stroke-width="2" viewBox="0 0 24 24">
-          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10
-                   a2 2 0 002-2V7a2 2 0 00-2-2h-2
-                   M9 5a2 2 0 002 2h2a2 2 0 002-2
-                   M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-        <span class="text-xs">Despesas</span>
-      </a>
+        <div id="login-error" class="error-box hidden"></div>
 
-      <!-- Nova despesa -->
-      <button type="button" id="btn-new-expense-mobile" class="flex flex-col items-center gap-1 text-gray-500">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor"
-             stroke-width="2" viewBox="0 0 24 24">
-          <path d="M12 4v16m8-8H4" />
-        </svg>
-        <span class="text-xs">Nova</span>
-      </button>
-
-      <!-- Relatórios -->
-      <a href="#" data-view="relatorios" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor"
-             stroke-width="2" viewBox="0 0 24 24">
-          <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6
-                   a2 2 0 002 2h2a2 2 0 002-2zm0 0V9
-                   a2 2 0 012-2h2a2 2 0 012 2v10
-                   m-6 0a2 2 0 002 2h2a2 2 0 002-2
-                   m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14
-                   a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-        <span class="text-xs">Relatórios</span>
-      </a>
-
-      <!-- Alertas -->
-      <a href="#" data-view="alertas" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500 relative">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor"
-             stroke-width="2" viewBox="0 0 24 24">
-          <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11
-                   a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341
-                   C7.67 6.165 6 8.388 6 11v3.159
-                   c0 .538-.214 1.055-.595 1.436L4 17h5
-                   m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-        <span class="text-xs">Alertas</span>
-        <span id="alert-badge-mobile" class="hidden absolute top-0 right-1
-                     bg-red-500 text-white text-xs font-bold
-                     w-4 h-4 flex items-center justify-center
-                     rounded-full leading-none">
-          0
-        </span>
-      </a>
-
-      <!-- Produtos e Serviços -->
-      <a href="#" data-view="produtos" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-        </svg>
-        <span class="text-xs">Produtos</span>
-      </a>
-
-      <!-- Plano -->
-      <a href="#" data-view="plano" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
-        </svg>
-        <span class="text-xs">Plano</span>
-      </a>
-
-    </nav>
-    <!-- /NAV INFERIOR -->
-
-    <!-- ============================================================
-         MODAL — EDITAR ORÇAMENTO
-    ============================================================ -->
-    <div id="budget-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div id="budget-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-
-      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 z-10">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-lg font-semibold text-white">Editar Orçamento</h2>
-          <button type="button" id="budget-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
-        </div>
-
-        <form id="budget-form" class="space-y-4" novalidate>
-          <div>
-            <label for="budget-value" class="block text-xs text-gray-400 mb-1.5">Orçamento mensal (R$)</label>
-            <input id="budget-value" name="value" type="number" step="0.01" min="0.01" required
-                   placeholder="0,00"
-                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
-                          text-sm text-white placeholder-gray-500
-                          focus:outline-none focus:border-emerald-500" />
+        <form id="login-form">
+          <div class="field">
+            <label>E-mail</label>
+            <input type="email" id="login-email" required autocomplete="email" placeholder="voce@empresa.com" />
           </div>
-
-          <p id="budget-form-error" class="hidden text-red-400 text-xs"></p>
-
-          <div class="flex items-center gap-3 pt-2">
-            <button type="button" id="budget-modal-cancel"
-                    class="flex-1 text-center text-sm font-medium text-gray-300
-                           border border-gray-700 rounded-xl py-2.5
-                           hover:bg-gray-800 transition">
-              Cancelar
-            </button>
-            <button type="submit"
-                    class="flex-1 text-center text-sm font-semibold text-gray-900
-                           bg-emerald-500 hover:bg-emerald-400 rounded-xl py-2.5 transition">
-              Salvar
-            </button>
+          <div class="field">
+            <label>Senha</label>
+            <input type="password" id="login-password" required minlength="6" autocomplete="current-password" placeholder="••••••••" />
           </div>
+          <button type="submit" class="primary">Entrar</button>
         </form>
+
+        <p class="switch-link">Ainda não tem conta? <a id="show-signup">Criar empresa</a></p>
       </div>
-    </div>
-    <!-- /MODAL ORÇAMENTO -->
 
-    <!-- ============================================================
-         MODAL — ENTRAR / CADASTRAR (Nome + CPF)
-    ============================================================ -->
-    <div id="auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div id="auth-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+      <div class="auth-card hidden" id="signup-box">
+        <span class="auth-card-logo">💰 Fintech SaaS</span>
+        <h1>Crie sua conta</h1>
+        <p class="subtitle">Cadastre sua empresa (você vira admin)</p>
 
-      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 z-10">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-lg font-semibold text-white">Acessar o sistema</h2>
-          <button type="button" id="auth-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
-        </div>
+        <div id="signup-error" class="error-box hidden"></div>
 
-        <!-- Abas Entrar / Criar conta -->
-        <div class="flex gap-2 bg-gray-800 rounded-xl p-1 mb-5">
-          <button type="button" id="auth-tab-login"
-                  class="auth-tab flex-1 text-sm font-medium py-2 rounded-lg transition">
-            Entrar
-          </button>
-          <button type="button" id="auth-tab-register"
-                  class="auth-tab flex-1 text-sm font-medium py-2 rounded-lg transition">
-            Criar conta
-          </button>
-        </div>
-
-        <form id="auth-form" class="space-y-4" novalidate>
-          <div>
-            <label for="auth-nome" class="block text-xs text-gray-400 mb-1.5">Nome completo</label>
-            <input id="auth-nome" name="nome" type="text" required maxlength="80" autocomplete="name"
-                   placeholder="Ex.: Felipe Santos"
-                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
-                          text-sm text-white placeholder-gray-500
-                          focus:outline-none focus:border-emerald-500" />
+        <form id="signup-form">
+          <div class="field">
+            <label>Nome da empresa</label>
+            <input type="text" id="signup-company" required placeholder="Minha Empresa Ltda" />
           </div>
-
-          <div>
-            <label for="auth-cpf" class="block text-xs text-gray-400 mb-1.5">CPF</label>
-            <input id="auth-cpf" name="cpf" type="text" required inputmode="numeric" maxlength="14"
-                   autocomplete="off" placeholder="000.000.000-00"
-                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
-                          text-sm text-white placeholder-gray-500
-                          focus:outline-none focus:border-emerald-500" />
-            <p class="text-xs text-gray-500 mt-1.5">
-              O CPF é validado localmente pelo algoritmo oficial de dígitos verificadores da Receita Federal.
-            </p>
+          <div class="field">
+            <label>Seu nome</label>
+            <input type="text" id="signup-name" required autocomplete="name" placeholder="Seu nome completo" />
           </div>
-
-          <p id="auth-form-error" class="hidden text-red-400 text-xs"></p>
-          <p id="auth-form-success" class="hidden text-emerald-400 text-xs"></p>
-
-          <div class="flex items-center gap-3 pt-2">
-            <button type="button" id="auth-modal-cancel"
-                    class="flex-1 text-center text-sm font-medium text-gray-300
-                           border border-gray-700 rounded-xl py-2.5
-                           hover:bg-gray-800 transition">
-              Cancelar
-            </button>
-            <button type="submit" id="auth-submit-btn"
-                    class="flex-1 text-center text-sm font-semibold text-gray-900
-                           bg-emerald-500 hover:bg-emerald-400 rounded-xl py-2.5 transition">
-              Entrar
-            </button>
+          <div class="field">
+            <label>E-mail</label>
+            <input type="email" id="signup-email" required autocomplete="email" placeholder="voce@empresa.com" />
           </div>
+          <div class="field">
+            <label>Senha</label>
+            <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+          </div>
+          <button type="submit" class="primary">Criar conta</button>
         </form>
+
+        <p class="switch-link">Já tem conta? <a id="show-login">Entrar</a></p>
       </div>
-    </div>
-    <!-- /MODAL AUTENTICAÇÃO -->
 
-    <!-- ============================================================
-         MODAL — NOVA DESPESA
-    ============================================================ -->
-    <div id="expense-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div id="expense-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-
-      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 z-10">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-lg font-semibold text-white">Nova Despesa</h2>
-          <button type="button" id="expense-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
-        </div>
-
-        <form id="expense-form" class="space-y-4" novalidate>
-          <div>
-            <label for="expense-desc" class="block text-xs text-gray-400 mb-1.5">Descrição</label>
-            <input id="expense-desc" name="desc" type="text" required maxlength="60"
-                   placeholder="Ex.: Supermercado, Uber, Aluguel..."
-                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
-                          text-sm text-white placeholder-gray-500
-                          focus:outline-none focus:border-emerald-500" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label for="expense-category" class="block text-xs text-gray-400 mb-1.5">Categoria</label>
-              <select id="expense-category" name="category" required
-                      class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
-                             text-sm text-white
-                             focus:outline-none focus:border-emerald-500">
-                <option value="alimentacao">Alimentação</option>
-                <option value="moradia">Moradia</option>
-                <option value="transporte">Transporte</option>
-                <option value="lazer">Lazer</option>
-                <option value="outros">Outros</option>
-              </select>
-            </div>
-            <div>
-              <label for="expense-date" class="block text-xs text-gray-400 mb-1.5">Data</label>
-              <input id="expense-date" name="date" type="date" required
-                     class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
-                            text-sm text-white
-                            focus:outline-none focus:border-emerald-500" />
-            </div>
-          </div>
-
-          <div>
-            <label for="expense-value" class="block text-xs text-gray-400 mb-1.5">Valor (R$)</label>
-            <input id="expense-value" name="value" type="number" step="0.01" min="0.01" required
-                   placeholder="0,00"
-                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5
-                          text-sm text-white placeholder-gray-500
-                          focus:outline-none focus:border-emerald-500" />
-          </div>
-
-          <p id="expense-form-error" class="hidden text-red-400 text-xs"></p>
-
-          <div class="flex items-center gap-3 pt-2">
-            <button type="button" id="expense-modal-cancel"
-                    class="flex-1 text-center text-sm font-medium text-gray-300
-                           border border-gray-700 rounded-xl py-2.5
-                           hover:bg-gray-800 transition">
-              Cancelar
-            </button>
-            <button type="submit"
-                    class="flex-1 text-center text-sm font-semibold text-gray-900
-                           bg-emerald-500 hover:bg-emerald-400 rounded-xl py-2.5 transition">
-              Salvar
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-    <!-- /MODAL -->
-
-    <!-- ============================================================
-         MODAL — PAGAMENTO VIA PIX (real: QR/copia-e-cola válidos,
-         confirmação manual — sem integração bancária automática)
-    ============================================================ -->
-    <div id="pix-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div id="pix-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-
-      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 z-10 text-center">
-        <div class="flex items-center justify-between mb-4 text-left">
-          <h2 class="text-lg font-semibold text-white">Pagamento via Pix</h2>
-          <button type="button" id="pix-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
-        </div>
-
-        <p id="pix-modal-desc" class="text-sm text-gray-400 mb-1"></p>
-        <p id="pix-modal-amount" class="text-2xl font-bold text-white mb-4"></p>
-
-        <div id="pix-qrcode" class="bg-white p-3 rounded-2xl inline-block mb-4"></div>
-
-        <label class="block text-xs text-gray-400 mb-1.5 text-left">Pix Copia e Cola</label>
-        <div class="flex items-center gap-2 mb-4">
-          <code id="pix-modal-code" class="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 flex-1 truncate text-left"></code>
-          <button type="button" id="pix-modal-copy"
-                  class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700
-                         text-gray-300 text-xs font-medium px-3 py-2.5 rounded-xl transition flex-shrink-0">
-            Copiar
-          </button>
-        </div>
-
-        <p class="text-xs text-gray-500 mb-5 text-left">
-          Chave Pix real (CNPJ 62.904.267/0001-60 · SPACECWORP · Osasco/SP). Escaneie o QR ou cole o código
-          no app do seu banco para pagar de verdade. Depois de pagar, envie o comprovante abaixo: uma IA
-          (leitura OCR local, no seu navegador) confere o valor e o recebedor automaticamente — este site
-          não tem integração bancária para confirmar o recebimento de outra forma.
-        </p>
-
-        <div class="text-left mb-4">
-          <label for="pix-receipt-input" class="block text-xs text-gray-400 mb-1.5">
-            Comprovante da transferência
-          </label>
-          <input type="file" id="pix-receipt-input" accept="image/*" capture="environment"
-                 class="block w-full text-xs text-gray-400
-                        file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0
-                        file:bg-gray-800 file:text-gray-200 file:text-xs file:font-medium
-                        file:hover:bg-gray-700 file:cursor-pointer
-                        bg-gray-800/50 border border-gray-700 rounded-xl cursor-pointer" />
-          <p id="pix-receipt-status" class="text-xs text-gray-500 mt-2 min-h-[1rem] text-left"></p>
-        </div>
-
-        <div class="flex items-center gap-3">
-          <button type="button" id="pix-modal-cancel"
-                  class="flex-1 text-center text-sm font-medium text-gray-300
-                         border border-gray-700 rounded-xl py-2.5
-                         hover:bg-gray-800 transition">
-            Cancelar
-          </button>
-          <button type="button" id="pix-modal-confirm" disabled
-                  class="flex-1 text-center text-sm font-semibold text-gray-900
-                         bg-emerald-500/40 rounded-xl py-2.5 transition cursor-not-allowed">
-            Envie o comprovante
-          </button>
-        </div>
-      </div>
-    </div>
-    <!-- /MODAL PIX -->
-
-    <!-- Toast de confirmação -->
-    <div id="toast"
-         class="hidden fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2
-                bg-emerald-500 text-gray-900 text-sm font-semibold
-                px-5 py-3 rounded-xl shadow-lg z-50">
-      Despesa adicionada com sucesso!
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="js/pix.js"></script>
-    <script src="js/receipt-ai.js"></script>
-    <script src="js/app.js"></script>
+  </div>
 
-  </body>
-
+  <script src="js/plans.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/crypto-utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth-page.js"></script>
+</body>
 </html>

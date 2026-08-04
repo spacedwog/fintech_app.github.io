@@ -546,14 +546,6 @@ function openPixPayment({ amount, description, txidPrefix, expectedType, onConfi
   document.getElementById("pix-modal-amount").textContent = `R$ ${(amount || 0).toFixed(2)}`;
   document.getElementById("pix-modal-code").textContent = payload;
 
-  const qrEl = document.getElementById("pix-qrcode");
-  qrEl.innerHTML = "";
-  if (window.QRCode) {
-    new QRCode(qrEl, { text: payload, width: 176, height: 176, correctLevel: QRCode.CorrectLevel.M });
-  } else {
-    qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
-  }
-
   pixCurrentTxid = txid;
   pixCurrentAmount = amount || 0;
   pixExpectedType = expectedType || null;
@@ -567,7 +559,21 @@ function openPixPayment({ amount, description, txidPrefix, expectedType, onConfi
   }
   setPixConfirmState(false, "Envie o comprovante");
 
+  // Revela o modal antes de gerar o QR: se a lib externa (CDN) falhar,
+  // o modal continua aparecendo com o código copia-e-cola como alternativa.
   pixModalEl.classList.remove("hidden");
+
+  const qrEl = document.getElementById("pix-qrcode");
+  qrEl.innerHTML = "";
+  try {
+    if (window.QRCode) {
+      new QRCode(qrEl, { text: payload, width: 176, height: 176, correctLevel: QRCode.CorrectLevel.M });
+    } else {
+      qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
+    }
+  } catch (e) {
+    qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
+  }
 }
 
 function closePixModal() {

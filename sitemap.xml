@@ -3,21 +3,14 @@
 
   <url>
     <loc>https://www.spacecworp.com.br/</loc>
-    <lastmod>2026-07-29</lastmod>
+    <lastmod>2026-08-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <url>
-    <loc>https://www.spacecworp.com.br/frontend/index.html</loc>
-    <lastmod>2026-07-29</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <url>
-    <loc>https://www.spacecworp.com.br/frontend/dashboard.html</loc>
-    <lastmod>2026-07-29</lastmod>
+    <loc>https://www.spacecworp.com.br/dashboard.html</loc>
+    <lastmod>2026-08-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
