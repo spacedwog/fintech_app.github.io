@@ -240,28 +240,56 @@ const Api = {
           category_id: e.category_id,
           category_name: category ? category.name : null,
           user_id: e.user_id,
+          is_extra: !!e.is_extra,
+          extra_charge: e.extra_charge || 0,
         };
       });
+  },
+
+  // Uso do limite diário de despesas do plano (para exibir "3/6 hoje" etc.)
+  async getExpenseQuota() {
+    const session = _requireSession();
+    const db = loadDb();
+    const tenant = _findTenant(db, session.tenant_id);
+    const planDetails = _tenantPlanDetails(tenant);
+    const today = nowIso().slice(0, 10);
+    const usedToday = db.expenses.filter(
+      (e) =>
+        e.tenant_id === session.tenant_id &&
+        e.user_id === session.user_id &&
+        (e.created_at || "").slice(0, 10) === today
+    ).length;
+    return {
+      plan: tenant.plan,
+      used_today: usedToday,
+      max_per_day: planDetails.max_expenses_day,
+      overage_price: planDetails.overage_price || 0,
+      unlimited: !isFinite(planDetails.max_expenses_day),
+    };
   },
 
   async addExpense({ amount, date, description, category_id }) {
     const session = _requireSession();
     const db = loadDb();
     const tenant = _findTenant(db, session.tenant_id);
+    const planDetails = _tenantPlanDetails(tenant);
 
-    const yearMonth = date.slice(0, 7); // "YYYY-MM"
-    const maxExpenses = _tenantPlanDetails(tenant).max_expenses_month;
-    const currentCount = db.expenses.filter(
-      (e) => e.tenant_id === session.tenant_id && e.date.slice(0, 7) === yearMonth
+    // Limite é diário e por usuário (plano Free = 6 despesas/dia).
+    const today = nowIso().slice(0, 10); // "YYYY-MM-DD"
+    const maxPerDay = planDetails.max_expenses_day;
+    const todayCount = db.expenses.filter(
+      (e) =>
+        e.tenant_id === session.tenant_id &&
+        e.user_id === session.user_id &&
+        (e.created_at || "").slice(0, 10) === today
     ).length;
 
-    if (currentCount >= maxExpenses) {
-      const err = new Error(
-        `Limite de ${maxExpenses} despesas/mês do plano '${tenant.plan}' atingido. Faça upgrade do plano.`
-      );
-      err.status = 402;
-      throw err;
-    }
+    // No plano Free, ao atingir o limite diário a despesa é marcada como
+    // "extra" (R$ 5,00/unidade). A camada de UI (dashboard.js) já exige o
+    // pagamento real via Pix antes de chamar addExpense nesse caso — aqui
+    // só fazemos a marcação/registro do valor cobrado.
+    const isExtra = isFinite(maxPerDay) && todayCount >= maxPerDay;
+    const extraCharge = isExtra ? planDetails.overage_price || 0 : 0;
 
     const expense = {
       id: nextId(db, "expenses"),
@@ -272,10 +300,12 @@ const Api = {
       date,
       description: description || "",
       created_at: nowIso(),
+      is_extra: isExtra,
+      extra_charge: extraCharge,
     };
     db.expenses.push(expense);
     saveDb(db);
-    return { id: expense.id };
+    return { id: expense.id, is_extra: isExtra, extra_charge: extraCharge, plan: tenant.plan };
   },
 
   async deleteExpense(id) {

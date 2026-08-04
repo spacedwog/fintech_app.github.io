@@ -217,8 +217,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 }
 
 .badge.free { background: #e5e7eb; color: #374151; }
-.badge.pro { background: #dbeafe; color: #1e40af; }
-.badge.enterprise { background: #fef3c7; color: #92400e; }
+.badge.premium { background: #dbeafe; color: #1e40af; }
 
 .plan-card {
   border: 1px solid var(--border);
@@ -248,3 +247,45 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 }
 
 .small-muted { color: var(--muted); font-size: 12px; }
+
+/* ---------- Modal (pagamento Pix) ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal-box {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  text-align: center;
+}
+
+.qr-wrap {
+  background: #fff;
+  padding: 12px;
+  border-radius: 10px;
+  display: inline-block;
+  margin: 0 auto 16px;
+}
+
+.pix-code-box {
+  font-size: 11px;
+  word-break: break-all;
+  background: #f4f6fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  text-align: left;
+}

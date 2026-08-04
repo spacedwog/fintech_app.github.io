@@ -153,6 +153,21 @@
             Produtos e Serviços
           </a>
 
+          <!-- Plano -->
+          <a href="#" data-view="plano"
+             class="side-nav-link flex items-center gap-3
+                    px-4 py-3 rounded-xl
+                    text-sm font-medium transition
+                    text-gray-400 hover:text-white hover:bg-gray-800">
+            <svg class="side-nav-icon w-5 h-5"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+            </svg>
+            Plano
+          </a>
+
         </nav>
 
         <!-- Usuário logado / Entrar / Cadastrar -->
@@ -182,6 +197,7 @@
           <div>
             <h1 id="page-title" class="text-2xl font-bold text-white">Dashboard</h1>
             <p id="page-subtitle" class="text-gray-400 text-sm mt-1">Bem-vindo(a), Usuário!</p>
+            <p id="plan-quota-info" class="hidden text-emerald-400 text-xs mt-1"></p>
           </div>
           <div class="flex items-center gap-3">
             <button type="button" id="btn-open-auth-topbar"
@@ -206,6 +222,26 @@
             </button>
           </div>
         </div>
+
+        <!-- -------------------- BLOQUEIO (login obrigatório) -------------------- -->
+        <div id="locked-section" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center mb-6">
+          <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
+            <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 class="text-lg font-semibold text-white mb-2">Faça login para usar o sistema</h2>
+          <p class="text-sm text-gray-400 mb-6 max-w-sm mx-auto">
+            Despesas, relatórios, alertas e planos só ficam disponíveis para quem tem conta.
+            Entre ou cadastre-se gratuitamente — leva menos de um minuto.
+          </p>
+          <button type="button" id="btn-open-auth-locked"
+                  class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400
+                         text-gray-900 font-semibold text-sm px-5 py-2.5 rounded-xl transition">
+            Entrar / Criar conta
+          </button>
+        </div>
+        <!-- /BLOQUEIO -->
 
         <!-- -------------------- ALERTAS -------------------- -->
         <div id="alerts-section" class="space-y-3 mb-6">
@@ -601,6 +637,31 @@
         </div>
         <!-- /PRODUTOS E SERVIÇOS -->
 
+        <!-- -------------------- PLANO -------------------- -->
+        <div id="plans-section" class="space-y-6 hidden">
+
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <h2 class="text-base font-semibold text-white mb-1">Planos</h2>
+            <p class="text-sm text-gray-400">
+              Todo mundo tem acesso completo ao sistema. A diferença entre os planos é só o
+              limite de despesas por dia.
+            </p>
+          </div>
+
+          <div id="plan-cards" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- populado via JavaScript (js/app.js) -->
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <h2 class="text-base font-semibold text-white mb-4">Histórico de pagamentos</h2>
+            <div id="payments-history">
+              <!-- populado via JavaScript (js/app.js) -->
+            </div>
+          </div>
+
+        </div>
+        <!-- /PLANO -->
+
       </main>
       <!-- /CONTEÚDO PRINCIPAL -->
 
@@ -688,6 +749,15 @@
                 d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
         </svg>
         <span class="text-xs">Produtos</span>
+      </a>
+
+      <!-- Plano -->
+      <a href="#" data-view="plano" class="bottom-nav-link flex flex-col items-center gap-1 text-gray-500">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+        </svg>
+        <span class="text-xs">Plano</span>
       </a>
 
     </nav>
@@ -876,6 +946,71 @@
     </div>
     <!-- /MODAL -->
 
+    <!-- ============================================================
+         MODAL — PAGAMENTO VIA PIX (real: QR/copia-e-cola válidos,
+         confirmação manual — sem integração bancária automática)
+    ============================================================ -->
+    <div id="pix-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div id="pix-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+      <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6 z-10 text-center">
+        <div class="flex items-center justify-between mb-4 text-left">
+          <h2 class="text-lg font-semibold text-white">Pagamento via Pix</h2>
+          <button type="button" id="pix-modal-close" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+
+        <p id="pix-modal-desc" class="text-sm text-gray-400 mb-1"></p>
+        <p id="pix-modal-amount" class="text-2xl font-bold text-white mb-4"></p>
+
+        <div id="pix-qrcode" class="bg-white p-3 rounded-2xl inline-block mb-4"></div>
+
+        <label class="block text-xs text-gray-400 mb-1.5 text-left">Pix Copia e Cola</label>
+        <div class="flex items-center gap-2 mb-4">
+          <code id="pix-modal-code" class="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 flex-1 truncate text-left"></code>
+          <button type="button" id="pix-modal-copy"
+                  class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700
+                         text-gray-300 text-xs font-medium px-3 py-2.5 rounded-xl transition flex-shrink-0">
+            Copiar
+          </button>
+        </div>
+
+        <p class="text-xs text-gray-500 mb-5 text-left">
+          Chave Pix real (CNPJ 62.904.267/0001-60 · SPACECWORP · Osasco/SP). Escaneie o QR ou cole o código
+          no app do seu banco para pagar de verdade. Depois de pagar, envie o comprovante abaixo: uma IA
+          (leitura OCR local, no seu navegador) confere o valor e o recebedor automaticamente — este site
+          não tem integração bancária para confirmar o recebimento de outra forma.
+        </p>
+
+        <div class="text-left mb-4">
+          <label for="pix-receipt-input" class="block text-xs text-gray-400 mb-1.5">
+            Comprovante da transferência
+          </label>
+          <input type="file" id="pix-receipt-input" accept="image/*" capture="environment"
+                 class="block w-full text-xs text-gray-400
+                        file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0
+                        file:bg-gray-800 file:text-gray-200 file:text-xs file:font-medium
+                        file:hover:bg-gray-700 file:cursor-pointer
+                        bg-gray-800/50 border border-gray-700 rounded-xl cursor-pointer" />
+          <p id="pix-receipt-status" class="text-xs text-gray-500 mt-2 min-h-[1rem] text-left"></p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button type="button" id="pix-modal-cancel"
+                  class="flex-1 text-center text-sm font-medium text-gray-300
+                         border border-gray-700 rounded-xl py-2.5
+                         hover:bg-gray-800 transition">
+            Cancelar
+          </button>
+          <button type="button" id="pix-modal-confirm" disabled
+                  class="flex-1 text-center text-sm font-semibold text-gray-900
+                         bg-emerald-500/40 rounded-xl py-2.5 transition cursor-not-allowed">
+            Envie o comprovante
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- /MODAL PIX -->
+
     <!-- Toast de confirmação -->
     <div id="toast"
          class="hidden fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2
@@ -884,6 +1019,9 @@
       Despesa adicionada com sucesso!
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="js/pix.js"></script>
+    <script src="js/receipt-ai.js"></script>
     <script src="js/app.js"></script>
 
   </body>

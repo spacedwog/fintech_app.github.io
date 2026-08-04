@@ -38,18 +38,52 @@
     despesas: ['kpis-section', 'expenses-section'],
     relatorios: ['reports-section'],
     alertas: ['alerts-section'],
-    produtos: ['products-section']
+    produtos: ['products-section'],
+    plano: ['plans-section']
   };
 
-  var ALL_SECTIONS = ['alerts-section', 'kpis-section', 'reports-section', 'expenses-section', 'products-section'];
+  var ALL_SECTIONS = [
+    'locked-section',
+    'alerts-section',
+    'kpis-section',
+    'reports-section',
+    'expenses-section',
+    'products-section',
+    'plans-section'
+  ];
+
+  // Views que só podem ser usadas com o usuário logado. "produtos" e "plano"
+  // ficam visíveis mesmo deslogado (conteúdo institucional/comercial), mas
+  // qualquer ação que altere dados (nova despesa, orçamento, trocar de
+  // plano etc.) passa por requireLogin() antes de executar.
+  var GATED_VIEWS = ['dashboard', 'despesas', 'relatorios', 'alertas'];
 
   var VIEW_TITLES = {
     dashboard: ['Dashboard', 'Bem-vindo(a), Usuário!'],
     despesas: ['Despesas', 'Todas as suas despesas registradas'],
     relatorios: ['Relatórios', 'Gastos mensais e distribuição por categoria'],
     alertas: ['Alertas', 'Avisos sobre o seu orçamento'],
-    produtos: ['Produtos e Serviços', 'Soluções sob medida em desenvolvimento de software (CNAE 62.01-5-01)']
+    produtos: ['Produtos e Serviços', 'Soluções sob medida em desenvolvimento de software (CNAE 62.01-5-01)'],
+    plano: ['Plano', 'Escolha o plano ideal para o seu uso']
   };
+
+  // ---------- Planos (Free / Premium) ----------
+  //
+  // Free: acesso completo ao sistema, limitado a 6 despesas/dia. Cada
+  // despesa que exceder o limite diário exige um pagamento real via Pix
+  // (QR Code/copia-e-cola gerado com a chave Pix da SPACECWORP) de
+  // R$ 5,00/unidade antes de ser registrada — ver js/pix.js e
+  // openPixPayment().
+  // Premium: acesso completo ao sistema, despesas ilimitadas, R$ 19,99/mês
+  // (também pago via Pix real).
+  var PLANS = {
+    free: { label: 'Free', price_month: 0, max_expenses_day: 6, overage_price: 5.0 },
+    premium: { label: 'Premium', price_month: 19.99, max_expenses_day: Infinity, overage_price: 0 }
+  };
+
+  // Chave Pix real da SPACECWORP (a mesma usada na tela "Produtos e Serviços").
+  var PIX_MERCHANT = { key: '62904267000160', name: 'SPACECWORP', city: 'OSASCO' };
+  var PAYMENTS_KEY = 'fintech_payments_v1';
 
   function defaultState() {
     return {
@@ -371,12 +405,24 @@
     if (!VIEW_SECTIONS[view]) view = 'dashboard';
     state.view = view;
 
+    var loggedIn = !!loadSession();
+    var showLocked = GATED_VIEWS.indexOf(view) !== -1 && !loggedIn;
+
     ALL_SECTIONS.forEach(function (id) {
       var el = document.getElementById(id);
       if (!el) return;
-      var show = VIEW_SECTIONS[view].indexOf(id) !== -1;
+      if (id === 'locked-section') {
+        el.style.display = showLocked ? '' : 'none';
+        return;
+      }
+      var show = !showLocked && VIEW_SECTIONS[view].indexOf(id) !== -1;
       el.style.display = show ? '' : 'none';
     });
+
+    if (view === 'plano') {
+      renderPlanCards();
+      renderPaymentsHistory();
+    }
 
     // links do menu lateral (desktop)
     document.querySelectorAll('.side-nav-link[data-view]').forEach(function (link) {
@@ -507,6 +553,7 @@
      ----------------------------------------------------------- */
 
   function deleteExpense(id) {
+    if (!requireLogin()) return;
     var idx = -1;
     for (var i = 0; i < state.expenses.length; i++) {
       if (state.expenses[i].id === id) {
@@ -541,6 +588,7 @@
 
   function openModal() {
     if (!modal) return;
+    if (!requireLogin()) return;
     var dateInput = document.getElementById('expense-date');
     if (dateInput && !dateInput.value) dateInput.value = todayISO();
     hideFormError();
@@ -585,6 +633,14 @@
     e.preventDefault();
     hideFormError();
 
+    var user = loadSession();
+    if (!user) {
+      showFormError('Faça login para registrar despesas.');
+      closeModal();
+      openAuthModal('login');
+      return;
+    }
+
     var desc = document.getElementById('expense-desc').value.trim();
     var category = document.getElementById('expense-category').value;
     var date = document.getElementById('expense-date').value;
@@ -608,27 +664,72 @@
       return;
     }
 
-    var expense = {
-      id: 'e-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-      desc: desc,
-      category: category,
-      date: date,
-      value: Math.round(value * 100) / 100
-    };
+    var plan = PLANS[user.plan || 'free'] || PLANS.free;
+    var todayStr = todayISO();
+    var usedToday = state.expenses.filter(function (item) {
+      return item.ownerCpf === user.cpf && (item.createdAt || '').slice(0, 10) === todayStr;
+    }).length;
+    var isExtra = isFinite(plan.max_expenses_day) && usedToday >= plan.max_expenses_day;
 
-    state.expenses.unshift(expense);
-    state.categoryTotals[category] = (Number(state.categoryTotals[category]) || 0) + expense.value;
-    state.gastosMes += expense.value;
-    state.saldo -= expense.value;
-    state.lancamentosCount += 1;
-    state.novosNestaSessao += 1;
+    function finalizeExpense(txid, analysis) {
+      var expense = {
+        id: 'e-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        desc: desc,
+        category: category,
+        date: date,
+        value: Math.round(value * 100) / 100,
+        ownerCpf: user.cpf,
+        createdAt: new Date().toISOString(),
+        isExtra: isExtra,
+        extraCharge: isExtra ? plan.overage_price : 0,
+        extraTxid: isExtra ? txid : null
+      };
 
-    reevaluateBudgetAlerts();
+      state.expenses.unshift(expense);
+      state.categoryTotals[category] = (Number(state.categoryTotals[category]) || 0) + expense.value;
+      state.gastosMes += expense.value;
+      state.saldo -= expense.value;
+      state.lancamentosCount += 1;
+      state.novosNestaSessao += 1;
 
-    saveState();
-    renderAll();
-    closeModal();
-    showToast('Despesa "' + desc + '" adicionada com sucesso!');
+      reevaluateBudgetAlerts();
+
+      saveState();
+      renderAll();
+
+      if (isExtra) {
+        recordPayment({
+          cpf: user.cpf,
+          type: 'despesa_extra',
+          amount: plan.overage_price,
+          txid: txid,
+          verifiedByAI: !!(analysis && analysis.amountMatches && analysis.merchantMatches),
+          aiClassification: analysis ? analysis.classification : null
+        });
+        showToast(
+          'Pagamento confirmado! Despesa extra "' + desc + '" registrada (R$ ' + formatMoney(plan.overage_price) + ').'
+        );
+      } else {
+        showToast('Despesa "' + desc + '" adicionada com sucesso!');
+      }
+    }
+
+    if (isExtra) {
+      // Limite diário do plano Free atingido: a despesa só é salva depois
+      // que o comprovante do Pix de R$ 5,00 for enviado e a IA (OCR local)
+      // validar o pagamento — ver setupPixModal()/handleReceiptUpload().
+      closeModal();
+      openPixPayment({
+        amount: plan.overage_price,
+        description: 'Despesa extra — limite diário do plano Free',
+        txidPrefix: 'DESP',
+        expectedType: 'despesa',
+        onConfirm: finalizeExpense
+      });
+    } else {
+      finalizeExpense(null, null);
+      closeModal();
+    }
   }
 
   function setupModal() {
@@ -668,6 +769,7 @@
 
   function openBudgetModal() {
     if (!budgetModal) return;
+    if (!requireLogin()) return;
     hideBudgetFormError();
     var valueInput = document.getElementById('budget-value');
     if (valueInput) {
@@ -703,6 +805,13 @@
   function handleBudgetSubmit(e) {
     e.preventDefault();
     hideBudgetFormError();
+
+    if (!loadSession()) {
+      showBudgetFormError('Faça login para editar o orçamento.');
+      closeBudgetModal();
+      openAuthModal('login');
+      return;
+    }
 
     var rawValue = document.getElementById('budget-value').value;
     var value = parseFloat(String(rawValue).replace(',', '.'));
@@ -898,6 +1007,403 @@
     }
   }
 
+  // Exige login para usar uma funcionalidade do sistema. Se não houver
+  // sessão ativa, avisa e abre o modal de login/cadastro.
+  function requireLogin() {
+    var user = loadSession();
+    if (!user) {
+      showToast('Faça login para usar essa funcionalidade.');
+      openAuthModal('login');
+      return null;
+    }
+    return user;
+  }
+
+  function renderPlanInfo() {
+    var el = document.getElementById('plan-quota-info');
+    if (!el) return;
+    var user = loadSession();
+    if (!user) {
+      el.classList.add('hidden');
+      return;
+    }
+    var plan = PLANS[user.plan || 'free'] || PLANS.free;
+    el.classList.remove('hidden');
+    if (!isFinite(plan.max_expenses_day)) {
+      el.textContent = 'Plano Premium · despesas ilimitadas';
+      return;
+    }
+    var todayStr = todayISO();
+    var usedToday = state.expenses.filter(function (item) {
+      return item.ownerCpf === user.cpf && (item.createdAt || '').slice(0, 10) === todayStr;
+    }).length;
+    var remaining = Math.max(0, plan.max_expenses_day - usedToday);
+    el.textContent =
+      'Plano Free · ' + usedToday + '/' + plan.max_expenses_day + ' despesas hoje' +
+      (remaining > 0
+        ? ' (restam ' + remaining + ')'
+        : ' — extras a R$ ' + formatMoney(plan.overage_price) + '/unidade');
+  }
+
+  function renderPlanCards() {
+    var container = document.getElementById('plan-cards');
+    if (!container) return;
+    var user = loadSession();
+    var currentPlan = user ? user.plan || 'free' : null;
+
+    container.innerHTML = Object.keys(PLANS)
+      .map(function (key) {
+        var p = PLANS[key];
+        var isCurrent = key === currentPlan;
+        var expensesLabel = isFinite(p.max_expenses_day)
+          ? p.max_expenses_day + ' despesas/dia (extra: R$ ' + formatMoney(p.overage_price) + '/unidade)'
+          : 'Despesas ilimitadas';
+
+        return (
+          '<div class="bg-gray-900 border ' +
+          (isCurrent ? 'border-emerald-500' : 'border-gray-800') +
+          ' rounded-2xl p-6 text-center">' +
+          '<h3 class="text-base font-semibold text-white mb-1">' + escapeHtml(p.label) + '</h3>' +
+          '<p class="text-2xl font-bold text-white mb-3">R$ ' + formatMoney(p.price_month) +
+          '<span class="text-sm font-normal text-gray-500">/mês</span></p>' +
+          '<p class="text-sm text-gray-400 mb-1">Acesso completo ao sistema</p>' +
+          '<p class="text-sm text-gray-400 mb-4">' + expensesLabel + '</p>' +
+          (isCurrent
+            ? '<p class="text-xs text-emerald-400 font-semibold">Plano atual</p>'
+            : '<button type="button" class="select-plan-btn inline-flex items-center gap-2 ' +
+              'bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold text-sm ' +
+              'px-4 py-2.5 rounded-xl transition" data-plan="' + key + '">Selecionar</button>') +
+          '</div>'
+        );
+      })
+      .join('');
+
+    container.querySelectorAll('.select-plan-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        selectPlan(btn.getAttribute('data-plan'));
+      });
+    });
+  }
+
+  function applyPlanChange(cpf, planKey) {
+    var users = loadUsers();
+    for (var i = 0; i < users.length; i++) {
+      if (users[i].cpf === cpf) {
+        users[i].plan = planKey;
+        break;
+      }
+    }
+    saveUsers(users);
+    renderPlanCards();
+    renderPlanInfo();
+  }
+
+  function selectPlan(planKey) {
+    var user = requireLogin();
+    if (!user || !PLANS[planKey]) return;
+
+    // Downgrade para Free não envolve cobrança.
+    if (planKey === 'free') {
+      applyPlanChange(user.cpf, planKey);
+      showToast('Plano alterado para Free.');
+      return;
+    }
+
+    var plan = PLANS[planKey];
+    openPixPayment({
+      amount: plan.price_month,
+      description: 'Assinatura ' + plan.label + ' — Fintech Inteligente',
+      txidPrefix: 'PLANO',
+      expectedType: planKey === 'premium' ? 'plano_premium' : 'plano_free',
+      onConfirm: function (txid, analysis) {
+        applyPlanChange(user.cpf, planKey);
+        recordPayment({
+          cpf: user.cpf,
+          type: 'plano',
+          plan: planKey,
+          amount: plan.price_month,
+          txid: txid,
+          verifiedByAI: !!(analysis && analysis.amountMatches && analysis.merchantMatches),
+          aiClassification: analysis ? analysis.classification : null
+        });
+        showToast('Pagamento confirmado! Plano atualizado para ' + plan.label + '.');
+      }
+    });
+  }
+
+  /* -----------------------------------------------------------
+     6c. PAGAMENTO VIA PIX (QR real + copia-e-cola, confirmação manual)
+     ----------------------------------------------------------- */
+
+  function loadPayments() {
+    try {
+      var raw = window.localStorage.getItem(PAYMENTS_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function savePayments(list) {
+    try {
+      window.localStorage.setItem(PAYMENTS_KEY, JSON.stringify(list));
+    } catch (err) {
+      /* localStorage indisponível — segue sem persistir */
+    }
+  }
+
+  function recordPayment(opts) {
+    var payments = loadPayments();
+    payments.unshift({
+      id: 'pay-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      cpf: opts.cpf,
+      type: opts.type, // 'plano' | 'despesa_extra'
+      plan: opts.plan || null,
+      amount: opts.amount,
+      txid: opts.txid,
+      verifiedByAI: !!opts.verifiedByAI, // comprovante lido e validado pela IA (OCR local)
+      aiClassification: opts.aiClassification || null,
+      date: new Date().toISOString()
+    });
+    savePayments(payments);
+  }
+
+  function renderPaymentsHistory() {
+    var container = document.getElementById('payments-history');
+    if (!container) return;
+    var user = loadSession();
+    if (!user) {
+      container.innerHTML = '';
+      return;
+    }
+    var payments = loadPayments().filter(function (p) {
+      return p.cpf === user.cpf;
+    });
+    if (payments.length === 0) {
+      container.innerHTML = '<p class="text-sm text-gray-500">Nenhum pagamento registrado ainda.</p>';
+      return;
+    }
+    container.innerHTML = payments
+      .map(function (p) {
+        var label =
+          p.type === 'plano'
+            ? 'Assinatura ' + (PLANS[p.plan] ? PLANS[p.plan].label : p.plan)
+            : 'Despesa extra (limite diário)';
+        var dt = new Date(p.date);
+        var dtLabel = formatDateBR(dt.toISOString().slice(0, 10)) + ' ' + dt.toTimeString().slice(0, 5);
+        var badge = p.verifiedByAI
+          ? '<span class="text-emerald-400">✓ comprovante validado por IA' +
+            (ReceiptAI && ReceiptAI.TYPE_LABELS[p.aiClassification]
+              ? ' · ' + escapeHtml(ReceiptAI.TYPE_LABELS[p.aiClassification])
+              : '') +
+            '</span>'
+          : '<span class="text-amber-400">⚠ confirmação manual (não validado por IA)</span>';
+        return (
+          '<div class="flex items-center justify-between py-2.5 border-b border-gray-800 last:border-0">' +
+          '<div><p class="text-sm text-white">' + escapeHtml(label) + '</p>' +
+          '<p class="text-xs text-gray-500">' + dtLabel + ' · txid ' + escapeHtml(p.txid || '-') + '</p>' +
+          '<p class="text-xs mt-0.5">' + badge + '</p></div>' +
+          '<span class="text-sm font-semibold text-emerald-400">R$ ' + formatMoney(p.amount) + '</span>' +
+          '</div>'
+        );
+      })
+      .join('');
+  }
+
+  var pixModal = null;
+  var pixConfirmCallback = null;
+  var pixCurrentTxid = null;
+  var pixCurrentAmount = 0;
+  var pixExpectedType = null;
+  var pixReceiptAnalysis = null;
+  var pixReceiptInput = null;
+  var pixReceiptStatus = null;
+  var pixConfirmBtn = null;
+
+  function setupPixModal() {
+    pixModal = document.getElementById('pix-modal');
+    if (!pixModal) return;
+
+    var closeBtn = document.getElementById('pix-modal-close');
+    var cancelBtn = document.getElementById('pix-modal-cancel');
+    var backdrop = document.getElementById('pix-modal-backdrop');
+    var copyBtn = document.getElementById('pix-modal-copy');
+
+    pixReceiptInput = document.getElementById('pix-receipt-input');
+    pixReceiptStatus = document.getElementById('pix-receipt-status');
+    pixConfirmBtn = document.getElementById('pix-modal-confirm');
+
+    if (closeBtn) closeBtn.addEventListener('click', closePixModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closePixModal);
+    if (backdrop) backdrop.addEventListener('click', closePixModal);
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function () {
+        var code = document.getElementById('pix-modal-code').textContent.trim();
+        copyTextToClipboard(code, copyBtn);
+      });
+    }
+
+    if (pixReceiptInput) {
+      pixReceiptInput.addEventListener('change', function () {
+        handleReceiptUpload(pixReceiptInput.files && pixReceiptInput.files[0]);
+      });
+    }
+
+    if (pixConfirmBtn) {
+      pixConfirmBtn.addEventListener('click', function () {
+        if (pixConfirmBtn.disabled) return;
+        var cb = pixConfirmCallback;
+        var txid = pixCurrentTxid;
+        var analysis = pixReceiptAnalysis;
+        closePixModal();
+        if (cb) cb(txid, analysis);
+      });
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && pixModal && !pixModal.classList.contains('hidden')) closePixModal();
+    });
+  }
+
+  function setPixConfirmState(enabled, label, tone) {
+    if (!pixConfirmBtn) return;
+    pixConfirmBtn.disabled = !enabled;
+    pixConfirmBtn.textContent = label;
+    pixConfirmBtn.classList.remove(
+      'bg-emerald-500', 'hover:bg-emerald-400',
+      'bg-amber-500', 'hover:bg-amber-400',
+      'bg-emerald-500/40', 'cursor-not-allowed'
+    );
+    if (!enabled) {
+      pixConfirmBtn.classList.add('bg-emerald-500/40', 'cursor-not-allowed');
+    } else if (tone === 'warn') {
+      pixConfirmBtn.classList.add('bg-amber-500', 'hover:bg-amber-400');
+    } else {
+      pixConfirmBtn.classList.add('bg-emerald-500', 'hover:bg-emerald-400');
+    }
+  }
+
+  // Lê o comprovante enviado com a IA (OCR local, via ReceiptAI) e confere
+  // se o valor/recebedor batem com o pagamento pendente. Habilita o botão
+  // de confirmação com um rótulo diferente conforme o resultado — o envio
+  // manual continua possível quando a IA não consegue validar sozinha.
+  function handleReceiptUpload(file) {
+    pixReceiptAnalysis = null;
+    setPixConfirmState(false, 'Envie o comprovante');
+    if (!pixReceiptStatus) return;
+
+    if (!file) {
+      pixReceiptStatus.textContent = '';
+      return;
+    }
+
+    pixReceiptStatus.textContent = 'Lendo comprovante com IA (OCR local no navegador)...';
+    pixReceiptStatus.className = 'text-xs text-gray-400 mt-2 text-left';
+
+    if (!window.ReceiptAI) {
+      pixReceiptStatus.textContent = 'IA de leitura indisponível neste navegador. Você pode confirmar manualmente.';
+      pixReceiptStatus.className = 'text-xs text-amber-400 mt-2 text-left';
+      setPixConfirmState(true, 'Confirmar manualmente', 'warn');
+      return;
+    }
+
+    ReceiptAI.analyze(file, { expectedAmount: pixCurrentAmount, expectedType: pixExpectedType })
+      .then(function (result) {
+        pixReceiptAnalysis = result;
+        renderReceiptResult(result);
+      })
+      .catch(function () {
+        pixReceiptStatus.textContent =
+          'Não foi possível ler o comprovante automaticamente. Confira os dados e confirme manualmente.';
+        pixReceiptStatus.className = 'text-xs text-amber-400 mt-2 text-left';
+        setPixConfirmState(true, 'Confirmar manualmente', 'warn');
+      });
+  }
+
+  function renderReceiptResult(result) {
+    if (!pixReceiptStatus) return;
+    var typeLabel = (window.ReceiptAI && ReceiptAI.TYPE_LABELS[result.classification]) || 'Outros';
+
+    if (result.amountMatches && result.merchantMatches) {
+      pixReceiptStatus.textContent =
+        '✅ Comprovante validado pela IA — R$ ' + formatMoney(result.detectedAmount) + ' · ' + typeLabel + '.';
+      pixReceiptStatus.className = 'text-xs text-emerald-400 mt-2 text-left';
+      setPixConfirmState(true, 'Confirmar pagamento');
+    } else {
+      var reasons = [];
+      if (!result.merchantMatches) reasons.push('não encontramos o recebedor (SPACECWORP) no comprovante');
+      if (!result.amountMatches) reasons.push('o valor não bate com R$ ' + formatMoney(pixCurrentAmount));
+      pixReceiptStatus.textContent =
+        '⚠️ Não deu para validar automaticamente (' + reasons.join(' e ') + '). Confira o comprovante ou envie ' +
+        'mesmo assim para revisão manual.';
+      pixReceiptStatus.className = 'text-xs text-amber-400 mt-2 text-left';
+      setPixConfirmState(true, 'Enviar mesmo assim', 'warn');
+    }
+  }
+
+  // opts: { amount, description, txidPrefix, expectedType, onConfirm(txid, analysis) }
+  function openPixPayment(opts) {
+    if (!pixModal) return;
+    opts = opts || {};
+
+    var txid = Pix.generateTxid(opts.txidPrefix || 'FIN');
+    var payload;
+    try {
+      payload = Pix.buildPayload({
+        key: PIX_MERCHANT.key,
+        name: PIX_MERCHANT.name,
+        city: PIX_MERCHANT.city,
+        amount: opts.amount,
+        description: opts.description,
+        txid: txid
+      });
+    } catch (err) {
+      showToast('Não foi possível gerar o código Pix.');
+      return;
+    }
+
+    document.getElementById('pix-modal-desc').textContent = opts.description || '';
+    document.getElementById('pix-modal-amount').textContent = 'R$ ' + formatMoney(opts.amount || 0);
+    document.getElementById('pix-modal-code').textContent = payload;
+
+    var qrEl = document.getElementById('pix-qrcode');
+    if (qrEl) {
+      qrEl.innerHTML = '';
+      if (window.QRCode) {
+        new QRCode(qrEl, { text: payload, width: 176, height: 176, correctLevel: QRCode.CorrectLevel.M });
+      } else {
+        qrEl.textContent = 'QR indisponível — use o código copia e cola abaixo.';
+      }
+    }
+
+    pixCurrentTxid = txid;
+    pixCurrentAmount = opts.amount || 0;
+    pixExpectedType = opts.expectedType || null;
+    pixReceiptAnalysis = null;
+    pixConfirmCallback = typeof opts.onConfirm === 'function' ? opts.onConfirm : null;
+
+    if (pixReceiptInput) pixReceiptInput.value = '';
+    if (pixReceiptStatus) {
+      pixReceiptStatus.textContent = '';
+      pixReceiptStatus.className = 'text-xs text-gray-500 mt-2 min-h-[1rem] text-left';
+    }
+    setPixConfirmState(false, 'Envie o comprovante');
+
+    pixModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closePixModal() {
+    if (!pixModal) return;
+    pixModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    pixConfirmCallback = null;
+    pixCurrentTxid = null;
+    pixReceiptAnalysis = null;
+  }
+
   function updateGreeting() {
     var subtitleEl = document.getElementById('page-subtitle');
     if (!subtitleEl || state.view !== 'dashboard') return;
@@ -914,6 +1420,9 @@
 
     if (topbarBtn) topbarBtn.classList.toggle('hidden', !!user);
     updateGreeting();
+    renderPlanInfo();
+    // login/logout pode destravar ou travar a view atual (ex.: Dashboard)
+    applyView(state.view, { skipScroll: true });
 
     if (user) {
       var initial = escapeHtml(user.name.trim().charAt(0).toUpperCase() || '?');
@@ -1051,7 +1560,7 @@
         return;
       }
       var users = loadUsers();
-      users.push({ name: nome, cpf: cpfDigits, createdAt: new Date().toISOString() });
+      users.push({ name: nome, cpf: cpfDigits, plan: 'free', createdAt: new Date().toISOString() });
       saveUsers(users);
       saveSession(cpfDigits);
       renderAccount();
@@ -1100,6 +1609,9 @@
 
     var topbarBtn = document.getElementById('btn-open-auth-topbar');
     if (topbarBtn) topbarBtn.addEventListener('click', function () { openAuthModal('login'); });
+
+    var lockedBtn = document.getElementById('btn-open-auth-locked');
+    if (lockedBtn) lockedBtn.addEventListener('click', function () { openAuthModal('login'); });
 
     var mobileAvatar = document.getElementById('mobile-account-avatar');
     if (mobileAvatar) {
@@ -1200,6 +1712,7 @@
     setupMenu();
     setupModal();
     setupBudgetModal();
+    setupPixModal();
     setupAlertDelegation();
     setupAuth();
     setupPixCopyButtons();

@@ -29,15 +29,18 @@ Cada empresa que se cadastra vira um "tenant" isolado dentro do mesmo `localStor
 
 **Importante:** como não existe mais servidor, esse isolamento é apenas lógico/organizacional — não é uma fronteira de segurança real. Qualquer pessoa com acesso ao navegador (DevTools) pode ler ou editar o `localStorage` diretamente. Isso é adequado para demo, protótipo ou uso pessoal/local, mas não deve ser usado como um SaaS multi-empresa real na internet sem um backend de verdade.
 
-### Planos (SaaS billing)
+### Planos
 
-| Plano | Preço/mês | Usuários | Despesas/mês |
-|---|---|---|---|
-| Free | R$ 0 | 3 | 50 |
-| Pro | R$ 49,90 | 20 | 2000 |
-| Enterprise | R$ 199,90 | 10.000 | 1.000.000 |
+O sistema só pode ser usado com login (a tela `dashboard.html` redireciona para `index.html` se não houver sessão ativa). Depois de logado, todo usuário tem acesso completo ao sistema — a única diferença entre os planos é o limite diário de despesas:
 
-Limites são checados em `js/api.js` antes de criar usuário ou despesa (lança erro quando o limite é atingido). Troca de plano é feita pelo admin em "Plano" no painel (simulação — não há gateway de pagamento).
+| Plano | Preço | Despesas/dia |
+|---|---|---|
+| Free | R$ 0,00 | 6 (cada despesa extra além do limite: cobrança real de R$ 5,00/unidade via Pix) |
+| Premium | R$ 19,99/mês | Ilimitadas |
+
+O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atingir 6 despesas no dia, a despesa não é salva imediatamente — abre-se um QR Code Pix real (mesma chave usada no site, CNPJ 62.904.267/0001-60) de R$ 5,00; a despesa só é registrada depois que o usuário clica em "Já paguei". Trocar para o plano Premium funciona do mesmo jeito, com um QR Code Pix de R$ 19,99/mês.
+
+**Importante sobre o Pix:** o QR Code e o código "copia e cola" são gerados no formato oficial do Banco Central (BR Code, com CRC16) e apontam para uma chave Pix real — ou seja, quem pagar transfere dinheiro de verdade. O que **não existe** é confirmação automática do recebimento: como o site é 100% estático (sem backend), não há integração com nenhum provedor de pagamentos (PSP) para verificar via webhook se o Pix caiu na conta. A confirmação em "Já paguei" é uma declaração do próprio usuário, não uma verificação bancária. Para confirmação automática de verdade seria necessário contratar um provedor (Mercado Pago, Efí, Asaas, PagSeguro etc.) e rodar um backend que recebesse os webhooks — fora do escopo deste projeto estático.
 
 ### "Autenticação"
 

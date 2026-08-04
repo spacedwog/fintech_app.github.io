@@ -57,6 +57,7 @@
 
         <div class="grid-2">
           <div class="card">
+            <p id="expense-quota-info" class="small-muted" style="margin-top:0;"></p>
             <div id="expense-error" class="error-box hidden"></div>
             <div id="expense-success" class="success-box hidden"></div>
             <form id="expense-form">
@@ -165,16 +166,70 @@
       <!-- Plano -->
       <section class="view hidden" id="view-plan">
         <div class="top-bar"><h1>Plano da empresa</h1></div>
-        <div class="grid-2" id="plans-container" style="grid-template-columns: repeat(3, 1fr);"></div>
+        <div class="grid-2" id="plans-container" style="grid-template-columns: repeat(2, 1fr);"></div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">Histórico de pagamentos</h3>
+          <div id="payments-history"></div>
+        </div>
       </section>
 
     </main>
   </div>
 
+  <!-- ============================================================
+       MODAL — PAGAMENTO VIA PIX (real: QR/copia-e-cola válidos,
+       confirmação manual — sem integração bancária automática)
+  ============================================================ -->
+  <div id="pix-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;font-size:18px;">Pagamento via Pix</h2>
+        <button type="button" id="pix-modal-close"
+                style="background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted);">&times;</button>
+      </div>
+
+      <p id="pix-modal-desc" class="small-muted" style="margin:0 0 2px;"></p>
+      <p id="pix-modal-amount" style="font-size:26px;font-weight:700;margin:6px 0 16px;"></p>
+
+      <div id="pix-qrcode" class="qr-wrap"></div>
+
+      <p class="small-muted" style="text-align:left;margin-bottom:4px;">Pix Copia e Cola</p>
+      <div id="pix-modal-code" class="pix-code-box"></div>
+      <button type="button" id="pix-modal-copy" class="secondary" style="width:100%;margin-bottom:14px;">Copiar código</button>
+
+      <p class="small-muted" style="text-align:left;margin-bottom:18px;">
+        Chave Pix real (CNPJ 62.904.267/0001-60 · SPACECWORP · Osasco/SP). Escaneie o QR ou cole o código no
+        app do seu banco para pagar de verdade. Depois de pagar, envie o comprovante abaixo: uma IA (leitura
+        OCR local, no seu navegador) confere o valor e o recebedor automaticamente — não há integração
+        bancária para confirmar o recebimento de outra forma.
+      </p>
+
+      <div style="text-align:left;margin-bottom:16px;">
+        <label for="pix-receipt-input" class="small-muted" style="display:block;margin-bottom:6px;">
+          Comprovante da transferência
+        </label>
+        <input type="file" id="pix-receipt-input" accept="image/*" capture="environment" style="width:100%;" />
+        <p id="pix-receipt-status" class="small-muted" style="margin:8px 0 0;min-height:1rem;"></p>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button type="button" id="pix-modal-cancel" class="secondary" style="flex:1;">Cancelar</button>
+        <button type="button" id="pix-modal-confirm" class="primary" style="flex:1;margin-top:0;" disabled>
+          Envie o comprovante
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- /MODAL PIX -->
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/plans.js"></script>
   <script src="js/db.js"></script>
   <script src="js/crypto-utils.js"></script>
+  <script src="js/pix.js"></script>
+  <script src="../js/receipt-ai.js"></script>
   <script src="js/api.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
