@@ -2,7 +2,7 @@
 
 Versão SaaS multi-tenant do controle de despesas, **100% em HTML, CSS e JavaScript**, sem servidor e sem Python. Roda inteiramente no navegador.
 
-> O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica que antes vivia no servidor (autenticação, multi-tenancy, planos, despesas, relatórios) agora roda em JavaScript no cliente, e os dados ficam salvos num "banco" XML (serializado dentro do `localStorage` do navegador, já que o app é 100% estático), com uma cópia em JSON no próprio `localStorage` como fallback automático.
+> O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica que antes vivia no servidor (autenticação, multi-tenancy, planos, despesas, relatórios) agora roda em JavaScript no cliente. O banco de dados é o arquivo `db.json` na raiz do repositório, usado para inicializar a primeira visita de cada navegador; a partir daí, os dados ficam salvos no `localStorage`, que funciona como fallback/persistência real (já que o site é estático e não tem como escrever de volta no `db.json`).
 
 ## Arquitetura
 
@@ -13,25 +13,18 @@ repositório (é o que o GitHub Pages serve via `CNAME`):
 ```
 index.html            -> login / criação de conta (empresa)
 dashboard.html         -> painel principal (SPA simples)
-css/styles.css
-database/
-  db.xml                -> banco "de fábrica" (schema vazio), usado só para
+db.json                 -> banco "de fábrica" (schema vazio), usado só para
                             inicializar a 1ª visita de cada navegador
-  db.json                -> mesma coisa, em JSON (fallback do fallback)
+css/styles.css
 js/
   plans.js             -> planos (free / pro / enterprise) e limites
-  file-store.js          -> conexão com um arquivo .xml local de verdade
-                            (File System Access API), com auto-reconexão
-  db.js                 -> "banco de dados": arquivo local conectado (se
-                            houver) > XML em localStorage > JSON em
-                            localStorage (fallback) > banco de fábrica em
-                            database/ (1ª visita) > schema vazio
+  db.js                 -> "banco de dados": localStorage (fallback/persistência
+                            real) > db.json (1ª visita) > schema vazio
   crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
   api.js                 -> toda a lógica de negócio (antes no FastAPI), mesma
                             interface de antes (Auth/Api), agora sem rede
   auth-page.js           -> lógica de login/signup
-  dashboard.js           -> lógica do painel (despesas, relatórios, alertas,
-                            equipe, plano, banco de dados)
+  dashboard.js           -> lógica do painel (despesas, relatórios, alertas, equipe, plano)
   pix.js                  -> geração de QR Code / Pix Copia e Cola (BR Code real)
   receipt-ai.js           -> "IA" (OCR local, Tesseract.js) que lê o comprovante do
                               Pix e confere valor/recebedor automaticamente
@@ -42,20 +35,14 @@ com dados mocados) ficaram obsoletos com essa fusão e podem ser removidos.
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o projeto é só front-end estático.
 
-### Persistência (arquivo local > banco XML > fallback em localStorage > banco de fábrica)
+### Persistência (db.json + fallback em localStorage)
 
-O "banco de dados" (`js/db.js`) grava tudo (empresas, usuários, categorias, despesas, orçamentos) como um documento **XML**. Existem duas camadas, em ordem de prioridade:
+O banco de dados é o arquivo **`db.json`**, versionado na raiz do repositório junto com o código (hoje, um schema vazio — sem empresas/usuários). Duas regras simples, em `js/db.js`:
 
-1. **Arquivo local conectado** (`js/file-store.js`, tela "Banco de Dados" no painel): usando a *File System Access API* (Chrome/Edge), o usuário conecta um arquivo `.xml` real no próprio computador — a partir daí, toda leitura e gravação passam a acontecer **nesse arquivo automaticamente**, a cada operação. É a forma real de migrar os dados do `localStorage` para um arquivo de verdade e manter a leitura/gravação nele.
-2. **`localStorage`** (XML na chave `fintech_saas_db_xml_v1`, serializado via `XMLSerializer`/`DOMParser`): usado quando não há arquivo local conectado (padrão), e sempre mantido como **cópia de segurança** mesmo quando há um arquivo conectado — se o arquivo falhar ao ler/gravar por qualquer motivo, nada se perde.
+- **Leitura:** se já existe alguma coisa salva no `localStorage` deste navegador (chave `fintech_saas_db_v1`), é isso que é usado — essa é a persistência real do app no dia a dia. Só na **primeira visita** (localStorage vazio) o app busca `db.json` via `fetch()` para inicializar os dados.
+- **Gravação:** toda gravação (nova despesa, novo usuário, troca de plano etc.) acontece no `localStorage`. Como o site é 100% estático (GitHub Pages, sem backend), o navegador não tem como escrever de volta no `db.json` remoto — ele não muda sozinho com o uso do app. Se quiser alterar o que um navegador novo recebe de início, edite `db.json` manualmente e publique a alteração.
 
-Se o navegador não suportar a File System Access API (Firefox, Safari), a opção de conectar arquivo simplesmente não aparece, e o app funciona só com `localStorage`, normalmente.
-
-A cada gravação, uma cópia equivalente em **JSON** também é salva (chave `fintech_saas_db_v1`, o formato usado antes desta versão). Essa cópia funciona como **fallback**: se o navegador não suportar `DOMParser`/`XMLSerializer`, ou se o XML salvo estiver corrompido, o app detecta isso automaticamente e volta a ler/escrever em JSON, sem perder dados nem exigir nenhuma ação do usuário. Contas e dados já existentes no formato antigo (JSON) também são migrados para XML automaticamente no primeiro carregamento.
-
-**Arquivos `database/db.xml` e `database/db.json`:** são o banco "de fábrica", versionado junto com o código (hoje, um schema vazio — sem empresas/usuários). Eles só entram em ação na **primeira visita** de um navegador, quando ainda não existe nada salvo no `localStorage` nem arquivo local conectado: `js/db.js` busca `database/db.xml` (e, se falhar, `database/db.json`) via `fetch()` para inicializar o app, e a partir daí passa a ler/escrever normalmente no `localStorage`. Como o site é 100% estático (sem backend), o navegador **não tem como gravar de volta** nesses arquivos — eles não mudam sozinhos com o uso do app; se quiser alterar o que um navegador novo recebe de início, edite `database/db.xml`/`database/db.json` manualmente e publique a alteração. Se `fetch()` falhar (por exemplo, abrindo `index.html` direto via `file://`, onde o navegador bloqueia esse tipo de leitura), o app cai para um schema vazio, como sempre fez — use a "Opção 2" abaixo (servidor estático local) para garantir que o banco de fábrica carregue.
-
-**Como conectar um arquivo local de verdade:** no painel, abra "Banco de Dados" (menu lateral, só para admin) e clique em "Criar/escolher arquivo novo" — isso migra os dados que já estavam no `localStorage` para o arquivo escolhido e passa a gravar nele a cada mudança. Em outro computador/navegador, use "Abrir arquivo .xml existente" para conectar o mesmo arquivo (ex.: sincronizado via Dropbox/OneDrive) e continuar de onde parou. "Reconectar arquivo autorizado" repete a permissão quando o navegador pede confirmação de novo na sessão; "Desconectar" volta a usar só `localStorage` (os dados continuam lá, como cópia de segurança).
+Se `fetch()` falhar (por exemplo, abrindo `index.html` direto via `file://`, onde o navegador bloqueia esse tipo de leitura), o app cai para um schema vazio, como sempre fez — use a "Opção 2" abaixo (servidor estático local) para garantir que `db.json` carregue.
 
 ### Multi-tenancy
 

@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   setupPixModal();
-  setupStorageView();
   renderShell();
   bindNav();
   showView("expenses");
@@ -69,7 +68,6 @@ function showView(viewName) {
   if (viewName === "alerts") loadAlertsView();
   if (viewName === "team") loadTeamView();
   if (viewName === "plan") loadPlanView();
-  if (viewName === "storage") loadStorageView();
 }
 
 // ---------- Registrar Despesa ----------
@@ -599,152 +597,4 @@ function closePixModal() {
   pixConfirmCallback = null;
   pixCurrentTxid = null;
   pixReceiptAnalysis = null;
-}
-
-// ---------- Banco de Dados (arquivo local via File System Access API) ----------
-//
-// Migra a leitura/gravação do localStorage para um arquivo .xml real no
-// computador do usuário. Uma vez conectado, js/db.js passa a usar esse
-// arquivo automaticamente (ver loadDb()/saveDb() em js/db.js) — aqui só
-// existe a UI para conectar/reconectar/desconectar.
-
-function setupStorageView() {
-  const btnNew = document.getElementById("storage-connect-new");
-  const btnExisting = document.getElementById("storage-connect-existing");
-  const btnReconnect = document.getElementById("storage-reconnect");
-  const btnDisconnect = document.getElementById("storage-disconnect");
-  if (!btnNew) return; // seção não existe nesta página
-
-  btnNew.addEventListener("click", async () => {
-    hideStorageMessages();
-    try {
-      const db = await loadDb();
-      const xmlText = dbToXmlString(db);
-      await FileStore.connectNew(xmlText);
-      showStorageSuccess(`Arquivo "${FileStore.fileName()}" criado e os dados do localStorage foram migrados para ele.`);
-    } catch (e) {
-      if (e && e.name === "AbortError") { await loadStorageView(); return; } // usuário cancelou o seletor
-      showStorageError("Não foi possível criar/conectar o arquivo: " + e.message);
-    }
-    await loadStorageView();
-  });
-
-  btnExisting.addEventListener("click", async () => {
-    hideStorageMessages();
-    try {
-      await FileStore.connectExisting();
-    } catch (e) {
-      if (e && e.name !== "AbortError") {
-        showStorageError("Não foi possível abrir o arquivo: " + e.message);
-      }
-      await loadStorageView();
-      return;
-    }
-
-    // O conteúdo do arquivo aberto passa a valer como banco de dados — a
-    // sessão atual só continua válida se esse arquivo tiver os mesmos
-    // tenant/usuário. Se não tiver, desconecta a sessão com segurança.
-    try {
-      const me = await Api.me();
-      CURRENT_USER = me.user;
-      CURRENT_TENANT = me.tenant;
-      renderShell();
-      showStorageSuccess(`Arquivo "${FileStore.fileName()}" conectado. Os dados desse arquivo passaram a valer.`);
-      await loadStorageView();
-    } catch (e2) {
-      showStorageSuccess(`Arquivo "${FileStore.fileName()}" conectado, mas sua sessão não existe nesses dados. Faça login novamente...`);
-      setTimeout(() => {
-        Auth.clearToken();
-        window.location.href = "index.html";
-      }, 2500);
-    }
-  });
-
-  btnReconnect.addEventListener("click", async () => {
-    hideStorageMessages();
-    const ok = await FileStore.requestPermission();
-    if (ok) {
-      showStorageSuccess(`Reconectado ao arquivo "${FileStore.fileName()}".`);
-    } else {
-      showStorageError("Permissão não concedida. Tente de novo ou conecte outro arquivo.");
-    }
-    await loadStorageView();
-  });
-
-  btnDisconnect.addEventListener("click", async () => {
-    hideStorageMessages();
-    await FileStore.disconnect();
-    showStorageSuccess("Arquivo desconectado. Voltando a usar apenas o localStorage.");
-    await loadStorageView();
-  });
-}
-
-function hideStorageMessages() {
-  const err = document.getElementById("storage-error");
-  const ok = document.getElementById("storage-success");
-  if (err) err.classList.add("hidden");
-  if (ok) ok.classList.add("hidden");
-}
-
-function showStorageError(msg) {
-  const err = document.getElementById("storage-error");
-  if (!err) return;
-  err.textContent = msg;
-  err.classList.remove("hidden");
-}
-
-function showStorageSuccess(msg) {
-  const ok = document.getElementById("storage-success");
-  if (!ok) return;
-  ok.textContent = msg;
-  ok.classList.remove("hidden");
-}
-
-async function loadStorageView() {
-  const status = document.getElementById("storage-status");
-  const btnNew = document.getElementById("storage-connect-new");
-  const btnExisting = document.getElementById("storage-connect-existing");
-  const btnReconnect = document.getElementById("storage-reconnect");
-  const btnDisconnect = document.getElementById("storage-disconnect");
-  if (!status) return;
-
-  if (typeof FileStore === "undefined" || !FileStore.isSupported()) {
-    status.className = "alert-warn";
-    status.textContent =
-      "Seu navegador não suporta conectar um arquivo local (disponível em Chrome/Edge). Os dados continuam salvos no localStorage.";
-    btnNew.classList.add("hidden");
-    btnExisting.classList.add("hidden");
-    btnReconnect.classList.add("hidden");
-    btnDisconnect.classList.add("hidden");
-    return;
-  }
-
-  if (FileStore.isConnected()) {
-    status.className = "alert-ok";
-    status.textContent = `✅ Conectado ao arquivo "${FileStore.fileName()}". Leitura e gravação acontecem nele automaticamente (o localStorage é mantido como cópia de segurança).`;
-    btnNew.classList.remove("hidden");
-    btnExisting.classList.remove("hidden");
-    btnReconnect.classList.add("hidden");
-    btnDisconnect.classList.remove("hidden");
-    return;
-  }
-
-  const hasStored = await FileStore.hasStoredHandle();
-  if (hasStored) {
-    const name = await FileStore.storedFileName();
-    status.className = "alert-warn";
-    status.textContent = `⚠️ Existe um arquivo autorizado antes ("${name}"), mas o navegador pede confirmação de novo nesta sessão. Clique em "Reconectar arquivo autorizado".`;
-    btnNew.classList.remove("hidden");
-    btnExisting.classList.remove("hidden");
-    btnReconnect.classList.remove("hidden");
-    btnDisconnect.classList.add("hidden");
-    return;
-  }
-
-  status.className = "alert-ok";
-  status.textContent = "Nenhum arquivo conectado — os dados estão salvos no localStorage deste navegador.";
-  btnNew.classList.remove("hidden");
-  btnExisting.classList.remove("hidden");
-  btnReconnect.classList.add("hidden");
-  btnDisconnect.classList.add("hidden");
 }
