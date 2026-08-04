@@ -17,7 +17,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
 }
@@ -44,52 +44,76 @@ body {
 .auth-brand-inner { max-width: 420px; }
 
 .auth-brand-logo {
-  display: inline-block;
-  font-size: 20px;
-  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--emerald);
-  margin-bottom: 28px;
-  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 36px;
 }
 
-.auth-brand-inner h2 {
-  font-size: 30px;
-  line-height: 1.25;
-  margin: 0 0 14px;
+/* Tipografia "jumbo" no espírito do hero do template App Launch (W3.CSS) */
+.jumbo {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0;
   color: #fff;
 }
 
-.auth-brand-inner > p {
+.jumbo .accent { color: var(--emerald); }
+
+hr.fade {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  margin: 22px 0;
+}
+
+.lead {
   color: #9ca3af;
   font-size: 15px;
   line-height: 1.6;
-  margin: 0 0 24px;
+  margin: 0 0 32px;
 }
 
-.auth-brand-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* Grade de recursos, no espírito da seção "Features" do App Launch */
+.auth-features {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 32px;
 }
 
-.auth-brand-list li {
-  font-size: 14px;
+.auth-features .feature {
+  text-align: center;
   color: #d1d5db;
-  padding-left: 26px;
-  position: relative;
 }
 
-.auth-brand-list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  top: 0;
+.auth-features .feature i {
+  font-size: 22px;
   color: var(--emerald);
-  font-weight: 700;
+  margin-bottom: 6px;
+  display: block;
 }
+
+.auth-features .feature p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-trust {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.9;
+}
+
+.auth-trust i { color: var(--emerald); margin-right: 4px; }
+.auth-trust .dot { margin: 0 8px; color: #4b5563; }
 
 /* Painel do formulário (direita) */
 .auth-forms {
@@ -103,22 +127,27 @@ body {
 .auth-card {
   background: var(--card);
   padding: 36px 32px;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  border-radius: 20px;
+  box-shadow: 0 20px 45px rgba(5, 150, 105, 0.12), 0 2px 8px rgba(0,0,0,0.06);
   width: 100%;
   max-width: 400px;
 }
 
 .auth-card-logo {
   display: none;
-  font-size: 15px;
-  font-weight: 800;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: var(--emerald-dark);
   margin-bottom: 16px;
 }
 
 .auth-card h1 {
-  font-size: 24px;
+  font-size: 26px;
+  font-weight: 800;
   margin-bottom: 4px;
 }
 
@@ -132,11 +161,17 @@ body {
 @media (max-width: 860px) {
   .auth-wrapper { grid-template-columns: 1fr; }
   .auth-brand { display: none; }
-  .auth-card-logo { display: inline-block; }
+  .auth-card-logo { display: inline-flex; }
+}
+
+@media (max-width: 480px) {
+  .jumbo { font-size: 34px; }
+  .auth-features { grid-template-columns: repeat(4, 1fr); gap: 4px; }
 }
 
 .field {
   margin-bottom: 14px;
+  position: relative;
 }
 
 .field label {
@@ -150,24 +185,49 @@ body {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
+  font-family: inherit;
 }
+
+.field input:focus, .field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+}
+
+/* Inputs com ícone (Font Awesome), estilo app bancário */
+.field-icon .field-icon-glyph {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.field-icon input { padding-left: 34px; }
 
 button.primary {
   width: 100%;
-  padding: 11px;
+  padding: 13px;
   background: var(--primary);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  margin-top: 6px;
+  margin-top: 10px;
+  transition: background 0.15s ease, transform 0.05s ease;
 }
 
+button.primary i { margin-right: 6px; }
+
 button.primary:hover { background: var(--primary-dark); }
+button.primary:active { transform: scale(0.99); }
 
 button.secondary {
   background: transparent;

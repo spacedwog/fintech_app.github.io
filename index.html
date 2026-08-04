@@ -28,6 +28,11 @@
   })(window,document,'script','dataLayer','GTM-MCN6MLH5');</script>
   <!-- End Google Tag Manager -->
 
+  <!-- W3.CSS + Poppins + Font Awesome (mesma base do template "App Launch" do W3.CSS/W3Schools) -->
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:400,600,700,800" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -38,19 +43,43 @@
 
   <div class="auth-wrapper">
 
-    <!-- Painel de marca (some em telas pequenas) -->
+    <!-- Painel de marca — hero "jumbo" no estilo App Launch (W3.CSS), fundo banco digital -->
     <div class="auth-brand">
       <div class="auth-brand-inner">
-        <span class="auth-brand-logo">💰 Fintech SaaS</span>
-        <h2>Controle financeiro da sua empresa, sem complicação.</h2>
-        <p>Despesas, relatórios, orçamento e alertas em um só painel — com pagamento
-           via Pix real e leitura automática de comprovante.</p>
-        <ul class="auth-brand-list">
-          <li>Multi-empresa (tenants) com equipe e papéis</li>
-          <li>Relatórios mensais e por categoria</li>
-          <li>Alertas de orçamento em tempo real</li>
-          <li>Planos Free e Premium com Pix integrado</li>
-        </ul>
+        <span class="auth-brand-logo"><i class="fa fa-university"></i> Fintech SaaS</span>
+
+        <h1 class="jumbo">Seu banco<br /><b class="accent">de dados,</b><br />sob controle.</h1>
+        <hr class="fade" />
+        <p class="lead">Despesas, relatórios, orçamento e alertas em um só painel — com
+           pagamento via Pix real e leitura automática de comprovante.</p>
+
+        <!-- Grade de recursos, no espírito da seção "Features" do App Launch -->
+        <div class="auth-features">
+          <div class="feature">
+            <i class="fa fa-lock"></i>
+            <p>Seguro</p>
+          </div>
+          <div class="feature">
+            <i class="fa fa-bolt"></i>
+            <p>Rápido</p>
+          </div>
+          <div class="feature">
+            <i class="fa fa-users"></i>
+            <p>Equipe</p>
+          </div>
+          <div class="feature">
+            <i class="fa fa-qrcode"></i>
+            <p>Pix real</p>
+          </div>
+        </div>
+
+        <div class="auth-trust">
+          <i class="fa fa-check-circle"></i> Pix real com QR Code &amp; Copia-e-Cola
+          <span class="dot">•</span>
+          <i class="fa fa-check-circle"></i> Dados no seu navegador
+          <span class="dot">•</span>
+          <i class="fa fa-check-circle"></i> Sem mensalidade oculta
+        </div>
       </div>
     </div>
 
@@ -58,52 +87,58 @@
     <div class="auth-forms">
 
       <div class="auth-card" id="login-box">
-        <span class="auth-card-logo">💰 Fintech SaaS</span>
+        <span class="auth-card-logo"><i class="fa fa-university"></i> Fintech SaaS</span>
         <h1>Bem-vindo(a) de volta</h1>
         <p class="subtitle">Entre na sua conta</p>
 
         <div id="login-error" class="error-box hidden"></div>
 
         <form id="login-form">
-          <div class="field">
+          <div class="field field-icon">
             <label>E-mail</label>
+            <i class="fa fa-envelope-o field-icon-glyph"></i>
             <input type="email" id="login-email" required autocomplete="email" placeholder="voce@empresa.com" />
           </div>
-          <div class="field">
+          <div class="field field-icon">
             <label>Senha</label>
+            <i class="fa fa-lock field-icon-glyph"></i>
             <input type="password" id="login-password" required minlength="6" autocomplete="current-password" placeholder="••••••••" />
           </div>
-          <button type="submit" class="primary">Entrar</button>
+          <button type="submit" class="primary w3-round-large"><i class="fa fa-sign-in"></i> Entrar</button>
         </form>
 
         <p class="switch-link">Ainda não tem conta? <a id="show-signup">Criar empresa</a></p>
       </div>
 
       <div class="auth-card hidden" id="signup-box">
-        <span class="auth-card-logo">💰 Fintech SaaS</span>
+        <span class="auth-card-logo"><i class="fa fa-university"></i> Fintech SaaS</span>
         <h1>Crie sua conta</h1>
         <p class="subtitle">Cadastre sua empresa (você vira admin)</p>
 
         <div id="signup-error" class="error-box hidden"></div>
 
         <form id="signup-form">
-          <div class="field">
+          <div class="field field-icon">
             <label>Nome da empresa</label>
+            <i class="fa fa-building-o field-icon-glyph"></i>
             <input type="text" id="signup-company" required placeholder="Minha Empresa Ltda" />
           </div>
-          <div class="field">
+          <div class="field field-icon">
             <label>Seu nome</label>
+            <i class="fa fa-user-o field-icon-glyph"></i>
             <input type="text" id="signup-name" required autocomplete="name" placeholder="Seu nome completo" />
           </div>
-          <div class="field">
+          <div class="field field-icon">
             <label>E-mail</label>
+            <i class="fa fa-envelope-o field-icon-glyph"></i>
             <input type="email" id="signup-email" required autocomplete="email" placeholder="voce@empresa.com" />
           </div>
-          <div class="field">
+          <div class="field field-icon">
             <label>Senha</label>
+            <i class="fa fa-lock field-icon-glyph"></i>
             <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
           </div>
-          <button type="submit" class="primary">Criar conta</button>
+          <button type="submit" class="primary w3-round-large"><i class="fa fa-rocket"></i> Criar conta</button>
         </form>
 
         <p class="switch-link">Já tem conta? <a id="show-login">Entrar</a></p>
