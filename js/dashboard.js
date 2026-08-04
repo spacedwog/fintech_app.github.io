@@ -567,13 +567,28 @@ function openPixPayment({ amount, description, txidPrefix, expectedType, onConfi
   qrEl.innerHTML = "";
   try {
     if (window.QRCode) {
-      new QRCode(qrEl, { text: payload, width: 176, height: 176, correctLevel: QRCode.CorrectLevel.M });
+      new QRCode(qrEl, { text: payload, width: 142, height: 142, correctLevel: QRCode.CorrectLevel.M });
     } else {
-      qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
+      renderPixQrFallback(qrEl, payload);
     }
   } catch (e) {
-    qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
+    renderPixQrFallback(qrEl, payload);
   }
+}
+
+// Alternativa caso a lib externa (CDN qrcodejs) não carregue: gera a imagem
+// do QR via API pública (goqr.me), mantendo o mesmo payload Pix.
+function renderPixQrFallback(qrEl, payload) {
+  const img = document.createElement("img");
+  img.alt = "QR Code Pix";
+  img.width = 142;
+  img.height = 142;
+  img.src = "https://api.qrserver.com/v1/create-qr-code/?size=142x142&data=" + encodeURIComponent(payload);
+  img.onerror = () => {
+    qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
+  };
+  qrEl.innerHTML = "";
+  qrEl.appendChild(img);
 }
 
 function closePixModal() {

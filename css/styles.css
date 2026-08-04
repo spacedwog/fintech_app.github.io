@@ -408,7 +408,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   background: var(--card);
   border-radius: 12px;
   padding: 24px;
-  max-width: 380px;
+  max-width: 370px;
   width: 100%;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
   text-align: center;
@@ -418,8 +418,20 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   background: #fff;
   padding: 12px;
   border-radius: 10px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 166px;
+  height: 166px;
+  box-sizing: border-box;
   margin: 0 auto 16px;
+  border: 1px solid var(--border);
+}
+
+.qr-wrap img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .pix-code-box {

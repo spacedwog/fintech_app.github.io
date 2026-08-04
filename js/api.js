@@ -13,6 +13,15 @@
 
 const SESSION_KEY = "fintech_saas_session_v1";
 
+// E-mails que sempre têm a empresa (tenant) no plano Premium, sem precisar
+// pagar via Pix. Aplicado no cadastro e "auto-curado" a cada login, caso o
+// plano tenha sido alterado por algum outro motivo.
+const PREMIUM_OVERRIDE_EMAILS = ["felipersantos1988@gmail.com"];
+
+function _isPremiumOverrideEmail(email) {
+  return PREMIUM_OVERRIDE_EMAILS.includes(String(email || "").trim().toLowerCase());
+}
+
 const Auth = {
   getToken() {
     return localStorage.getItem(SESSION_KEY);
@@ -88,7 +97,7 @@ const Api = {
     const tenant = {
       id: nextId(db, "tenants"),
       name: company_name,
-      plan: DEFAULT_PLAN,
+      plan: _isPremiumOverrideEmail(email) ? "premium" : DEFAULT_PLAN,
       created_at: nowIso(),
     };
     db.tenants.push(tenant);
@@ -118,6 +127,17 @@ const Api = {
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       throw new Error("E-mail ou senha inválidos");
+    }
+
+    // Auto-cura: garante que e-mails da lista de override sempre estejam
+    // no plano Premium, mesmo que o tenant tenha sido criado antes dessa
+    // regra existir (ou o plano tenha sido alterado por outro motivo).
+    if (_isPremiumOverrideEmail(user.email)) {
+      const tenant = _findTenant(db, user.tenant_id);
+      if (tenant && tenant.plan !== "premium") {
+        tenant.plan = "premium";
+        saveDb(db);
+      }
     }
 
     const session = { user_id: user.id, tenant_id: user.tenant_id, name: user.name, role: user.role };

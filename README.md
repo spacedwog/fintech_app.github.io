@@ -2,7 +2,7 @@
 
 Versão SaaS multi-tenant do controle de despesas, **100% em HTML, CSS e JavaScript**, sem servidor e sem Python. Roda inteiramente no navegador.
 
-> O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica que antes vivia no servidor (autenticação, multi-tenancy, planos, despesas, relatórios) agora roda em JavaScript no cliente, e os dados ficam salvos no `localStorage` do navegador.
+> O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica que antes vivia no servidor (autenticação, multi-tenancy, planos, despesas, relatórios) agora roda em JavaScript no cliente, e os dados ficam salvos num "banco" XML (serializado dentro do `localStorage` do navegador, já que o app é 100% estático), com uma cópia em JSON no próprio `localStorage` como fallback automático.
 
 ## Arquitetura
 
@@ -16,7 +16,9 @@ dashboard.html         -> painel principal (SPA simples)
 css/styles.css
 js/
   plans.js             -> planos (free / pro / enterprise) e limites
-  db.js                 -> "banco de dados" em localStorage (schema, seeds, ids)
+  db.js                 -> "banco de dados": XML como fonte primária (serializado
+                            no localStorage) + fallback automático em JSON no
+                            localStorage se o XML não existir/estiver corrompido
   crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
   api.js                 -> toda a lógica de negócio (antes no FastAPI), mesma
                             interface de antes (Auth/Api), agora sem rede
@@ -31,6 +33,12 @@ A pasta `frontend/` e o antigo `index.html`/`js/app.js` da raiz (dashboard sem l
 com dados mocados) ficaram obsoletos com essa fusão e podem ser removidos.
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o projeto é só front-end estático.
+
+### Persistência (banco XML + fallback em localStorage)
+
+O "banco de dados" (`js/db.js`) grava tudo (empresas, usuários, categorias, despesas, orçamentos) como um documento **XML**, serializado via `XMLSerializer`/`DOMParser` nativos do navegador e guardado na chave `fintech_saas_db_xml_v1` do `localStorage` — é essa a fonte de verdade lida/escrita a cada operação.
+
+A cada gravação, uma cópia equivalente em **JSON** também é salva (chave `fintech_saas_db_v1`, o formato usado antes desta versão). Essa cópia funciona como **fallback**: se o navegador não suportar `DOMParser`/`XMLSerializer`, ou se o XML salvo estiver corrompido, o app detecta isso automaticamente e volta a ler/escrever em JSON, sem perder dados nem exigir nenhuma ação do usuário. Contas e dados já existentes no formato antigo (JSON) também são migrados para XML automaticamente no primeiro carregamento.
 
 ### Multi-tenancy
 
