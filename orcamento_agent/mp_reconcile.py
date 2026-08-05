@@ -117,10 +117,10 @@ def log(linha):
 class FirestoreSource:
     """Lê/grava direto no mesmo documento Firestore usado pelo painel web
     (js/db.js: colecao `fintech_saas`, documento `db_v1`). A gravação usa
-    update() em vez de set() no documento inteiro -- só o campo "payments" é
-    tocado, para não arriscar sobrescrever uma gravação concorrente feita
-    pelo navegador em outro campo (tenants, expenses, etc.) enquanto este
-    script roda."""
+    update() em vez de set() no documento inteiro -- só os campos passados a
+    write_fields() são tocados, para não arriscar sobrescrever uma gravação
+    concorrente feita pelo navegador em outro campo enquanto este script
+    roda."""
 
     COLLECTION = "fintech_saas"
     DOC_ID = "db_v1"
@@ -148,8 +148,13 @@ class FirestoreSource:
             )
         return snap.to_dict()
 
+    def write_fields(self, fields):
+        """Atualiza só os campos passados (ex.: {"payments": [...]}), sem
+        tocar no resto do documento -- ver docstring da classe."""
+        self._ref.update(fields)
+
     def write_payments(self, payments):
-        self._ref.update({"payments": payments})
+        self.write_fields({"payments": payments})
 
     def describe(self):
         return f"Firestore ({self.COLLECTION}/{self.DOC_ID})"
@@ -169,11 +174,14 @@ class LocalJsonSource:
         with open(self.path, encoding="utf-8") as f:
             return json.load(f)
 
-    def write_payments(self, payments):
+    def write_fields(self, fields):
         db = self.read()
-        db["payments"] = payments
+        db.update(fields)
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(db, f, ensure_ascii=False, indent=2)
+
+    def write_payments(self, payments):
+        self.write_fields({"payments": payments})
 
     def describe(self):
         return f"db.json local ({self.path})"

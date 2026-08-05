@@ -58,8 +58,9 @@ Código: `js/dashboard.js` (`loadBudgetView`, `handleBudgetFileUpload`, `showBud
 Registra despesas com valor, data, categoria e descrição — igual a antes, com um adicional: ao escolher a categoria, um aviso mostra o Previsto x Realizado **daquela categoria no mês atual**, puxado do que foi importado na Página 1 (`Api.getBudgetOverview`), inclusive avisando quando a categoria ainda não tem orçamento definido.
 
 - O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — a 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
-- Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1.
+- Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).
+- Despesas com o selo **Mercado Pago** na tabela não foram digitadas por ninguém — foram geradas automaticamente a partir de um pagamento real (`orcamento_agent/mp_expenses.py`, fora do navegador) e não contam para o limite diário do plano Free (é importação de histórico, não uma ação em tempo real do usuário). Ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
 
 Código: `js/dashboard.js` (`loadExpensesView`, `refreshExpenseCategoryBudgetInfo`, `refreshQuotaInfo`, `refreshExpenseTable`), lógica de negócio em `js/api.js` (`addExpense`).
 </details>
@@ -155,6 +156,36 @@ Pode ser agendado (ex.: uma vez por dia) do mesmo jeito que `mp_sync.py` já é 
 - `orcamento_agent/` também guarda `mp_sync.py`, um agente **sem relação com este app** que sincroniza uma planilha de orçamento pessoal (ex.: casamento) com o Mercado Pago — documentado à parte em `orcamento_agent/LEIA-ME.md`.
 </details>
 
+### Gerar despesas automaticamente (`mp_expenses.py`)
+
+O `mp_reconcile.py` acima confirma dinheiro **entrando** na conta (assinatura/despesa extra pagas por usuários do painel). O **`orcamento_agent/mp_expenses.py`** faz o caminho inverso: usa os mesmos pagamentos reais do Mercado Pago para gerar despesas de verdade na [Página 2](#-orçamento--despesas-fluxo-em-3-páginas) — fechando o fluxo Orçamento & Despesas sem digitar nada. Cada pagamento aprovado é categorizado por palavra-chave (config `mapeamento`) e vira uma despesa real, exceto os que já são receita da conta (excluídos com precisão via `mp_reconcile.py`, e por reforço via filtro de descrição).
+
+<details>
+<summary>Como configurar e rodar</summary>
+
+1. `cd orcamento_agent`
+2. Copie `mp_expenses_config.example.json` → `mp_expenses_config.json`, cole o Access Token do Mercado Pago e preencha `"conta_email"` (o e-mail de login da conta do painel que vai receber as despesas — precisa já existir).
+3. Escolha a mesma fonte de dados de `mp_reconcile.py` (`firebase_service_account` ou `db_json`) e ajuste `mapeamento`/`categoria_padrao` como preferir.
+4. Rode **sempre nesta ordem** (a primeira execução marca o que é receita, para a segunda não confundir com despesa):
+   ```bash
+   python3 mp_reconcile.py
+   python3 mp_expenses.py --dry-run     # mostra o que geraria, sem gravar nada
+   python3 mp_expenses.py               # gera as despesas de verdade
+   ```
+5. Depois de qualquer alteração no script: `python3 test_mp_expenses.py`.
+
+No painel web, despesas geradas assim aparecem na Página 2 com o selo **Mercado Pago** (ver acima). Cada uma guarda o id do pagamento de origem — rodar de novo nunca duplica.
+</details>
+
+<details>
+<summary>⚠️ Segurança e limitações — leia antes de usar</summary>
+
+- Mesmos segredos e mesmos cuidados de `.gitignore` do `mp_reconcile.py` acima (`mp_expenses_config.json` nunca deve ser versionado).
+- **Depende de rodar `mp_reconcile.py` primeiro** para excluir com precisão o que é receita da conta; sem isso, só o filtro de descrição (`ignorar_descricoes_contendo`) protege contra lançar uma cobrança recebida como se fosse despesa.
+- Categorização por palavra-chave é heurística — pagamentos sem regra correspondente caem numa categoria padrão e precisam ser recategorizados manualmente (hoje não há como editar a categoria de uma despesa já lançada pelo painel, só excluir e lançar de novo).
+- Não roda em tempo real: só gera despesas quando alguém executa o script (manual ou agendado).
+</details>
+
 ---
 
 ## Como o sistema funciona por baixo dos panos
@@ -196,6 +227,8 @@ tests/
 orcamento_agent/
   mp_reconcile.py        -> confirma automaticamente pagamentos do painel web
                             cruzando com o Mercado Pago (ver seção própria acima)
+  mp_expenses.py          -> gera despesas reais na Página 2 a partir de
+                            pagamentos do Mercado Pago (ver seção própria acima)
   mp_sync.py, ...        -> agente separado para planilha de orçamento pessoal,
                             sem relação com este app (ver orcamento_agent/LEIA-ME.md)
 ```
@@ -389,12 +422,27 @@ python3 test_mp_reconcile.py
 Rode de novo sempre que alterar `mp_reconcile.py`. Veja também `orcamento_agent/test_mp_sync.py`, do agente de orçamento pessoal (sem relação direta com o painel web).
 </details>
 
+<details>
+<summary><strong>Gerador de despesas Mercado Pago — <code>orcamento_agent/test_mp_expenses.py</code></strong></summary>
+
+Testa `mp_expenses.py` (categorização por palavra-chave, categoria padrão, exclusão de pagamentos que são receita da conta, filtro de descrição, idempotência, `--dry-run`) com dados simulados, sem chamar a API real do Mercado Pago nem o Firestore real:
+
+```bash
+cd orcamento_agent
+python3 test_mp_expenses.py
+```
+
+Rode de novo sempre que alterar `mp_expenses.py`.
+</details>
+
 ## Roadmap
 
 - ~~Cruzar os pagamentos do painel web com dados reais do Mercado Pago~~ — feito com `orcamento_agent/mp_reconcile.py` (best-effort, por valor+data, roda localmente). Ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
 - Confirmação automática **em tempo real** (webhook de verdade, sem depender de rodar um script) exigiria criar as cobranças via API do Mercado Pago (Payment Brick/Preferences) em vez de um Pix estático, e isso depende de um backend/serverless para guardar o Access Token com segurança — fora do escopo 100% front-end estático atual.
 - Com o Firebase já conectado como banco de dados, os próximos passos naturais para uma segurança real de multi-tenant seriam: (1) trocar a autenticação client-side (PBKDF2 em `crypto-utils.js`) por **Firebase Authentication**, e (2) escrever regras do Firestore por usuário (`request.auth.uid`), em vez do documento único e aberto usado hoje. Isso continua sendo possível sem sair do modelo 100% front-end estático (Firebase Auth também roda no navegador).
 - ~~Deixar o "Importar Orçamento" do painel web também gravar histórico~~ — feito: a Página 1 do fluxo [🔄 Orçamento & Despesas](#-orçamento--despesas-fluxo-em-3-páginas) agora persiste o Previsto por categoria (`Api.importCategoryBudgets`), comparado na Página 3 com despesas reais. Falta persistir o Realizado *original da própria planilha* lado a lado (hoje ele só aparece na pré-visualização da Página 1, sem gravar).
+- ~~Usar os dados do Mercado Pago para gerar despesas~~ — feito com `orcamento_agent/mp_expenses.py`: pagamentos reais que não são receita da conta viram despesas de verdade na Página 2, categorizadas por palavra-chave. Ver [Gerar despesas automaticamente (`mp_expenses.py`)](#gerar-despesas-automaticamente-mp_expensespy).
+- Editar a categoria de uma despesa já lançada (hoje só dá para excluir e relançar) — ajudaria a corrigir categorizações erradas do `mp_expenses.py` sem reimportar.
 - Deixar a Página 3 comparar mais de um mês ao mesmo tempo (hoje é um seletor de mês por vez) e exportar o comparativo Previsto x Realizado de volta para planilha.
 - Conectar outros bancos além do Mercado Pago: para bancos sem API pública para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX).
 

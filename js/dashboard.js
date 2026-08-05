@@ -239,7 +239,11 @@ async function refreshExpenseTable() {
       <tr>
         <td>${e.date}</td>
         <td>${e.category_name || "-"}</td>
-        <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}</td>
+        <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${
+        e.generated_by_mercado_pago
+          ? ' <span class="badge mp" title="Gerada automaticamente a partir de um pagamento real no Mercado Pago (orcamento_agent/mp_expenses.py)">Mercado Pago</span>'
+          : ""
+      }</td>
         <td>R$ ${e.amount.toFixed(2)}</td>
         <td><button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button></td>
       </tr>`

@@ -362,6 +362,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 
 .badge.free { background: #e5e7eb; color: #374151; }
 .badge.premium { background: #dbeafe; color: #1e40af; }
+.badge.mp { background: #e0f7ff; color: #007ba7; }
 
 .sync-status {
   display: flex;

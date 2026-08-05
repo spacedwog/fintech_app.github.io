@@ -1,7 +1,7 @@
 # Agente de Controle de Orçamento — Mercado Pago
 
 ## O que é
-Esta pasta reúne dois agentes que usam a API do Mercado Pago com o mesmo cuidado
+Esta pasta reúne três agentes que usam a API do Mercado Pago com o mesmo cuidado
 de segurança (token nunca sai da máquina local):
 
 1. **`mp_sync.py`** — puxa pagamentos do Mercado Pago, categoriza automaticamente e
@@ -12,6 +12,11 @@ de segurança (token nunca sai da máquina local):
    confirmando automaticamente cobranças de Pix (despesa extra / assinatura) que o
    usuário só tinha declarado manualmente. Ver "Reconciliação com o painel web
    (`mp_reconcile.py`)" mais abaixo.
+3. **`mp_expenses.py`** — usa os mesmos pagamentos reais do Mercado Pago para
+   **gerar despesas de verdade** na Página 2 ("Registrar Despesas") do fluxo
+   🔄 Orçamento & Despesas do painel web, categorizando automaticamente e sem
+   duplicar o que já é receita da conta (assinatura/despesa extra). Ver "Gerar
+   despesas a partir do Mercado Pago (`mp_expenses.py`)" mais abaixo.
 
 Para uma leitura rápida e sem configuração — sem Mercado Pago, sem agendamento —
 existe também uma versão web para orçamento: a aba **Importar Orçamento** do painel
@@ -22,16 +27,17 @@ Orçamento" para a diferença entre as duas.
 
 ## ⚠️ Segurança — leia antes de usar
 Esta pasta vive dentro de `fintech_app.github.io`, que é um **repositório público**
-no GitHub. `config.json` (e, se você usar `mp_reconcile.py`, também
-`mp_reconcile_config.json`) vai conter o Access Token real da sua conta Mercado
-Pago — se isso for parar num commit público, qualquer pessoa consegue ler/movimentar
-sua conta. O mesmo vale para uma eventual chave de conta de serviço do Firebase
-(dá acesso de leitura/escrita total ao banco do app). Por isso:
+no GitHub. `config.json` (e, se você usar `mp_reconcile.py`/`mp_expenses.py`, também
+`mp_reconcile_config.json`/`mp_expenses_config.json`) vai conter o Access Token real
+da sua conta Mercado Pago — se isso for parar num commit público, qualquer pessoa
+consegue ler/movimentar sua conta. O mesmo vale para uma eventual chave de conta de
+serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por isso:
 - Foi criado um `.gitignore` na raiz do repositório que ignora `orcamento_agent/config.json`,
-  `orcamento_agent/mp_reconcile_config.json`, qualquer `*serviceAccount*.json`/
-  `*service-account*.json`/`firebase-adminsdk*.json` dentro desta pasta,
-  `orcamento_agent/logs/` e arquivos de teste. **Confira, antes do primeiro `git add`,
-  que esses arquivos aparecem como ignorados** (`git status` não deve listá-los).
+  `orcamento_agent/mp_reconcile_config.json`, `orcamento_agent/mp_expenses_config.json`,
+  qualquer `*serviceAccount*.json`/`*service-account*.json`/`firebase-adminsdk*.json`
+  dentro desta pasta, `orcamento_agent/logs/` e arquivos de teste. **Confira, antes do
+  primeiro `git add`, que esses arquivos aparecem como ignorados** (`git status` não
+  deve listá-los).
 - Nunca cole nenhum desses segredos diretamente numa página HTML, JS de frontend ou
   em qualquer arquivo que vá para o site publicado.
 - Se em algum momento algum deles vazar: revogue/renove o Access Token em
@@ -60,6 +66,13 @@ sua conta. O mesmo vale para uma eventual chave de conta de serviço do Firebase
   depois de qualquer alteração no script.
 - `mp_reconcile_config.example.json` — modelo de configuração do `mp_reconcile.py`
   (copie para `mp_reconcile_config.json`, nunca versione o arquivo copiado).
+- `mp_expenses.py` — gera despesas de verdade no painel web a partir de pagamentos
+  reais do Mercado Pago, categorizando por palavra-chave. Ver seção própria abaixo.
+- `test_mp_expenses.py` — teste automatizado do `mp_expenses.py` com dados simulados
+  (não chama a API real nem o Firestore real). Rode `python3 test_mp_expenses.py`
+  depois de qualquer alteração no script.
+- `mp_expenses_config.example.json` — modelo de configuração do `mp_expenses.py`
+  (copie para `mp_expenses_config.json`, nunca versione o arquivo copiado).
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).
@@ -167,19 +180,73 @@ não carrega nenhum identificador do app até chegar no Mercado Pago), então do
 pagamentos reais de mesmo valor na mesma janela de dias ficam como "ambíguos" em vez
 de arriscar confirmar o errado.
 
+## Gerar despesas a partir do Mercado Pago (`mp_expenses.py`)
+O fluxo 🔄 Orçamento & Despesas do painel web (Página 1 importa o Previsto, Página 2
+registra despesas reais, Página 3 compara os dois) funciona hoje com lançamento
+manual na Página 2. O `mp_expenses.py` fecha esse fluxo automaticamente: busca os
+mesmos pagamentos reais do Mercado Pago que `mp_reconcile.py` já usa, e cada
+pagamento aprovado que **não** for uma cobrança recebida pelo próprio app (assinatura
+Premium ou despesa extra pagas por algum usuário do painel via Pix — essas são
+receita da conta, não despesa) se torna uma despesa de verdade, já categorizada por
+palavra-chave.
+
+**Como decide o que é despesa e o que é receita da conta:**
+1. **Exclusão precisa**: qualquer pagamento do Mercado Pago já marcado como
+   `verifiedByMercadoPago`/`mercadoPagoPaymentId` num registro de `payments` (ou seja,
+   já reconciliado por `mp_reconcile.py` como assinatura/despesa extra) nunca se torna
+   despesa. **Por isso, rode `mp_reconcile.py` pelo menos uma vez antes deste script.**
+2. **Reforço heurístico**: mesmo sem ter rodado o passo 1, qualquer pagamento cuja
+   descrição contenha um termo de `ignorar_descricoes_contendo` (padrão: "despesa
+   extra", "assinatura", "fintech spacecworp") também é descartado.
+3. O que sobra é categorizado por palavra-chave (`mapeamento` do config, mesma ideia
+   da aba Mapeamento do `mp_sync.py`) — sem correspondência, cai em `categoria_padrao`
+   (cria a categoria automaticamente se não existir).
+
+**Configurar:**
+1. Copie `mp_expenses_config.example.json` → `mp_expenses_config.json`, cole o Access
+   Token do Mercado Pago (mesma conta de `config.json`/`mp_reconcile_config.json`) e
+   preencha `"conta_email"` — o e-mail de login da conta do painel web que vai receber
+   as despesas (precisa já existir, ou seja, já ter feito login pelo menos uma vez).
+2. Escolha a fonte de dados (`firebase_service_account` ou `db_json`, mesmo esquema de
+   `mp_reconcile_config.json`).
+3. Ajuste `mapeamento`/`categoria_padrao`/`ignorar_descricoes_contendo` como preferir.
+4. Instale as dependências: `pip install requests openpyxl --break-system-packages`
+   (e `firebase-admin` se for usar Firestore).
+5. Rode:
+   ```
+   python3 mp_reconcile.py                  # rode isto primeiro (marca o que é receita)
+   python3 mp_expenses.py --dry-run         # mostra o que geraria, sem gravar nada
+   python3 mp_expenses.py                   # gera as despesas de verdade
+   python3 mp_expenses.py --dias 90         # janela maior
+   ```
+6. Rode `python3 test_mp_expenses.py` depois de qualquer alteração no script.
+
+**Idempotência:** cada despesa gerada guarda o id do pagamento no Mercado Pago
+(`mercadoPagoPaymentId`) — rodar de novo nunca duplica. No painel web, essas despesas
+aparecem na Página 2 com o selo "gerada via Mercado Pago" (ver README.md da raiz).
+
+**Limitações (por design):** não roda em tempo real (depende de executar o script);
+sem categorização manual pelo painel ainda (crie/edite `mapeamento` no config e rode
+de novo — despesas já geradas não são recategorizadas automaticamente); pagamentos
+que nunca aparecerem em `payments` nem baterem no filtro de descrição podem, em teoria,
+ser lançados como despesa mesmo sendo receita — por isso a recomendação de sempre
+rodar `mp_reconcile.py` antes.
+
 ## Agendamento (rodando sozinho)
 Foi configurada uma tarefa agendada que roda `mp_sync.py` automaticamente e te avisa
 por mensagem quando alguma categoria estourar o orçamento. Veja a periodicidade e
 altere quando quiser diretamente pedindo para ajustar o agendamento. O mesmo pode
-ser feito para `mp_reconcile.py` (ex.: rodar todo dia e avisar quando reconciliar
-algum pagamento pendente) — basta pedir para configurar o agendamento.
+ser feito para `mp_reconcile.py`/`mp_expenses.py` (ex.: rodar todo dia, sempre
+`mp_reconcile.py` antes de `mp_expenses.py`) — basta pedir para configurar o
+agendamento.
 
-Enquanto `config.json`/`mp_reconcile_config.json` não tiverem um token válido, a
-execução agendada só vai avisar que falta configurar — não falha silenciosamente.
+Enquanto `config.json`/`mp_reconcile_config.json`/`mp_expenses_config.json` não
+tiverem um token válido, a execução agendada só vai avisar que falta configurar —
+não falha silenciosamente.
 
-## mp_sync.py x mp_reconcile.py x Importar Orçamento — qual usar
-Os três usam o Mercado Pago (os dois primeiros) ou só leitura local (o terceiro),
-mas resolvem coisas diferentes:
+## mp_sync.py x mp_reconcile.py x mp_expenses.py x Importar Orçamento — qual usar
+Os três primeiros usam o Mercado Pago; o quarto é só leitura local — cada um resolve
+uma coisa diferente:
 - **`mp_sync.py`** (Python, agendado): automação recorrente para a planilha de
   orçamento (ex.: casamento) — puxa pagamentos reais do Mercado Pago, grava em
   MP_Transacoes e recalcula Previsto x Gasto via fórmulas da planilha. Exige
@@ -191,24 +258,37 @@ mas resolvem coisas diferentes:
   confirmar automaticamente cobranças de Pix (despesa extra/assinatura) declaradas
   manualmente. Exige `mp_reconcile_config.json` com token + fonte de dados
   (`firebase_service_account` ou `db_json`). Ver seção própria acima.
+- **`mp_expenses.py`** (Python, agendado, rode depois de `mp_reconcile.py`): também
+  para o **painel web**, mas em vez de confirmar cobranças recebidas, faz o caminho
+  inverso: gera despesas reais na Página 2 do fluxo Orçamento & Despesas a partir dos
+  pagamentos do Mercado Pago que **não** são receita da conta. Exige
+  `mp_expenses_config.json` com token, `conta_email` e fonte de dados. Ver seção
+  própria acima.
 - **Painel web → Importar Orçamento** (`js/budget-ai.js`): leitura pontual, sem token
   nem agendamento, sem Mercado Pago — você sobe a planilha (ou um CSV simples de
   Categoria/Previsto/Realizado) e vê na hora quais categorias estouraram. Não grava
-  nada, não substitui nenhum dos dois scripts acima.
+  nada, não substitui nenhum dos scripts acima.
 - `mp_sync.py` e o painel web aceitam um "layout de leitura" manual (modal no web,
   `--criar-layout`/`--ler-orcamento` no CLI) para quando a planilha de orçamento não
-  segue o formato padrão — ver "Layout de leitura" acima (não se aplica ao
-  `mp_reconcile.py`, que não lida com planilhas).
+  segue o formato padrão — ver "Layout de leitura" acima (não se aplica a
+  `mp_reconcile.py`/`mp_expenses.py`, que não lidam com planilhas).
 
 ## Próximos passos possíveis
 - ~~Cruzar os pagamentos reais do Mercado Pago com o histórico de pagamentos do
   painel web~~ — feito em `mp_reconcile.py` (ver seção acima).
+- ~~Usar os dados do Mercado Pago para gerar despesas no painel web~~ — feito em
+  `mp_expenses.py` (ver seção acima).
 - Conectar outros bancos: hoje o escopo é só Mercado Pago. Para bancos sem API pública
   para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX) — posso
-  adicionar um `bank_import.py` que lê esses arquivos e joga na mesma aba MP_Transacoes.
+  adicionar um `bank_import.py` que lê esses arquivos e joga na mesma aba MP_Transacoes
+  (planilha) ou nas despesas do painel web (mesmo formato de `mp_expenses.py`).
 - Deixar o "Importar Orçamento" do painel web também gravar histórico (hoje é só leitura
   pontual, não persiste os dados enviados).
-- Trocar a heurística valor+data do `mp_reconcile.py` por um vínculo exato: criar os
-  pagamentos do painel web via API do Mercado Pago (Payment Brick/Preferences) em vez
-  de um Pix estático, o que exige um backend para guardar o Access Token com
-  segurança (fora do escopo 100% front-end estático atual — ver Roadmap no README.md).
+- Permitir editar a categoria de uma despesa já registrada no painel web (hoje só dá
+  para excluir e lançar de novo) — ajudaria a corrigir categorizações erradas do
+  `mp_expenses.py` sem depender de reimportar.
+- Trocar a heurística valor+data do `mp_reconcile.py` (e a exclusão por payments/filtro
+  do `mp_expenses.py`) por um vínculo exato: criar os pagamentos do painel web via API
+  do Mercado Pago (Payment Brick/Preferences) em vez de um Pix estático, o que exige um
+  backend para guardar o Access Token com segurança (fora do escopo 100% front-end
+  estático atual — ver Roadmap no README.md).

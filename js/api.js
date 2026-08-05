@@ -272,6 +272,12 @@ const Api = {
           user_id: e.user_id,
           is_extra: !!e.is_extra,
           extra_charge: e.extra_charge || 0,
+          // Despesas geradas pelo orcamento_agent/mp_expenses.py (fora do
+          // navegador, a partir de pagamentos reais do Mercado Pago) trazem
+          // esses dois campos -- despesas lançadas manualmente pelo painel
+          // nunca têm generatedByMercadoPago (fica undefined -> false aqui).
+          generated_by_mercado_pago: !!e.generatedByMercadoPago,
+          mercado_pago_payment_id: e.mercadoPagoPaymentId || null,
         };
       });
   },

@@ -1,0 +1,26 @@
+{
+  "mercado_pago_access_token": "COLE_SEU_ACCESS_TOKEN_AQUI",
+  "firebase_service_account": null,
+  "db_json": null,
+  "conta_email": "seu-email-de-login-no-painel@exemplo.com",
+  "janela_dias": 30,
+  "categoria_padrao": "Mercado Pago (não categorizado)",
+  "mapeamento": [
+    { "palavra_chave": "uber", "categoria": "Transporte" },
+    { "palavra_chave": "99", "categoria": "Transporte" },
+    { "palavra_chave": "ifood", "categoria": "Alimentação" },
+    { "palavra_chave": "supermercado", "categoria": "Alimentação" },
+    { "palavra_chave": "farmacia", "categoria": "Saúde" }
+  ],
+  "ignorar_descricoes_contendo": ["despesa extra", "assinatura", "fintech spacecworp"],
+  "_comentarios": {
+    "mercado_pago_access_token": "O mesmo token usado em config.json/mp_reconcile_config.json -- gere em developers.mercadopago.com.br -> Suas integrações -> Credenciais. NUNCA compartilhe.",
+    "firebase_service_account": "Recomendado: caminho de uma chave de conta de serviço do Firebase (mesmo esquema de mp_reconcile_config.json). Use só um dos dois: firebase_service_account OU db_json.",
+    "db_json": "Alternativa sem Firebase: caminho de uma cópia local do banco (mesmo formato do db.json/localStorage).",
+    "conta_email": "Obrigatório: e-mail da conta (login) do painel web que vai receber as despesas geradas -- precisa já existir no banco (ter feito login pelo menos uma vez).",
+    "janela_dias": "Quantos dias para trás buscar pagamentos no Mercado Pago a cada execução (padrão: 30). Pode ser sobrescrito com --dias.",
+    "categoria_padrao": "Nome da categoria usada quando nenhuma regra de 'mapeamento' bate com a descrição do pagamento (criada automaticamente se não existir).",
+    "mapeamento": "Lista de regras palavra-chave -> categoria (sem acento, minúsculas, comparação por 'contém'), na mesma ideia da aba Mapeamento do mp_sync.py. A primeira regra que bater vence.",
+    "ignorar_descricoes_contendo": "Reforço de segurança (além da exclusão automática de pagamentos já reconciliados em mp_reconcile.py): qualquer pagamento cuja descrição contenha um destes termos NUNCA se torna despesa -- evita importar como 'gasto' uma cobrança que na verdade é receita da conta (assinatura/despesa extra pagas por usuários do painel)."
+  }
+}
