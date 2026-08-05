@@ -12,7 +12,7 @@ virou `login.html`:
 
 ```
 index.html            -> landing page (marketing, planos, FAQ)
-login.html             -> login / criação de conta (empresa)
+login.html             -> login / criação de conta
 dashboard.html         -> painel principal (SPA simples)
 db.json                 -> banco "de fábrica" (schema vazio), usado só para
                             inicializar a 1ª visita de cada navegador
@@ -36,7 +36,7 @@ Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em 
 
 ### Persistência (db.json + fallback em localStorage)
 
-O banco de dados é o arquivo **`db.json`**, versionado na raiz do repositório junto com o código (hoje, um schema vazio — sem empresas/usuários). Duas regras simples, em `js/db.js`:
+O banco de dados é o arquivo **`db.json`**, versionado na raiz do repositório junto com o código (hoje, um schema vazio — sem contas/usuários). Duas regras simples, em `js/db.js`:
 
 - **Leitura:** se já existe alguma coisa salva no `localStorage` deste navegador (chave `fintech_saas_db_v1`), é isso que é usado — essa é a persistência real do app no dia a dia. Só na **primeira visita** (localStorage vazio) o app busca `db.json` via `fetch()` para inicializar os dados.
 - **Gravação:** toda gravação (nova despesa, novo usuário, troca de plano etc.) acontece no `localStorage`. Como o site é 100% estático (GitHub Pages, sem backend), o navegador não tem como escrever de volta no `db.json` remoto — ele não muda sozinho com o uso do app. Se quiser alterar o que um navegador novo recebe de início, edite `db.json` manualmente e publique a alteração.
@@ -45,9 +45,9 @@ Se `fetch()` falhar (por exemplo, abrindo `login.html` direto via `file://`, ond
 
 ### Multi-tenancy
 
-Cada empresa que se cadastra vira um "tenant" isolado dentro do mesmo `localStorage`. Todo dado (usuários, categorias, despesas, orçamentos) é filtrado por `tenant_id` na camada `api.js`.
+Cada conta que se cadastra vira um "tenant" isolado dentro do mesmo `localStorage`. Todo dado (usuários, categorias, despesas, orçamentos) é filtrado por `tenant_id` na camada `api.js`.
 
-**Importante:** como não existe mais servidor, esse isolamento é apenas lógico/organizacional — não é uma fronteira de segurança real. Qualquer pessoa com acesso ao navegador (DevTools) pode ler ou editar o `localStorage` diretamente. Isso é adequado para demo, protótipo ou uso pessoal/local, mas não deve ser usado como um SaaS multi-empresa real na internet sem um backend de verdade.
+**Importante:** como não existe mais servidor, esse isolamento é apenas lógico/organizacional — não é uma fronteira de segurança real. Qualquer pessoa com acesso ao navegador (DevTools) pode ler ou editar o `localStorage` diretamente. Isso é adequado para demo, protótipo ou uso pessoal/local, mas não deve ser usado como um SaaS multi-conta real na internet sem um backend de verdade.
 
 ### Planos
 
@@ -92,7 +92,7 @@ Acesse `http://localhost:5500`.
 
 ## Primeiro uso
 
-1. Abra `index.html` (ou `login.html` diretamente), clique em "Criar empresa" e cadastre a primeira conta (você vira `admin` do tenant).
+1. Abra `index.html` (ou `login.html` diretamente), clique em "Criar conta" e cadastre a primeira conta (você vira `admin` do tenant).
 2. Registre categorias/despesas, veja o resumo mensal, defina orçamento e teste os alertas.
 3. Como admin, convide outros usuários em "Equipe" (respeitando o limite do plano) e experimente trocar de plano em "Plano".
 
@@ -100,5 +100,5 @@ Acesse `http://localhost:5500`.
 
 - Os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes.
 - Limpar o cache/localStorage do navegador apaga todos os dados.
-- Não há verdadeira separação de acesso entre "empresas" — é só uma organização lógica dos dados dentro do mesmo storage.
+- Não há verdadeira separação de acesso entre "contas" — é só uma organização lógica dos dados dentro do mesmo storage.
 - Para um SaaS real, com múltiplos usuários acessando de dispositivos diferentes e dados protegidos de verdade, é necessário um backend com banco de dados próprio (fora do escopo deste projeto, que agora é intencionalmente só HTML/CSS/JS).

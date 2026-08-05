@@ -5,7 +5,7 @@
 // a lógica de negócio (antes em FastAPI) roda aqui, no navegador,
 // persistindo em localStorage via db.js.
 //
-// AVISO: como não há servidor, o isolamento entre "empresas" (tenants)
+// AVISO: como não há servidor, o isolamento entre "contas" (tenants)
 // é apenas lógico/organizacional dentro do mesmo navegador — não é uma
 // fronteira de segurança real. Qualquer pessoa com acesso ao navegador
 // pode inspecionar o localStorage.
@@ -13,7 +13,7 @@
 
 const SESSION_KEY = "fintech_saas_session_v1";
 
-// E-mails que sempre têm a empresa (tenant) no plano Premium, sem precisar
+// E-mails que sempre têm a conta (tenant) no plano Premium, sem precisar
 // pagar via Pix. Aplicado no cadastro e "auto-curado" a cada login, caso o
 // plano tenha sido alterado por algum outro motivo.
 const PREMIUM_OVERRIDE_EMAILS = ["felipersantos1988@gmail.com"];
@@ -148,7 +148,7 @@ const Api = {
     const session = _requireSession();
     const db = await loadDb();
     const tenant = _findTenant(db, session.tenant_id);
-    if (!tenant) throw new Error("Empresa não encontrada");
+    if (!tenant) throw new Error("Conta não encontrada");
 
     return {
       user: { id: session.user_id, name: session.name, role: session.role },
