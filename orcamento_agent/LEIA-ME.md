@@ -2,9 +2,17 @@
 
 ## O que é
 Um agente que puxa pagamentos do Mercado Pago, categoriza automaticamente e compara
-com o orçamento previsto na planilha `Orcamento_Casamento_do_Ano.xlsx`, apontando
+com o orçamento previsto na sua planilha de orçamento (qualquer arquivo que você
+mesmo exporte/suba, sem nome nem local fixos — veja "Arquivos" abaixo), apontando
 quais categorias estouraram o previsto. Pode rodar manualmente ou sozinho, em
 agendamento, avisando quando algo estourar.
+
+Para uma leitura rápida e sem configuração — sem Mercado Pago, sem agendamento —
+existe também uma versão web: a aba **Importar Orçamento** do painel do site
+(`dashboard.html`), onde você sobe a planilha do orçamento (.xlsx/.xls/.csv) direto
+no navegador e a leitura (categorias, Previsto/Realizado, estouros) acontece na
+hora, 100% client-side (`js/budget-ai.js`). Veja "Próximos passos possíveis" para a
+diferença entre as duas.
 
 ## ⚠️ Segurança — leia antes de usar
 Esta pasta vive dentro de `fintech_app.github.io`, que é um **repositório público**
@@ -20,7 +28,8 @@ conta. Por isso:
   developers.mercadopago.com.br → Suas integrações → Credenciais.
 
 ## Arquivos
-- `Orcamento_Casamento_do_Ano.xlsx` — planilha com 4 abas:
+- Planilha de orçamento (qualquer nome/local — informe via `--planilha` ou no
+  `config.json`, veja "Como configurar") — precisa ter 4 abas:
   - **Orcamento**: sua estrutura original (Previsto/Realizado por categoria e mês, com status condicional).
   - **MP_Transacoes**: onde o agente grava os pagamentos puxados do Mercado Pago.
   - **Mapeamento**: regras de palavra-chave → categoria (edite para casar com as descrições reais dos seus pagamentos no MP).
@@ -31,16 +40,20 @@ conta. Por isso:
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).
-2. Copie `config.example.json` para `config.json` e cole o token:
+2. Copie `config.example.json` para `config.json`, cole o token e aponte para a
+   sua planilha (qualquer arquivo, qualquer nome):
    ```json
-   { "mercado_pago_access_token": "SEU_TOKEN", "planilha": "Orcamento_Casamento_do_Ano.xlsx" }
+   { "mercado_pago_access_token": "SEU_TOKEN", "planilha": "meu_orcamento.xlsx" }
    ```
 3. Instale a dependência: `pip install requests`
 4. Rode:
    ```
-   python3 mp_sync.py                 # sincroniza o mês atual
-   python3 mp_sync.py --mes 2025-01   # ou um mês específico
+   python3 mp_sync.py                              # sincroniza o mês atual
+   python3 mp_sync.py --mes 2025-01                 # ou um mês específico
+   python3 mp_sync.py --planilha outro_orcamento.xlsx   # usa outra planilha sem editar o config.json
    ```
+   A planilha só precisa seguir a mesma estrutura de abas (veja "Arquivos" acima) —
+   valida automaticamente e avisa com uma mensagem clara se alguma aba estiver faltando.
 
 ## Importante: orçamento de teste só tem Jan/Fev/Mar de 2025
 A planilha enviada como teste só tinha Previsto cadastrado para esses 3 meses.
@@ -65,9 +78,19 @@ altere quando quiser diretamente pedindo para ajustar o agendamento.
 Enquanto `config.json` não tiver um token válido, a execução agendada só vai te
 avisar que falta configurar — não falha silenciosamente.
 
+## mp_sync.py (Python, agendado) x Importar Orçamento (web, sob demanda)
+- `mp_sync.py`: automação recorrente — puxa pagamentos reais do Mercado Pago, grava em
+  MP_Transacoes e recalcula Previsto x Gasto via fórmulas da planilha. Exige config.json
+  com token e uma planilha no formato "largo" (Categoria + Previsto/Realizado por mês,
+  abas Mapeamento/MP_Transacoes/Resumo_MP).
+- Painel web (`dashboard.html` → Importar Orçamento, `js/budget-ai.js`): leitura pontual,
+  sem token nem agendamento — você sobe a planilha (ou um CSV simples de Categoria/
+  Previsto/Realizado) e vê na hora quais categorias estouraram. Não grava nada, não
+  substitui o `mp_sync.py` para acompanhamento automático dos pagamentos do Mercado Pago.
+
 ## Próximos passos possíveis
 - Conectar outros bancos: hoje o escopo é só Mercado Pago. Para bancos sem API pública
   para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX) — posso
   adicionar um `bank_import.py` que lê esses arquivos e joga na mesma aba MP_Transacoes.
-- Trocar "Resumo_MP" por um painel/artefato que você reabre a qualquer hora (sem precisar
-  abrir o Excel).
+- Deixar o "Importar Orçamento" do painel web também gravar histórico (hoje é só leitura
+  pontual, não persiste os dados enviados).

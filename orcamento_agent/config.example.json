@@ -1,9 +1,10 @@
 {
   "mercado_pago_access_token": "COLE_SEU_ACCESS_TOKEN_AQUI",
-  "planilha": "Orcamento_Casamento_do_Ano.xlsx",
+  "planilha": "meu_orcamento.xlsx",
   "alerta_webhook": null,
   "_comentarios": {
     "mercado_pago_access_token": "Gere em https://www.mercadopago.com.br/developers/panel/app -> Credenciais de produção (ou teste). NUNCA compartilhe esse token.",
+    "planilha": "Caminho para QUALQUER planilha de orçamento que você mesmo exportou/subiu -- não precisa ter esse nome nem ficar nesta pasta. Só precisa ter as abas Orcamento, Mapeamento, MP_Transacoes e Resumo_MP (mesma estrutura do exemplo). Também dá para sobrescrever na hora com 'python3 mp_sync.py --planilha caminho/do/arquivo.xlsx', sem editar este config.",
     "alerta_webhook": "Opcional: URL de um webhook (ex: Slack) para receber alerta quando uma categoria estourar o orçamento."
   }
 }

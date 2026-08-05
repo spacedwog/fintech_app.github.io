@@ -94,6 +94,7 @@ function showView(viewName) {
   if (viewName === "expenses") loadExpensesView();
   if (viewName === "reports") loadReportsView();
   if (viewName === "alerts") loadAlertsView();
+  if (viewName === "budget") loadBudgetView();
   if (viewName === "team") loadTeamView();
   if (viewName === "plan") loadPlanView();
 }
@@ -277,6 +278,99 @@ document.addEventListener("submit", async (e) => {
     await loadAlertsView();
   }
 });
+
+// ---------- Importar Orçamento (IA de leitura de orçamento via upload) ----------
+//
+// Substitui a leitura de um arquivo fixo salvo no repositório por upload
+// direto no navegador: o usuário sobe qualquer planilha de orçamento
+// e o js/budget-ai.js (SheetJS + heurística de cabeçalho, 100% client-side)
+// identifica categorias, meses e valores Previsto/Realizado.
+
+let budgetInputBound = false;
+
+function loadBudgetView() {
+  if (budgetInputBound) return;
+  budgetInputBound = true;
+
+  const input = document.getElementById("budget-file-input");
+  if (input) {
+    input.addEventListener("change", () => {
+      handleBudgetFileUpload(input.files && input.files[0]);
+    });
+  }
+}
+
+function handleBudgetFileUpload(file) {
+  const status = document.getElementById("budget-import-status");
+  const summaryCard = document.getElementById("budget-summary-card");
+  const tableCard = document.getElementById("budget-table-card");
+  if (!status) return;
+
+  summaryCard.classList.add("hidden");
+  tableCard.classList.add("hidden");
+
+  if (!file) {
+    status.textContent = "";
+    return;
+  }
+
+  if (!window.BudgetAI) {
+    status.textContent = "IA de leitura de orçamento indisponível neste navegador.";
+    status.style.color = "#b45309";
+    return;
+  }
+
+  status.textContent = "Lendo orçamento com IA (leitura local no navegador)...";
+  status.style.color = "";
+
+  BudgetAI.analyze(file)
+    .then((result) => {
+      status.textContent = `Planilha lida com sucesso (aba "${result.sheetName}").`;
+      status.style.color = "var(--success)";
+      renderBudgetResult(result);
+    })
+    .catch((err) => {
+      status.textContent = err.message || "Não foi possível ler o orçamento enviado.";
+      status.style.color = "#b45309";
+    });
+}
+
+function renderBudgetResult(result) {
+  const summaryCard = document.getElementById("budget-summary-card");
+  const summaryBox = document.getElementById("budget-summary-box");
+  const tableCard = document.getElementById("budget-table-card");
+  const tbody = document.getElementById("budget-rows-tbody");
+
+  summaryCard.classList.remove("hidden");
+  summaryBox.className = result.overBudget ? "alert-warn" : "alert-ok";
+  const icon = result.overBudget ? "⚠️" : "✅";
+  const estouradas = result.alerts.map((a) => (a.mes ? `${a.categoria} (${a.mes})` : a.categoria)).join(", ");
+  summaryBox.textContent = result.overBudget
+    ? `${icon} ${result.alerts.length} categoria(s) estouraram o orçamento: ${estouradas}. ` +
+      `Previsto total: R$ ${result.totalPrevisto.toFixed(2)} / Realizado total: R$ ${result.totalRealizado.toFixed(2)}.`
+    : `${icon} Nenhuma categoria estourou o orçamento. ` +
+      `Previsto total: R$ ${result.totalPrevisto.toFixed(2)} / Realizado total: R$ ${result.totalRealizado.toFixed(2)} ` +
+      `(saldo: R$ ${result.saldoTotal.toFixed(2)}).`;
+
+  tableCard.classList.remove("hidden");
+  tbody.innerHTML = result.rows
+    .map((r) => {
+      const badge =
+        r.status === "ESTOURADO"
+          ? '<span class="badge" style="background:#fee2e2;color:#991b1b;">ESTOURADO</span>'
+          : '<span class="badge" style="background:#dcfce7;color:#166534;">DENTRO DO ORÇAMENTO</span>';
+      return `
+      <tr>
+        <td>${r.categoria}</td>
+        <td>${r.mes || "-"}</td>
+        <td>R$ ${r.previsto.toFixed(2)}</td>
+        <td>R$ ${r.realizado.toFixed(2)}</td>
+        <td>R$ ${r.saldo.toFixed(2)}</td>
+        <td>${badge}</td>
+      </tr>`;
+    })
+    .join("");
+}
 
 // ---------- Equipe (usuários do tenant) ----------
 

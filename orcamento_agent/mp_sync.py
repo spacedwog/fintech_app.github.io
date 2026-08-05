@@ -16,9 +16,15 @@ Uso:
   python3 mp_sync.py --mes 2025-01
   python3 mp_sync.py --mes 2025-01 --config config.json
   python3 mp_sync.py --mes 2025-01 --somente-aprovados   (padrão: True)
+  python3 mp_sync.py --planilha meu_orcamento.xlsx        (sobrescreve o config.json)
+
+A planilha não precisa ter nome nem local fixos: informe o arquivo que você
+mesmo exportou/subiu via --planilha, ou defina "planilha" em config.json.
+Qualquer planilha com a mesma estrutura de abas (Orcamento, Mapeamento,
+MP_Transacoes, Resumo_MP) funciona — veja config.example.json.
 
 Requer um config.json (veja config.example.json) com:
-  { "mercado_pago_access_token": "...", "planilha": "Orcamento_Casamento_do_Ano.xlsx" }
+  { "mercado_pago_access_token": "...", "planilha": "meu_orcamento.xlsx" }
 
 Este script é pensado para rodar tanto manualmente quanto via agendamento
 (sem intervenção humana): nunca lança exceção não tratada, sempre grava um
@@ -44,6 +50,10 @@ except ImportError:
 import openpyxl
 
 MP_API_URL = "https://api.mercadopago.com/v1/payments/search"
+
+# Abas que o script lê/grava diretamente. Qualquer planilha com essa
+# estrutura funciona -- não precisa ser um arquivo com nome fixo.
+REQUIRED_SHEETS = ["Mapeamento", "MP_Transacoes", "Resumo_MP"]
 
 MESES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
@@ -120,6 +130,19 @@ def fetch_mp_payments(token, begin_date, end_date):
         if offset >= total or not page:
             break
     return results
+
+
+def validate_workbook(wb, planilha):
+    """Confere se a planilha enviada tem a estrutura mínima esperada, com
+    mensagem clara em vez de deixar estourar um KeyError cru mais adiante."""
+    faltando = [s for s in REQUIRED_SHEETS if s not in wb.sheetnames]
+    if faltando:
+        raise ValueError(
+            f"A planilha '{planilha}' não tem a(s) aba(s) {', '.join(faltando)}. "
+            "Use uma planilha de orçamento com a mesma estrutura (abas Orcamento, Mapeamento, "
+            "MP_Transacoes e Resumo_MP) -- pode ser qualquer arquivo que você mesmo exportou ou "
+            "subiu, não precisa ter nome nem local fixos."
+        )
 
 
 def load_mapping_rules(wb):
@@ -248,7 +271,15 @@ def run(args):
     if not token or token.startswith("COLE_"):
         return "erro", "Access token do Mercado Pago não configurado em config.json."
 
-    planilha = cfg.get("planilha", "Orcamento_Casamento_do_Ano.xlsx")
+    # --planilha (CLI) tem prioridade sobre "planilha" no config.json -- assim
+    # dá pra apontar para qualquer arquivo que você mesmo subiu, sem precisar
+    # editar o config.json nem usar um nome fixo.
+    planilha = getattr(args, "planilha", None) or cfg.get("planilha")
+    if not planilha:
+        return "erro", (
+            "Nenhuma planilha de orçamento informada. Use --planilha caminho/para/seu_orcamento.xlsx "
+            "ou defina \"planilha\" em config.json (veja config.example.json)."
+        )
     config_dir = os.path.dirname(os.path.abspath(args.config))
     if not os.path.isabs(planilha):
         planilha = os.path.join(config_dir, planilha)
@@ -264,6 +295,10 @@ def run(args):
     print(f"{len(payments)} pagamento(s) encontrado(s) no período.")
 
     wb = openpyxl.load_workbook(planilha)
+    try:
+        validate_workbook(wb, planilha)
+    except ValueError as e:
+        return "erro", str(e)
     rules = load_mapping_rules(wb)
     gravados = write_transactions(wb, payments, rules, mes, args.somente_aprovados)
     wb.save(planilha)
@@ -304,6 +339,11 @@ def main():
     ap = argparse.ArgumentParser(description="Sincroniza pagamentos do Mercado Pago com a planilha de orçamento.")
     ap.add_argument("--mes", default=None, help="Mês a sincronizar, formato AAAA-MM (padrão: mês atual)")
     ap.add_argument("--config", default="config.json", help="Caminho do config.json")
+    ap.add_argument(
+        "--planilha", default=None,
+        help="Caminho da planilha de orçamento a sincronizar (sobrescreve \"planilha\" do config.json). "
+             "Aceita qualquer arquivo com a mesma estrutura de abas, sem nome nem local fixos.",
+    )
     ap.add_argument("--somente-aprovados", dest="somente_aprovados", action="store_true", default=True)
     ap.add_argument("--incluir-todos-status", dest="somente_aprovados", action="store_false")
     args = ap.parse_args()

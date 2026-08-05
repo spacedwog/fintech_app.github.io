@@ -42,6 +42,7 @@
       <button class="nav-item active" data-view="expenses">Registrar Despesa</button>
       <button class="nav-item" data-view="reports">Resumo Mensal</button>
       <button class="nav-item" data-view="alerts">Alertas / Orçamento</button>
+      <button class="nav-item" data-view="budget">Importar Orçamento</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
       <button class="nav-item" data-view="plan">Plano</button>
 
@@ -133,6 +134,37 @@
             </div>
             <button type="submit" class="primary">Salvar orçamento</button>
           </form>
+        </div>
+      </section>
+
+      <!-- Importar Orçamento (IA de leitura de orçamento via upload) -->
+      <section class="view hidden" id="view-budget">
+        <div class="top-bar"><h1>Importar Orçamento</h1></div>
+        <div class="card">
+          <p class="small-muted" style="margin-top:0;">
+            Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita 100% no
+            navegador (IA local, sem servidor, sem depender de um arquivo fixo). Funciona com uma
+            coluna <strong>Categoria</strong> e colunas <strong>Previsto</strong>/<strong>Realizado</strong>
+            (por mês, lado a lado, ou uma linha por categoria + mês).
+          </p>
+          <div class="field">
+            <input type="file" id="budget-file-input" accept=".xlsx,.xls,.csv" />
+          </div>
+          <p id="budget-import-status" class="small-muted" style="min-height:1rem;"></p>
+        </div>
+
+        <div class="card hidden" id="budget-summary-card">
+          <div id="budget-summary-box" class="alert-ok"></div>
+        </div>
+
+        <div class="card hidden" id="budget-table-card">
+          <h3 style="margin-top:0;">Detalhamento por categoria</h3>
+          <table>
+            <thead>
+              <tr><th>Categoria</th><th>Mês</th><th>Previsto</th><th>Realizado</th><th>Saldo</th><th>Status</th></tr>
+            </thead>
+            <tbody id="budget-rows-tbody"></tbody>
+          </table>
         </div>
       </section>
 
@@ -237,6 +269,7 @@
   <script src="js/crypto-utils.js"></script>
   <script src="js/pix.js"></script>
   <script src="js/receipt-ai.js"></script>
+  <script src="js/budget-ai.js"></script>
   <script src="js/api.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
