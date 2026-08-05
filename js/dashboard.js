@@ -459,9 +459,25 @@ function setupBudgetLayoutModal() {
   document.getElementById("budget-layout-modal-close").addEventListener("click", closeBudgetLayoutModal);
   document.getElementById("budget-layout-cancel").addEventListener("click", closeBudgetLayoutModal);
 
+  document.getElementById("budget-layout-next-btn").addEventListener("click", () => {
+    const nameInput = document.getElementById("layout-name");
+    if (!nameInput.reportValidity()) return;
+    goToBudgetLayoutPage(2);
+  });
+  document.getElementById("budget-layout-back-btn").addEventListener("click", () => {
+    goToBudgetLayoutPage(1);
+  });
+
   document.querySelectorAll('input[name="layout-format"]').forEach((radio) => {
     radio.addEventListener("change", updateBudgetLayoutFormatFields);
   });
+}
+
+function goToBudgetLayoutPage(page) {
+  document.getElementById("layout-page-1").classList.toggle("hidden", page !== 1);
+  document.getElementById("layout-page-2").classList.toggle("hidden", page !== 2);
+  const indicator = document.getElementById("layout-page-indicator");
+  if (indicator) indicator.textContent = `Página ${page} de 2`;
 }
 
 function updateBudgetLayoutFormatFields() {
@@ -477,6 +493,7 @@ function openBudgetLayoutModal(existingLayout) {
 
   const errorBox = document.getElementById("budget-layout-error");
   errorBox.classList.add("hidden");
+  goToBudgetLayoutPage(1);
 
   document.getElementById("layout-name").value = existingLayout ? existingLayout.name : "";
 

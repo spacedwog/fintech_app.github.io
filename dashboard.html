@@ -283,81 +283,91 @@
                 style="background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted);">&times;</button>
       </div>
 
-      <p class="small-muted" style="margin:0 0 12px;">
+      <p class="small-muted" style="margin:0 0 4px;">
         Diga onde ficam a categoria e os valores na sua planilha. Selecione o arquivo na tela anterior antes de
         abrir aqui para listar as abas disponíveis.
       </p>
+      <p class="small-muted" id="layout-page-indicator" style="margin:0 0 12px;font-weight:600;">Página 1 de 2</p>
 
       <div id="budget-layout-error" class="error-box hidden"></div>
 
       <form id="budget-layout-form">
-        <div class="field">
-          <label>Nome do layout</label>
-          <input type="text" id="layout-name" required placeholder="Ex: Orçamento doméstico" />
-        </div>
-
-        <div class="field">
-          <label>Aba da planilha</label>
-          <select id="layout-sheet">
-            <option value="">Detectar automaticamente</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Formato</label>
-          <div style="display:flex;gap:16px;flex-wrap:wrap;">
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-              <input type="radio" name="layout-format" value="largo" checked />
-              Largo (Previsto/Realizado por mês, lado a lado)
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-              <input type="radio" name="layout-format" value="longo" />
-              Longo (uma linha por categoria)
-            </label>
-          </div>
-        </div>
-
-        <div id="layout-fields-largo">
+        <div id="layout-page-1">
           <div class="field">
-            <label>Coluna da Categoria</label>
-            <input type="text" id="layout-col-categoria-larga" placeholder="Ex: A" />
+            <label>Nome do layout</label>
+            <input type="text" id="layout-name" required placeholder="Ex: Orçamento doméstico" />
           </div>
+
           <div class="field">
-            <label>Linha com o nome dos meses</label>
-            <input type="number" min="1" id="layout-month-row" placeholder="Ex: 1" />
+            <label>Aba da planilha</label>
+            <select id="layout-sheet">
+              <option value="">Detectar automaticamente</option>
+            </select>
           </div>
+
           <div class="field">
-            <label>Linha com "Previsto"/"Realizado"</label>
-            <input type="number" min="1" id="layout-subheader-row" placeholder="Ex: 2" />
+            <label>Formato</label>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+                <input type="radio" name="layout-format" value="largo" checked />
+                Largo (Previsto/Realizado por mês, lado a lado)
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+                <input type="radio" name="layout-format" value="longo" />
+                Longo (uma linha por categoria)
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:6px;">
+            <button type="button" id="budget-layout-cancel" class="secondary" style="flex:1;">Cancelar</button>
+            <button type="button" id="budget-layout-next-btn" class="primary" style="flex:1;margin-top:0;">Próximo</button>
           </div>
         </div>
 
-        <div id="layout-fields-longo" class="hidden">
-          <div class="field">
-            <label>Linha do cabeçalho</label>
-            <input type="number" min="1" id="layout-header-row" placeholder="Ex: 1" />
+        <div id="layout-page-2" class="hidden">
+          <div id="layout-fields-largo">
+            <div class="field">
+              <label>Coluna da Categoria</label>
+              <input type="text" id="layout-col-categoria-larga" placeholder="Ex: A" />
+            </div>
+            <div class="field">
+              <label>Linha com o nome dos meses</label>
+              <input type="number" min="1" id="layout-month-row" placeholder="Ex: 1" />
+            </div>
+            <div class="field">
+              <label>Linha com "Previsto"/"Realizado"</label>
+              <input type="number" min="1" id="layout-subheader-row" placeholder="Ex: 2" />
+            </div>
           </div>
-          <div class="field">
-            <label>Coluna da Categoria</label>
-            <input type="text" id="layout-col-categoria" placeholder="Ex: A" />
-          </div>
-          <div class="field">
-            <label>Coluna do Mês (opcional)</label>
-            <input type="text" id="layout-col-mes" placeholder="Ex: B" />
-          </div>
-          <div class="field">
-            <label>Coluna do Previsto</label>
-            <input type="text" id="layout-col-previsto" placeholder="Ex: C" />
-          </div>
-          <div class="field">
-            <label>Coluna do Realizado (opcional)</label>
-            <input type="text" id="layout-col-realizado" placeholder="Ex: D" />
-          </div>
-        </div>
 
-        <div style="display:flex;gap:10px;margin-top:6px;">
-          <button type="button" id="budget-layout-cancel" class="secondary" style="flex:1;">Cancelar</button>
-          <button type="submit" class="primary" style="flex:1;margin-top:0;">Salvar e usar</button>
+          <div id="layout-fields-longo" class="hidden">
+            <div class="field">
+              <label>Linha do cabeçalho</label>
+              <input type="number" min="1" id="layout-header-row" placeholder="Ex: 1" />
+            </div>
+            <div class="field">
+              <label>Coluna da Categoria</label>
+              <input type="text" id="layout-col-categoria" placeholder="Ex: A" />
+            </div>
+            <div class="field">
+              <label>Coluna do Mês (opcional)</label>
+              <input type="text" id="layout-col-mes" placeholder="Ex: B" />
+            </div>
+            <div class="field">
+              <label>Coluna do Previsto</label>
+              <input type="text" id="layout-col-previsto" placeholder="Ex: C" />
+            </div>
+            <div class="field">
+              <label>Coluna do Realizado (opcional)</label>
+              <input type="text" id="layout-col-realizado" placeholder="Ex: D" />
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:6px;">
+            <button type="button" id="budget-layout-back-btn" class="secondary" style="flex:1;">Voltar</button>
+            <button type="submit" class="primary" style="flex:1;margin-top:0;">Salvar e usar</button>
+          </div>
         </div>
       </form>
     </div>
