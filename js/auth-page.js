@@ -1,6 +1,6 @@
 // ===============================
 // frontend/js/auth-page.js
-// Lógica da tela de login/signup (index.html)
+// Lógica da tela de login/signup (login.html)
 // ===============================
 
 document.addEventListener("DOMContentLoaded", () => {

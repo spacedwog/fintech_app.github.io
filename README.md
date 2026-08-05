@@ -1,21 +1,23 @@
-# Fintech SaaS
+# Fintech Spacecworp
 
-Versão SaaS multi-tenant do controle de despesas, **100% em HTML, CSS e JavaScript**, sem servidor e sem Python. Roda inteiramente no navegador.
+Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor e sem Python. Roda inteiramente no navegador.
 
 > O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica que antes vivia no servidor (autenticação, multi-tenancy, planos, despesas, relatórios) agora roda em JavaScript no cliente. O banco de dados é o arquivo `db.json` na raiz do repositório, usado para inicializar a primeira visita de cada navegador; a partir daí, os dados ficam salvos no `localStorage`, que funciona como fallback/persistência real (já que o site é estático e não tem como escrever de volta no `db.json`).
 
 ## Arquitetura
 
-O app da raiz (antigo dashboard estático sem login) e o app que vivia em `frontend/`
-(SaaS multi-tenant com login) foram fundidos em um único app, publicado na raiz do
-repositório (é o que o GitHub Pages serve via `CNAME`):
+A landing page passou a ser o `index.html`, servido na raiz do repositório (é o que o
+GitHub Pages serve via `CNAME`). O antigo `index.html` (tela de login/criação de conta)
+virou `login.html`:
 
 ```
-index.html            -> login / criação de conta (empresa)
+index.html            -> landing page (marketing, planos, FAQ)
+login.html             -> login / criação de conta (empresa)
 dashboard.html         -> painel principal (SPA simples)
 db.json                 -> banco "de fábrica" (schema vazio), usado só para
                             inicializar a 1ª visita de cada navegador
-css/styles.css
+css/styles.css          -> estilos do login e do painel
+css/landing.css         -> estilos da landing page
 js/
   plans.js             -> planos (free / pro / enterprise) e limites
   db.js                 -> "banco de dados": localStorage (fallback/persistência
@@ -23,15 +25,12 @@ js/
   crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
   api.js                 -> toda a lógica de negócio (antes no FastAPI), mesma
                             interface de antes (Auth/Api), agora sem rede
-  auth-page.js           -> lógica de login/signup
+  auth-page.js           -> lógica de login/signup (login.html)
   dashboard.js           -> lógica do painel (despesas, relatórios, alertas, equipe, plano)
   pix.js                  -> geração de QR Code / Pix Copia e Cola (BR Code real)
   receipt-ai.js           -> "IA" (OCR local, Tesseract.js) que lê o comprovante do
                               Pix e confere valor/recebedor automaticamente
 ```
-
-A pasta `frontend/` e o antigo `index.html`/`js/app.js` da raiz (dashboard sem login,
-com dados mocados) ficaram obsoletos com essa fusão e podem ser removidos.
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o projeto é só front-end estático.
 
@@ -42,7 +41,7 @@ O banco de dados é o arquivo **`db.json`**, versionado na raiz do repositório 
 - **Leitura:** se já existe alguma coisa salva no `localStorage` deste navegador (chave `fintech_saas_db_v1`), é isso que é usado — essa é a persistência real do app no dia a dia. Só na **primeira visita** (localStorage vazio) o app busca `db.json` via `fetch()` para inicializar os dados.
 - **Gravação:** toda gravação (nova despesa, novo usuário, troca de plano etc.) acontece no `localStorage`. Como o site é 100% estático (GitHub Pages, sem backend), o navegador não tem como escrever de volta no `db.json` remoto — ele não muda sozinho com o uso do app. Se quiser alterar o que um navegador novo recebe de início, edite `db.json` manualmente e publique a alteração.
 
-Se `fetch()` falhar (por exemplo, abrindo `index.html` direto via `file://`, onde o navegador bloqueia esse tipo de leitura), o app cai para um schema vazio, como sempre fez — use a "Opção 2" abaixo (servidor estático local) para garantir que `db.json` carregue.
+Se `fetch()` falhar (por exemplo, abrindo `login.html` direto via `file://`, onde o navegador bloqueia esse tipo de leitura), o app cai para um schema vazio, como sempre fez — use a "Opção 2" abaixo (servidor estático local) para garantir que `db.json` carregue.
 
 ### Multi-tenancy
 
@@ -52,7 +51,7 @@ Cada empresa que se cadastra vira um "tenant" isolado dentro do mesmo `localStor
 
 ### Planos
 
-O sistema só pode ser usado com login (a tela `dashboard.html` redireciona para `index.html` se não houver sessão ativa). Depois de logado, todo usuário tem acesso completo ao sistema — a única diferença entre os planos é o limite diário de despesas:
+O sistema só pode ser usado com login (a tela `dashboard.html` redireciona para `login.html` se não houver sessão ativa). Depois de logado, todo usuário tem acesso completo ao sistema — a única diferença entre os planos é o limite diário de despesas:
 
 | Plano | Preço | Despesas/dia |
 |---|---|---|
@@ -73,7 +72,7 @@ Não precisa instalar nada. Duas opções:
 
 ### Opção 1 — abrir direto
 
-Dê duplo clique em `index.html`.
+Dê duplo clique em `index.html` (landing page) ou vá direto para `login.html`.
 
 ### Opção 2 — servidor estático local (recomendado)
 
@@ -93,7 +92,7 @@ Acesse `http://localhost:5500`.
 
 ## Primeiro uso
 
-1. Abra `index.html`, clique em "Criar empresa" e cadastre a primeira conta (você vira `admin` do tenant).
+1. Abra `index.html` (ou `login.html` diretamente), clique em "Criar empresa" e cadastre a primeira conta (você vira `admin` do tenant).
 2. Registre categorias/despesas, veja o resumo mensal, defina orçamento e teste os alertas.
 3. Como admin, convide outros usuários em "Equipe" (respeitando o limite do plano) e experimente trocar de plano em "Plano".
 

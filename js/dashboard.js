@@ -13,7 +13,7 @@ const PIX_MERCHANT = { key: "62904267000160", name: "SPACECWORP", city: "OSASCO"
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (!Auth.isLoggedIn()) {
-    window.location.href = "index.html";
+    window.location.href = "login.html";
     return;
   }
 
@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     CURRENT_TENANT = me.tenant;
   } catch (err) {
     Auth.clearToken();
-    window.location.href = "index.html";
+    window.location.href = "login.html";
     return;
   }
 
@@ -46,7 +46,7 @@ function renderShell() {
 
   document.getElementById("logout-btn").addEventListener("click", () => {
     Auth.clearToken();
-    window.location.href = "index.html";
+    window.location.href = "login.html";
   });
 }
 
@@ -325,7 +325,7 @@ async function selectPlan(planKey) {
   const plan = plans[planKey];
   openPixPayment({
     amount: plan.price_month,
-    description: `Assinatura ${plan.label} — Fintech SaaS`,
+    description: `Assinatura ${plan.label} — Fintech Spacecworp`,
     txidPrefix: "PLANO",
     expectedType: planKey === "premium" ? "plano_premium" : "plano_free",
     onConfirm: async (txid, analysis) => {

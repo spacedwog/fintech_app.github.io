@@ -44,7 +44,7 @@ function _readLocalStorage() {
   try {
     return _normalize(JSON.parse(raw));
   } catch (e) {
-    console.warn("Fintech SaaS: JSON salvo em localStorage estava corrompido; ignorando.", e);
+    console.warn("Fintech Spacecworp: JSON salvo em localStorage estava corrompido; ignorando.", e);
     return null;
   }
 }
@@ -53,7 +53,7 @@ function _writeLocalStorage(db) {
   try {
     localStorage.setItem(DB_JSON_KEY, JSON.stringify(db));
   } catch (e) {
-    console.warn("Fintech SaaS: não foi possível gravar no localStorage.", e);
+    console.warn("Fintech Spacecworp: não foi possível gravar no localStorage.", e);
   }
 }
 
@@ -69,7 +69,7 @@ async function _fetchSeedDb() {
     const res = await fetch(DB_SEED_JSON_URL, { cache: "no-store" });
     if (res.ok) return _normalize(await res.json());
   } catch (e) {
-    console.warn("Fintech SaaS: não foi possível carregar o banco de fábrica (db.json).", e);
+    console.warn("Fintech Spacecworp: não foi possível carregar o banco de fábrica (db.json).", e);
   }
   return null;
 }
