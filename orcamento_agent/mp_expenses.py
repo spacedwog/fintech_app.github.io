@@ -234,6 +234,9 @@ class ExpenseGenerator:
                 # selo "gerada via Mercado Pago" no painel (ver js/dashboard.js).
                 "mercadoPagoPaymentId": mp_id,
                 "generatedByMercadoPago": True,
+                # Distingue de despesas geradas por orcamento_agent/mp_email_expenses.py
+                # (que usa "email" aqui) no selo do painel web -- ver js/dashboard.js.
+                "mercadoPagoSource": "api",
             }
             db.setdefault("expenses", []).append(expense)
             criadas.append(expense)

@@ -62,12 +62,14 @@ class MercadoPagoStatusIndicator {
           : "data desconhecida";
         box.title =
           `Última atualização: ${lastSync}. ${status.payments_verified_count} pagamento(s) confirmado(s) ` +
-          `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py.`;
+          `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py (via API) ` +
+          `e/ou mp_email_expenses.py (via e-mail de notificação, sem token).`;
       } else {
         label.textContent = "Nenhuma despesa sincronizada ainda";
         box.title =
           "Nenhum pagamento do Mercado Pago foi importado ainda. Rode orcamento_agent/mp_reconcile.py e depois " +
-          "mp_expenses.py (fora do navegador) para gerar despesas reais a partir da sua conta do Mercado Pago.";
+          "mp_expenses.py (com Access Token) OU mp_email_expenses.py (lendo os avisos do Mercado Pago por " +
+          "e-mail, sem token) -- fora do navegador -- para gerar despesas reais a partir da sua conta.";
       }
     } catch (e) {
       label.textContent = "";
@@ -525,6 +527,25 @@ class DashboardController {
     }
   }
 
+  // Selo "Mercado Pago" de uma linha da tabela de despesas -- a origem
+  // (generated_by_mercado_pago_source, ver ExpenseService.listExpenses em
+  // js/api.js) distingue as duas formas de integração: "api"
+  // (orcamento_agent/mp_expenses.py, via Access Token) ou "email"
+  // (orcamento_agent/mp_email_expenses.py, lendo os avisos do Mercado Pago
+  // na caixa de entrada, sem precisar de token). Despesas antigas, geradas
+  // antes desse campo existir, não têm origem conhecida e mostram o selo
+  // genérico de sempre.
+  _mercadoPagoRowBadgeHtml(e) {
+    if (!e.generated_by_mercado_pago) return "";
+    const origem =
+      e.generated_by_mercado_pago_source === "email"
+        ? { label: "Mercado Pago (e-mail)", title: "Gerada automaticamente a partir de um e-mail de notificação do Mercado Pago (orcamento_agent/mp_email_expenses.py) -- sem Access Token." }
+        : e.generated_by_mercado_pago_source === "api"
+        ? { label: "Mercado Pago (API)", title: "Gerada automaticamente a partir de um pagamento real no Mercado Pago via API (orcamento_agent/mp_expenses.py)." }
+        : { label: "Mercado Pago", title: "Gerada automaticamente a partir de um pagamento real no Mercado Pago (orcamento_agent/mp_expenses.py ou mp_email_expenses.py)." };
+    return ` <span class="badge mp" title="${origem.title}">${origem.label}</span>`;
+  }
+
   async _refreshExpenseTable() {
     const expenses = await Api.listExpenses();
     const tbody = document.getElementById("expenses-tbody");
@@ -534,11 +555,7 @@ class DashboardController {
         <tr>
           <td>${e.date}</td>
           <td>${e.category_name || "-"}</td>
-          <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${
-          e.generated_by_mercado_pago
-            ? ' <span class="badge mp" title="Gerada automaticamente a partir de um pagamento real no Mercado Pago (orcamento_agent/mp_expenses.py)">Mercado Pago</span>'
-            : ""
-        }</td>
+          <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${this._mercadoPagoRowBadgeHtml(e)}</td>
           <td>R$ ${e.amount.toFixed(2)}</td>
           <td><button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button></td>
         </tr>`
