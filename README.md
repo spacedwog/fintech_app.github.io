@@ -19,7 +19,7 @@ db.json                 -> banco "de fábrica" (schema vazio), usado só para
 css/styles.css          -> estilos do login e do painel
 css/landing.css         -> estilos da landing page
 js/
-  plans.js             -> planos (free / pro / enterprise) e limites
+  plans.js             -> planos (free / premium) e limites
   db.js                 -> "banco de dados": localStorage (fallback/persistência
                             real) > db.json (1ª visita) > schema vazio
   crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
@@ -58,7 +58,7 @@ O sistema só pode ser usado com login (a tela `dashboard.html` redireciona para
 | Free | R$ 0,00 | 6 (cada despesa extra além do limite: cobrança real de R$ 5,00/unidade via Pix) |
 | Premium | R$ 19,99/mês | Ilimitadas |
 
-O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atingir 6 despesas no dia, a despesa não é salva imediatamente — abre-se um QR Code Pix real (mesma chave usada no site, CNPJ 62.904.267/0001-60) de R$ 5,00; a despesa só é registrada depois que o usuário clica em "Já paguei". Trocar para o plano Premium funciona do mesmo jeito, com um QR Code Pix de R$ 19,99/mês.
+O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atingir 6 despesas no dia, a despesa não é salva imediatamente — abre-se um QR Code Pix real (mesma chave usada no site, CNPJ 62.904.267/0001-60) de R$ 5,00. O usuário paga no app do próprio banco e envia o comprovante; uma IA local (OCR, `js/receipt-ai.js`) confere se o valor e o recebedor batem com a cobrança antes de habilitar a confirmação — se a leitura automática falhar, ainda é possível confirmar manualmente. Trocar para o plano Premium funciona do mesmo jeito, com um QR Code Pix de R$ 19,99/mês.
 
 **Importante sobre o Pix:** o QR Code e o código "copia e cola" são gerados no formato oficial do Banco Central (BR Code, com CRC16) e apontam para uma chave Pix real — ou seja, quem pagar transfere dinheiro de verdade. O que **não existe** é confirmação automática do recebimento: como o site é 100% estático (sem backend), não há integração com nenhum provedor de pagamentos (PSP) para verificar via webhook se o Pix caiu na conta. A confirmação em "Já paguei" é uma declaração do próprio usuário, não uma verificação bancária. Para confirmação automática de verdade seria necessário contratar um provedor (Mercado Pago, Efí, Asaas, PagSeguro etc.) e rodar um backend que recebesse os webhooks — fora do escopo deste projeto estático.
 
@@ -95,6 +95,15 @@ Acesse `http://localhost:5500`.
 1. Abra `index.html` (ou `login.html` diretamente), clique em "Criar conta" e cadastre a primeira conta (você vira `admin` do tenant).
 2. Registre categorias/despesas, veja o resumo mensal, defina orçamento e teste os alertas.
 3. Como admin, convide outros usuários em "Equipe" (respeitando o limite do plano) e experimente trocar de plano em "Plano".
+
+## Roadmap
+
+Hoje o app cobre o registro manual: o usuário lança os pagamentos do mês e paga
+o que for necessário (limite excedido, upgrade de plano) via Pix real,
+confirmando com o comprovante. A evolução planejada é o próprio sistema
+executar o pagamento por conta do usuário — isso depende de um backend
+integrado a um provedor de pagamentos (PSP) e está fora do escopo atual,
+que é intencionalmente só front-end estático.
 
 ## Limitações por ser 100% client-side
 
