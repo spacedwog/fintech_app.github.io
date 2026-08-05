@@ -31,6 +31,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Instalar LibreOffice (recalculo de formulas em .xlsx)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice-calc
+
       - name: Instalar dependencias Python
         run: pip install openpyxl requests
 
