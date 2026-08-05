@@ -150,8 +150,18 @@ const Api = {
     const tenant = _findTenant(db, session.tenant_id);
     if (!tenant) throw new Error("Conta não encontrada");
 
+    // Busca o registro atual do usuário no banco em vez de confiar cegamente
+    // no nome/role gravados no token de sessão no momento do login: o token
+    // fica parado no localStorage até o próximo login, então qualquer edição
+    // feita depois (neste dispositivo ou sincronizada de outro) não aparecia
+    // aqui. Se o usuário não existir mais (removido da equipe, por exemplo),
+    // cai de volta nos dados do token como último recurso.
+    const user = db.users.find((u) => u.id === session.user_id);
+
     return {
-      user: { id: session.user_id, name: session.name, role: session.role },
+      user: user
+        ? { id: user.id, name: user.name, email: user.email, role: user.role }
+        : { id: session.user_id, name: session.name, role: session.role },
       tenant: _serializeTenant(tenant),
     };
   },
