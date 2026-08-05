@@ -1,0 +1,94 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+env:
+  # Secret criado em: Settings > Secrets and variables > Actions > New repository secret
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+jobs:
+  python-pipeline:
+    name: Comandos Python (lint, testes, pipeline de dados)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias Python
+        run: pip install openpyxl
+
+      - name: Lint (py_compile em todos os .py)
+        run: |
+          find . -name "*.py" -not -path "./.git/*" -print0 \
+            | xargs -0 python3 -m py_compile
+
+      - name: Verificar GOOGLE_API_KEY
+        run: python3 scripts/verify_google_api_key.py
+
+      - name: Testes - fibonacci_laplace_agent
+        working-directory: fibonacci_laplace_agent
+        run: python3 test_pipeline.py
+
+      - name: Testes - orcamento_agent
+        working-directory: orcamento_agent
+        run: |
+          python3 test_mp_expenses.py
+          python3 test_mp_reconcile.py
+          python3 test_mp_sync.py
+
+      - name: Rodar pipeline ETL (Fibonacci + Laplace) de exemplo
+        working-directory: fibonacci_laplace_agent
+        continue-on-error: true
+        run: |
+          python3 etl_pipeline.py \
+            --planilha ../casamento_do_ano.xlsx \
+            --layout ../orcamento_agent/layout.example.json \
+            --saida resultado_pipeline.json
+
+      - name: Upload do artifact com a saida do pipeline Python
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-pipeline-output
+          path: fibonacci_laplace_agent/resultado_pipeline.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  deploy:
+    name: Publicar GitHub Pages
+    needs: python-pipeline
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Criar artifact do site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Executar deploy do artifact
+        id: deployment
+        uses: actions/deploy-pages@v4

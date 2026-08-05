@@ -1,0 +1,74 @@
+name: Delete workflow runs
+
+# Apaga execucoes antigas do GitHub Actions para manter o historico limpo.
+# Disparo manual (com opcoes) ou semanal automatico.
+on:
+  workflow_dispatch:
+    inputs:
+      keep_latest:
+        description: "Quantas execucoes recentes manter por workflow"
+        required: false
+        default: "10"
+      days_old:
+        description: "Apagar apenas execucoes com mais de N dias (0 = ignora)"
+        required: false
+        default: "30"
+  schedule:
+    - cron: "0 6 * * 1" # toda segunda-feira as 06:00 UTC
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  delete-runs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apagar execucoes antigas via gh CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          KEEP_LATEST: ${{ github.event.inputs.keep_latest || '10' }}
+          DAYS_OLD: ${{ github.event.inputs.days_old || '30' }}
+        run: |
+          set -euo pipefail
+          echo "Repositorio: $REPO"
+          echo "Mantendo as $KEEP_LATEST execucoes mais recentes por workflow"
+          echo "Apagando apenas execucoes com mais de $DAYS_OLD dia(s) (0 = sem filtro de data)"
+
+          cutoff_epoch=0
+          if [ "$DAYS_OLD" != "0" ]; then
+            cutoff_epoch=$(date -d "-$DAYS_OLD days" +%s)
+          fi
+
+          for workflow_id in $(gh api "repos/$REPO/actions/workflows" --paginate --jq '.workflows[].id'); do
+            echo "== Workflow $workflow_id =="
+
+            mapfile -t run_ids < <(
+              gh api "repos/$REPO/actions/workflows/$workflow_id/runs" \
+                --paginate \
+                --jq '.workflow_runs | sort_by(.created_at) | reverse | .[] | "\(.id) \(.created_at)"'
+            )
+
+            total=${#run_ids[@]}
+            if [ "$total" -le "$KEEP_LATEST" ]; then
+              echo "Apenas $total execucao(oes), nada a apagar."
+              continue
+            fi
+
+            for i in $(seq "$KEEP_LATEST" $((total - 1))); do
+              line="${run_ids[$i]}"
+              run_id="${line%% *}"
+              created_at="${line#* }"
+
+              if [ "$cutoff_epoch" != "0" ]; then
+                run_epoch=$(date -d "$created_at" +%s)
+                if [ "$run_epoch" -gt "$cutoff_epoch" ]; then
+                  continue
+                fi
+              fi
+
+              echo "Apagando run $run_id (criada em $created_at)"
+              gh api -X DELETE "repos/$REPO/actions/runs/$run_id" || true
+            done
+          done
