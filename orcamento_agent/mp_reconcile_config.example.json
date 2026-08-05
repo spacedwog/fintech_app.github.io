@@ -1,0 +1,12 @@
+{
+  "mercado_pago_access_token": "COLE_SEU_ACCESS_TOKEN_AQUI",
+  "firebase_service_account": null,
+  "db_json": null,
+  "janela_dias": 30,
+  "_comentarios": {
+    "mercado_pago_access_token": "O mesmo token usado em config.json (mp_sync.py) -- gere em developers.mercadopago.com.br -> Suas integrações -> Credenciais. NUNCA compartilhe.",
+    "firebase_service_account": "Recomendado: caminho de uma chave de conta de serviço do Firebase (Console do Firebase -> Configurações do projeto -> Contas de serviço -> Gerar nova chave privada). Lê/grava direto no mesmo Firestore usado pelo painel web (dashboard.html). NUNCA versione esse arquivo.",
+    "db_json": "Alternativa sem Firebase: caminho de uma cópia local do banco (mesmo formato do db.json/localStorage). Use só um dos dois campos (firebase_service_account OU db_json) -- se os dois estiverem preenchidos, firebase_service_account tem prioridade.",
+    "janela_dias": "Quantos dias para trás buscar pagamentos no Mercado Pago a cada execução (padrão: 30). Pode ser sobrescrito com --dias na linha de comando."
+  }
+}

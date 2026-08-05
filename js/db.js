@@ -29,7 +29,9 @@ const DB_LAST_SYNCED_KEY = "fintech_saas_last_synced_v1"; // "base" do último m
 const DB_SEED_JSON_URL = "db.json"; // banco "de fábrica", só para o 1º carregamento
 
 const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros"];
-const DB_COLLECTIONS = ["tenants", "users", "categories", "expenses", "budgets", "payments", "budgetLayouts"];
+const DB_COLLECTIONS = [
+  "tenants", "users", "categories", "expenses", "budgets", "payments", "budgetLayouts", "categoryBudgets",
+];
 
 function _emptySchema() {
   return {
@@ -37,14 +39,23 @@ function _emptySchema() {
     users: [], // { id, tenant_id, name, email, password_hash, role, created_at }
     categories: [], // { id, tenant_id, name }
     expenses: [], // { id, tenant_id, user_id, category_id, amount, date, description, created_at, is_extra, extra_charge }
-    budgets: [], // { id, tenant_id, user_id, limit_value, month }
+    budgets: [], // { id, tenant_id, user_id, limit_value, month } -- limite geral (1 valor/mês, sem categoria)
     payments: [], // { id, tenant_id, user_id, type, plan, amount, txid, verifiedByAI, aiClassification, date }
     // Layouts de leitura salvos no modal "Configurar layout de leitura"
     // (view Importar Orçamento) -- descrevem como ler uma planilha de
     // orçamento (aba, formato longo/largo, linhas e colunas) em vez de
     // depender só da heurística automática do js/budget-ai.js.
     budgetLayouts: [], // { id, tenant_id, name, format, sheetName, headerRow, colCategoria, colMes, colPrevisto, colRealizado, colCategoriaLarga, monthRow, subHeaderRow, created_at }
-    _seq: { tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, budgetLayouts: 0 },
+    // Previsto por categoria/mês, "adotado" a partir da leitura de uma
+    // planilha (Página 1 do fluxo Orçamento & Despesas -- ver
+    // Api.importCategoryBudgets em js/api.js). Compartilhado pelo tenant
+    // (não por usuário, ao contrário de "budgets" acima) -- é o orçamento
+    // da conta, não de uma pessoa só. O Realizado NÃO é guardado aqui: é
+    // calculado na hora a partir de "expenses" (ver Api.getBudgetOverview).
+    categoryBudgets: [], // { id, tenant_id, category_id, month, previsto }
+    _seq: {
+      tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, budgetLayouts: 0, categoryBudgets: 0,
+    },
   };
 }
 
@@ -58,6 +69,7 @@ const ID_FIELDS_BY_COLLECTION = {
   budgets: ["id", "tenant_id", "user_id"],
   payments: ["id", "tenant_id", "user_id"],
   budgetLayouts: ["id", "tenant_id"],
+  categoryBudgets: ["id", "tenant_id", "category_id"],
 };
 
 // Garante que todo id (e toda referência a id de outra coleção) seja

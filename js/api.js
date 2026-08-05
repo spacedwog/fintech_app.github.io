@@ -393,6 +393,161 @@ const Api = {
     return { total, limit: limitValue, over_budget: !!(limitValue && total > limitValue) };
   },
 
+  // ---------- Category Budgets (Previsto por categoria, vindo do fluxo
+  // "Orçamento & Despesas" -> Página 1 "Importar Orçamento") ----------
+  //
+  // Diferente de "budgets" acima (um limite geral por usuário/mês), isto é
+  // o Previsto POR CATEGORIA, compartilhado pela conta inteira (tenant) --
+  // é o orçamento importado de uma planilha (ver js/budget-ai.js) e
+  // "adotado" no app. O Realizado nunca é lido daqui: é sempre calculado
+  // na hora a partir das despesas reais (ver getBudgetOverview), para que
+  // registrar uma despesa na Página 2 do fluxo reflita automaticamente no
+  // comparativo da Página 3, sem precisar reimportar nada.
+
+  async listCategoryBudgets(month) {
+    const session = _requireSession();
+    const db = await loadDb();
+    return db.categoryBudgets
+      .filter((b) => b.tenant_id === session.tenant_id && (!month || b.month === month))
+      .map((b) => {
+        const category = db.categories.find((c) => c.id === b.category_id);
+        return { id: b.id, category_id: b.category_id, category_name: category ? category.name : null, month: b.month, previsto: b.previsto };
+      });
+  },
+
+  async setCategoryBudget({ category_id, month, previsto }) {
+    const session = _requireSession();
+    const db = await loadDb();
+    let record = db.categoryBudgets.find(
+      (b) => b.tenant_id === session.tenant_id && b.category_id === category_id && b.month === month
+    );
+    if (record) {
+      record.previsto = previsto;
+    } else {
+      record = { id: nextId(db, "categoryBudgets"), tenant_id: session.tenant_id, category_id, month, previsto };
+      db.categoryBudgets.push(record);
+    }
+    await saveDb(db);
+    return record;
+  },
+
+  // Fecha o fluxo Importar Orçamento -> Previsto por categoria: recebe as
+  // linhas lidas de uma planilha (js/budget-ai.js: [{ categoria, previsto }])
+  // e, para o mês informado, cria as categorias que ainda não existirem
+  // (por nome, sem diferenciar maiúsculas/acentos exatos) e grava/atualiza
+  // o Previsto de cada uma. Idempotente: rodar de novo com o mesmo arquivo
+  // e mês só atualiza os valores, não duplica nada.
+  async importCategoryBudgets({ month, rows }) {
+    const session = _requireSession();
+    if (!month) throw new Error("Informe o mês (AAAA-MM) para aplicar este orçamento.");
+    if (!Array.isArray(rows) || !rows.length) throw new Error("Nenhuma linha de orçamento para importar.");
+
+    const db = await loadDb();
+
+    // Agrupa por nome de categoria (case-insensitive), somando o Previsto --
+    // cobre o caso de a planilha ter mais de uma linha para a mesma
+    // categoria (ex.: uma planilha "larga" com vários meses lidos juntos).
+    const byName = new Map();
+    rows.forEach((r) => {
+      const name = String((r && r.categoria) || "").trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const current = byName.get(key) || { name, previsto: 0 };
+      current.previsto += Number(r.previsto) || 0;
+      byName.set(key, current);
+    });
+    if (!byName.size) throw new Error("Nenhuma categoria válida encontrada para importar.");
+
+    let createdCategories = 0;
+    const applied = [];
+
+    byName.forEach(({ name, previsto }) => {
+      let category = db.categories.find(
+        (c) => c.tenant_id === session.tenant_id && c.name.toLowerCase() === name.toLowerCase()
+      );
+      if (!category) {
+        category = { id: nextId(db, "categories"), tenant_id: session.tenant_id, name };
+        db.categories.push(category);
+        createdCategories += 1;
+      }
+
+      let budget = db.categoryBudgets.find(
+        (b) => b.tenant_id === session.tenant_id && b.category_id === category.id && b.month === month
+      );
+      if (budget) {
+        budget.previsto = previsto;
+      } else {
+        budget = { id: nextId(db, "categoryBudgets"), tenant_id: session.tenant_id, category_id: category.id, month, previsto };
+        db.categoryBudgets.push(budget);
+      }
+      applied.push({ category_id: category.id, category_name: category.name, previsto });
+    });
+
+    await saveDb(db);
+    return { month, created_categories: createdCategories, categories_count: applied.length, rows: applied };
+  },
+
+  // Visão completa do fluxo: Previsto (importado, por categoria) x
+  // Realizado (soma das despesas reais da conta inteira naquele mês) --
+  // é o que a Página 3 ("Alertas / Orçamento") do painel mostra. Categorias
+  // sem Previsto definido, mas com despesas no mês, aparecem como
+  // "SEM_ORCAMENTO" em vez de um falso "dentro do orçamento" (mesmo
+  // cuidado do orcamento_agent/mp_sync.py para meses sem orçamento
+  // cadastrado).
+  async getBudgetOverview(month) {
+    const session = _requireSession();
+    const db = await loadDb();
+    const targetMonth = month || nowIso().slice(0, 7);
+
+    const budgets = db.categoryBudgets.filter((b) => b.tenant_id === session.tenant_id && b.month === targetMonth);
+    const expenses = db.expenses.filter(
+      (e) => e.tenant_id === session.tenant_id && (e.date || "").slice(0, 7) === targetMonth
+    );
+
+    const byCategory = new Map();
+    budgets.forEach((b) => {
+      byCategory.set(b.category_id, { category_id: b.category_id, previsto: b.previsto, realizado: 0, hasBudget: true });
+    });
+    expenses.forEach((e) => {
+      const key = e.category_id || "__sem_categoria__";
+      if (!byCategory.has(key)) {
+        byCategory.set(key, { category_id: e.category_id, previsto: 0, realizado: 0, hasBudget: false });
+      }
+      byCategory.get(key).realizado += e.amount;
+    });
+
+    const rows = Array.from(byCategory.values())
+      .map((r) => {
+        const category = r.category_id ? db.categories.find((c) => c.id === r.category_id) : null;
+        const saldo = r.previsto - r.realizado;
+        const status = !r.hasBudget ? "SEM_ORCAMENTO" : saldo < 0 ? "ESTOURADO" : "DENTRO_DO_ORCAMENTO";
+        return {
+          category_id: r.category_id,
+          category_name: category ? category.name : "Sem categoria",
+          previsto: r.previsto,
+          realizado: r.realizado,
+          saldo,
+          status,
+        };
+      })
+      .sort((a, b) => a.category_name.localeCompare(b.category_name));
+
+    const totalPrevisto = rows.reduce((s, r) => s + r.previsto, 0);
+    const totalRealizado = rows.reduce((s, r) => s + r.realizado, 0);
+    const alerts = rows.filter((r) => r.status === "ESTOURADO");
+
+    return {
+      month: targetMonth,
+      rows,
+      totalPrevisto,
+      totalRealizado,
+      saldoTotal: totalPrevisto - totalRealizado,
+      alerts,
+      overBudget: alerts.length > 0,
+      hasAnyBudget: budgets.length > 0,
+    };
+  },
+
   // ---------- Reports ----------
 
   async monthlyReport(allUsers = false) {

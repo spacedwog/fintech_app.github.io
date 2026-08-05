@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupBudgetLayoutModal();
   renderShell();
   bindNav();
-  showView("expenses");
+  showView("budget-flow");
 
   // Indicador de status de sincronização com o Firebase (ver
   // getSyncStatus() em js/db.js): atualiza já ao carregar e depois
@@ -92,26 +92,124 @@ function showView(viewName) {
   document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
   document.getElementById(`view-${viewName}`).classList.remove("hidden");
 
-  if (viewName === "expenses") loadExpensesView();
+  if (viewName === "budget-flow") loadBudgetFlowView();
   if (viewName === "reports") loadReportsView();
-  if (viewName === "alerts") loadAlertsView();
-  if (viewName === "budget") loadBudgetView();
   if (viewName === "team") loadTeamView();
   if (viewName === "plan") loadPlanView();
 }
 
+// ---------- Orçamento & Despesas (fluxo único paginado) ----------
+//
+// Página 1 "Importar Orçamento" -> Página 2 "Registrar Despesas" -> Página 3
+// "Alertas / Orçamento". As três mantêm sua lógica própria (mais abaixo,
+// nas seções originais de cada uma) — o que fecha o ciclo entre elas é o
+// Previsto por categoria persistido na Página 1 (Api.importCategoryBudgets)
+// e lido de volta na Página 3 junto com as despesas reais da Página 2
+// (Api.getBudgetOverview).
+
+let flowPagerBound = false;
+let currentFlowPage = 1;
+
+function loadBudgetFlowView() {
+  if (!flowPagerBound) {
+    flowPagerBound = true;
+    bindFlowPager();
+  }
+  goToFlowPage(currentFlowPage);
+}
+
+function bindFlowPager() {
+  document.querySelectorAll(".flow-page-dot").forEach((btn) => {
+    btn.addEventListener("click", () => goToFlowPage(parseInt(btn.dataset.flowPage, 10)));
+  });
+  const prevBtn = document.getElementById("flow-prev-btn");
+  const nextBtn = document.getElementById("flow-next-btn");
+  if (prevBtn) prevBtn.addEventListener("click", () => goToFlowPage(currentFlowPage - 1));
+  if (nextBtn) nextBtn.addEventListener("click", () => goToFlowPage(currentFlowPage + 1));
+}
+
+function goToFlowPage(page) {
+  page = Math.min(3, Math.max(1, page));
+  currentFlowPage = page;
+
+  document.querySelectorAll(".flow-page").forEach((el, idx) => {
+    el.classList.toggle("hidden", idx + 1 !== page);
+  });
+  document.querySelectorAll(".flow-page-dot").forEach((btn) => {
+    btn.classList.toggle("active", parseInt(btn.dataset.flowPage, 10) === page);
+  });
+  const indicator = document.getElementById("flow-page-indicator");
+  if (indicator) indicator.textContent = `Página ${page} de 3`;
+  const prevBtn = document.getElementById("flow-prev-btn");
+  const nextBtn = document.getElementById("flow-next-btn");
+  if (prevBtn) prevBtn.disabled = page === 1;
+  if (nextBtn) nextBtn.disabled = page === 3;
+
+  // Cada página busca os dados mais recentes ao ser exibida: registrar uma
+  // despesa na Página 2 e ir pra Página 3 já mostra o Realizado atualizado,
+  // sem precisar recarregar a tela inteira.
+  if (page === 1) loadBudgetView();
+  if (page === 2) loadExpensesView();
+  if (page === 3) {
+    loadAlertsView();
+    loadBudgetOverview();
+  }
+}
+
 // ---------- Registrar Despesa ----------
+
+let expenseCategorySelectBound = false;
 
 async function loadExpensesView() {
   const categories = await Api.listCategories();
   const select = document.getElementById("expense-category");
+  const previous = select.value;
   select.innerHTML = categories.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+  if (previous && categories.some((c) => c.id === previous)) select.value = previous;
+
+  if (!expenseCategorySelectBound) {
+    expenseCategorySelectBound = true;
+    select.addEventListener("change", refreshExpenseCategoryBudgetInfo);
+  }
 
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById("expense-date").value = today;
 
   await refreshQuotaInfo();
   await refreshExpenseTable();
+  await refreshExpenseCategoryBudgetInfo();
+}
+
+// Fecha o fluxo Importar Orçamento -> Registrar Despesas: mostra, para a
+// categoria selecionada no formulário, o Previsto importado na Página 1 e
+// o Realizado real já gasto neste mês (incluindo a despesa que está sendo
+// preenchida ainda não salva) — ver Api.getBudgetOverview.
+async function refreshExpenseCategoryBudgetInfo() {
+  const box = document.getElementById("expense-category-budget-info");
+  const select = document.getElementById("expense-category");
+  if (!box || !select || !select.value) {
+    if (box) box.textContent = "";
+    return;
+  }
+
+  const month = new Date().toISOString().slice(0, 7);
+  try {
+    const overview = await Api.getBudgetOverview(month);
+    const row = overview.rows.find((r) => r.category_id === select.value);
+    if (!row || row.status === "SEM_ORCAMENTO") {
+      box.textContent = "Nenhum orçamento importado para esta categoria neste mês — veja a Página 1 (Importar Orçamento).";
+      box.style.color = "";
+      return;
+    }
+    const restante = row.previsto - row.realizado;
+    box.style.color = row.status === "ESTOURADO" ? "#b45309" : "var(--success)";
+    box.textContent =
+      `Orçamento de ${row.category_name} em ${month}: R$ ${row.realizado.toFixed(2)} usados de ` +
+      `R$ ${row.previsto.toFixed(2)} previstos` +
+      (restante >= 0 ? ` (R$ ${restante.toFixed(2)} restantes).` : ` (R$ ${Math.abs(restante).toFixed(2)} acima do previsto).`);
+  } catch (e) {
+    box.textContent = "";
+  }
 }
 
 async function refreshQuotaInfo() {
@@ -153,6 +251,7 @@ async function removeExpense(id) {
   await Api.deleteExpense(id);
   await refreshQuotaInfo();
   await refreshExpenseTable();
+  await refreshExpenseCategoryBudgetInfo();
 }
 
 document.addEventListener("submit", async (e) => {
@@ -193,6 +292,7 @@ document.addEventListener("submit", async (e) => {
         }
         await refreshQuotaInfo();
         await refreshExpenseTable();
+        await refreshExpenseCategoryBudgetInfo();
       };
 
       if (willBeExtra) {
@@ -270,6 +370,65 @@ async function loadAlertsView() {
   }
 }
 
+// ---------- Previsto x Realizado por categoria (fecha o fluxo: dados
+// importados na Página 1 + despesas reais registradas na Página 2) ----------
+
+let budgetOverviewMonthBound = false;
+
+async function loadBudgetOverview(month) {
+  const monthInput = document.getElementById("budget-overview-month");
+  if (!budgetOverviewMonthBound && monthInput) {
+    budgetOverviewMonthBound = true;
+    monthInput.addEventListener("change", () => loadBudgetOverview(monthInput.value));
+  }
+  if (monthInput && !monthInput.value) monthInput.value = new Date().toISOString().slice(0, 7);
+  const targetMonth = month || (monthInput && monthInput.value) || new Date().toISOString().slice(0, 7);
+
+  const emptyBox = document.getElementById("budget-overview-empty");
+  const summaryBox = document.getElementById("budget-overview-summary");
+  const tbody = document.getElementById("budget-overview-tbody");
+  if (!summaryBox || !tbody) return;
+
+  const overview = await Api.getBudgetOverview(targetMonth);
+
+  if (emptyBox) emptyBox.classList.toggle("hidden", overview.hasAnyBudget);
+
+  if (!overview.rows.length) {
+    summaryBox.className = "alert-ok";
+    summaryBox.textContent = "Nenhuma categoria com orçamento ou despesa neste mês ainda.";
+    tbody.innerHTML = "";
+    return;
+  }
+
+  summaryBox.className = overview.overBudget ? "alert-warn" : "alert-ok";
+  const icon = overview.overBudget ? "⚠️" : "✅";
+  summaryBox.textContent = overview.overBudget
+    ? `${icon} ${overview.alerts.length} categoria(s) estouraram o orçamento deste mês. ` +
+      `Previsto total: R$ ${overview.totalPrevisto.toFixed(2)} / Realizado total: R$ ${overview.totalRealizado.toFixed(2)}.`
+    : `${icon} Nenhuma categoria estourou o orçamento deste mês. ` +
+      `Previsto total: R$ ${overview.totalPrevisto.toFixed(2)} / Realizado total: R$ ${overview.totalRealizado.toFixed(2)} ` +
+      `(saldo: R$ ${overview.saldoTotal.toFixed(2)}).`;
+
+  const statusBadge = {
+    ESTOURADO: '<span class="badge estourado">ESTOURADO</span>',
+    DENTRO_DO_ORCAMENTO: '<span class="badge dentro">DENTRO DO ORÇAMENTO</span>',
+    SEM_ORCAMENTO: '<span class="badge sem-orcamento" title="Nenhum orçamento importado para esta categoria neste mês">SEM ORÇAMENTO</span>',
+  };
+
+  tbody.innerHTML = overview.rows
+    .map(
+      (r) => `
+      <tr>
+        <td>${r.category_name}</td>
+        <td>R$ ${r.previsto.toFixed(2)}</td>
+        <td>R$ ${r.realizado.toFixed(2)}</td>
+        <td>R$ ${r.saldo.toFixed(2)}</td>
+        <td>${statusBadge[r.status] || ""}</td>
+      </tr>`
+    )
+    .join("");
+}
+
 document.addEventListener("submit", async (e) => {
   if (e.target && e.target.id === "budget-form") {
     e.preventDefault();
@@ -298,6 +457,7 @@ let budgetSelectedFile = null;
 let budgetLayouts = [];
 let budgetLayoutModalEl = null;
 let budgetEditingLayoutId = null;
+let budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
 
 function loadBudgetView() {
   if (!budgetInputBound) {
@@ -340,6 +500,14 @@ function loadBudgetView() {
         await refreshBudgetLayoutSelect();
       });
     }
+
+    const adoptBtn = document.getElementById("budget-adopt-btn");
+    if (adoptBtn) adoptBtn.addEventListener("click", handleBudgetAdopt);
+  }
+
+  const targetMonthInput = document.getElementById("budget-adopt-target-month");
+  if (targetMonthInput && !targetMonthInput.value) {
+    targetMonthInput.value = new Date().toISOString().slice(0, 7);
   }
 
   refreshBudgetLayoutSelect();
@@ -375,10 +543,13 @@ function handleBudgetFileUpload(file) {
   const status = document.getElementById("budget-import-status");
   const summaryCard = document.getElementById("budget-summary-card");
   const tableCard = document.getElementById("budget-table-card");
+  const adoptCard = document.getElementById("budget-adopt-card");
   if (!status) return;
 
   summaryCard.classList.add("hidden");
   tableCard.classList.add("hidden");
+  if (adoptCard) adoptCard.classList.add("hidden");
+  budgetLastResult = null;
 
   if (!file) {
     status.textContent = "";
@@ -448,6 +619,80 @@ function renderBudgetResult(result) {
       </tr>`;
     })
     .join("");
+
+  budgetLastResult = result;
+  showBudgetAdoptCard(result);
+}
+
+// Mostra o passo "Usar este orçamento no app": se a planilha tiver mais de
+// um mês distinto (formato "largo" lido com vários pares Previsto/Realizado
+// de uma vez), deixa escolher qual desses meses aplicar; senão, usa todas as
+// linhas lidas direto.
+function showBudgetAdoptCard(result) {
+  const adoptCard = document.getElementById("budget-adopt-card");
+  const mesField = document.getElementById("budget-adopt-mes-field");
+  const mesSelect = document.getElementById("budget-adopt-mes-select");
+  const status = document.getElementById("budget-adopt-status");
+  if (!adoptCard) return;
+
+  if (status) {
+    status.textContent = "";
+    status.style.color = "";
+  }
+
+  const distinctMeses = Array.from(new Set(result.rows.map((r) => r.mes).filter(Boolean)));
+  if (mesField && mesSelect) {
+    if (distinctMeses.length > 1) {
+      mesSelect.innerHTML = distinctMeses.map((m) => `<option value="${m}">${m}</option>`).join("");
+      mesField.classList.remove("hidden");
+    } else {
+      mesField.classList.add("hidden");
+    }
+  }
+
+  adoptCard.classList.remove("hidden");
+}
+
+async function handleBudgetAdopt() {
+  const status = document.getElementById("budget-adopt-status");
+  const mesField = document.getElementById("budget-adopt-mes-field");
+  const mesSelect = document.getElementById("budget-adopt-mes-select");
+  const targetMonthInput = document.getElementById("budget-adopt-target-month");
+  if (!status) return;
+
+  if (!budgetLastResult || !budgetLastResult.rows || !budgetLastResult.rows.length) {
+    status.textContent = "Nenhum orçamento lido ainda — envie uma planilha primeiro.";
+    status.style.color = "#b45309";
+    return;
+  }
+
+  const targetMonth = targetMonthInput && targetMonthInput.value;
+  if (!targetMonth) {
+    status.textContent = "Escolha o mês (no app) em que este orçamento vai se aplicar.";
+    status.style.color = "#b45309";
+    return;
+  }
+
+  const filtroMes = mesField && !mesField.classList.contains("hidden") ? mesSelect.value : null;
+  const rows = budgetLastResult.rows.filter((r) => !filtroMes || r.mes === filtroMes);
+
+  status.textContent = "Aplicando orçamento...";
+  status.style.color = "";
+
+  try {
+    const result = await Api.importCategoryBudgets({
+      month: targetMonth,
+      rows: rows.map((r) => ({ categoria: r.categoria, previsto: r.previsto })),
+    });
+    status.style.color = "var(--success)";
+    status.textContent =
+      `✅ Orçamento de ${result.categories_count} categoria(s) aplicado para ${result.month}` +
+      (result.created_categories ? ` (${result.created_categories} categoria(s) nova(s) criada(s))` : "") +
+      `. Vá para a Página 2 para registrar despesas ou a Página 3 para ver a comparação.`;
+  } catch (err) {
+    status.style.color = "#b45309";
+    status.textContent = err.message || "Não foi possível aplicar este orçamento.";
+  }
 }
 
 // ---------- Modal: Configurar layout de leitura ----------
@@ -704,9 +949,26 @@ async function renderPaymentsHistory() {
       const label = p.type === "plano" ? `Assinatura ${p.plan === "premium" ? "Premium" : p.plan}` : "Despesa extra (limite diário)";
       const dt = new Date(p.date);
       const typeLabel = window.ReceiptAI && ReceiptAI.TYPE_LABELS[p.aiClassification];
-      const badge = p.verifiedByAI
-        ? `<span style="color:var(--success);">✓ comprovante validado por IA${typeLabel ? " · " + typeLabel : ""}</span>`
-        : `<span style="color:#b45309;">⚠ confirmação manual (não validado por IA)</span>`;
+      // Um pagamento pode ser confirmado por até duas fontes independentes:
+      // a IA de OCR local (na hora, ver js/receipt-ai.js) e/ou o agente de
+      // reconciliação com o Mercado Pago (orcamento_agent/mp_reconcile.py,
+      // roda localmente contra a conta real, ver LEIA-ME.md), que cruza o
+      // histórico de pagamentos com os pagamentos aprovados de verdade.
+      const badges = [];
+      if (p.verifiedByAI) {
+        badges.push(`<span style="color:var(--success);">✓ comprovante validado por IA${typeLabel ? " · " + typeLabel : ""}</span>`);
+      }
+      if (p.verifiedByMercadoPago) {
+        badges.push(
+          `<span style="color:var(--success);">✓ verificado via Mercado Pago${
+            p.mercadoPagoPaymentId ? ` (pagamento #${p.mercadoPagoPaymentId})` : ""
+          }</span>`
+        );
+      }
+      if (badges.length === 0) {
+        badges.push(`<span style="color:#b45309;">⚠ confirmação manual (ainda não validado por IA nem pelo Mercado Pago)</span>`);
+      }
+      const badge = badges.join(" · ");
       return `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
         <div>
