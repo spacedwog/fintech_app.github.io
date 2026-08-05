@@ -32,7 +32,7 @@ jobs:
           python-version: "3.11"
 
       - name: Instalar dependencias Python
-        run: pip install openpyxl
+        run: pip install openpyxl requests
 
       - name: Lint (py_compile em todos os .py)
         run: |
