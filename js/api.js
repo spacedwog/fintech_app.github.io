@@ -421,4 +421,38 @@ const Api = {
       .sort((a, b) => totals[b] - totals[a])
       .map((category) => ({ category, total: totals[category] }));
   },
+
+  // ---------- Payments (histórico de pagamentos via Pix) ----------
+  // Persistido junto com o resto do "banco" (Firestore + fallback em
+  // localStorage, ver js/db.js), em vez de uma chave solta separada no
+  // localStorage — assim o histórico também sincroniza entre dispositivos.
+
+  async listPayments() {
+    const session = _requireSession();
+    const db = await loadDb();
+    return db.payments
+      .filter((p) => p.tenant_id === session.tenant_id && p.user_id === session.user_id)
+      .slice()
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+  },
+
+  async addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification }) {
+    const session = _requireSession();
+    const db = await loadDb();
+    const payment = {
+      id: nextId(db, "payments"),
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      type,
+      plan: plan || null,
+      amount,
+      txid,
+      verifiedByAI: !!verifiedByAI,
+      aiClassification: aiClassification || null,
+      date: nowIso(),
+    };
+    db.payments.push(payment);
+    await saveDb(db);
+    return payment;
+  },
 };

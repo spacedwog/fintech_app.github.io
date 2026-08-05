@@ -1,8 +1,8 @@
 # Fintech Spacecworp
 
-Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor e sem Python. Roda inteiramente no navegador.
+Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor próprio e sem Python. Roda inteiramente no navegador.
 
-> O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica que antes vivia no servidor (autenticação, multi-tenancy, planos, despesas, relatórios) agora roda em JavaScript no cliente. O banco de dados é o arquivo `db.json` na raiz do repositório, usado para inicializar a primeira visita de cada navegador; a partir daí, os dados ficam salvos no `localStorage`, que funciona como fallback/persistência real (já que o site é estático e não tem como escrever de volta no `db.json`).
+> O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica de negócio (autenticação, multi-tenancy, planos, despesas, relatórios) roda em JavaScript no cliente. O banco de dados primário é o **Firebase (Cloud Firestore)** — quando configurado, os dados sincronizam entre navegadores/dispositivos diferentes. O **`localStorage`** funciona como **fallback automático**: se o Firebase não estiver configurado, o SDK não carregar, o navegador estiver offline, ou a chamada ao Firestore falhar por qualquer motivo, o app segue funcionando 100% localmente e sincroniza com o Firestore assim que possível. O `db.json` na raiz do repositório continua existindo apenas como "banco de fábrica" — usado para popular o Firestore/localStorage na primeiríssima vez que o app é aberto (nenhum dado salvo em nenhuma das duas camadas ainda).
 
 ## Arquitetura
 
@@ -19,12 +19,14 @@ db.json                 -> banco "de fábrica" (schema vazio), usado só para
 css/styles.css          -> estilos do login e do painel
 css/landing.css         -> estilos da landing page
 js/
+  firebase-config.js    -> configuração e inicialização do Firebase (Firestore)
   plans.js             -> planos (free / premium) e limites
-  db.js                 -> "banco de dados": localStorage (fallback/persistência
-                            real) > db.json (1ª visita) > schema vazio
+  db.js                 -> "banco de dados": Firestore (primário, se configurado)
+                            > localStorage (fallback/cache offline) > db.json
+                            (1ª visita) > schema vazio
   crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
   api.js                 -> toda a lógica de negócio (antes no FastAPI), mesma
-                            interface de antes (Auth/Api), agora sem rede
+                            interface de antes (Auth/Api), agora sem servidor próprio
   auth-page.js           -> lógica de login/signup (login.html)
   dashboard.js           -> lógica do painel (despesas, relatórios, alertas, equipe, plano)
   pix.js                  -> geração de QR Code / Pix Copia e Cola (BR Code real)
@@ -34,20 +36,23 @@ js/
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o projeto é só front-end estático.
 
-### Persistência (db.json + fallback em localStorage)
+### Persistência (Firebase/Firestore + fallback em localStorage)
 
-O banco de dados é o arquivo **`db.json`**, versionado na raiz do repositório junto com o código (hoje, um schema vazio — sem contas/usuários). Duas regras simples, em `js/db.js`:
+O banco de dados primário é o **Firebase (Cloud Firestore)**. Todo o "banco" (tenants, usuários, categorias, despesas, orçamentos, pagamentos) é salvo como um único documento no Firestore — mesmo formato que já era usado no `db.json`/`localStorage`. Regras, em `js/db.js`:
 
-- **Leitura:** se já existe alguma coisa salva no `localStorage` deste navegador (chave `fintech_saas_db_v1`), é isso que é usado — essa é a persistência real do app no dia a dia. Só na **primeira visita** (localStorage vazio) o app busca `db.json` via `fetch()` para inicializar os dados.
-- **Gravação:** toda gravação (nova despesa, novo usuário, troca de plano etc.) acontece no `localStorage`. Como o site é 100% estático (GitHub Pages, sem backend), o navegador não tem como escrever de volta no `db.json` remoto — ele não muda sozinho com o uso do app. Se quiser alterar o que um navegador novo recebe de início, edite `db.json` manualmente e publique a alteração.
+- **Leitura (`loadDb()`):**
+  1. Se o Firebase está configurado (`js/firebase-config.js`) e alcançável, lê o documento do Firestore. Se existir, esse é o dado usado (e uma cópia é guardada no `localStorage` como cache).
+  2. Se o documento ainda não existir no Firestore (primeiro uso), o app usa o que tiver no `localStorage` ou, na falta disso, busca o banco de fábrica `db.json` via `fetch()` — e envia esse conteúdo para o Firestore, "adotando-o" como ponto de partida.
+  3. Se o Firebase **não** estiver configurado, o SDK não carregar, o navegador estiver offline, ou a chamada falhar por qualquer motivo, o app cai automaticamente para o fluxo antigo: `localStorage` (se já tiver algo salvo) → `db.json` (1ª visita) → schema vazio.
+- **Gravação (`saveDb()`):** toda gravação (nova despesa, novo usuário, troca de plano, pagamento etc.) grava **primeiro no `localStorage`** — rápido, síncrono na prática, nunca depende de rede, garante que nada se perde mesmo sem Firebase. Em seguida, tenta sincronizar o mesmo dado com o Firestore. Se a sincronização falhar, fica marcada como **pendente** e é reenviada automaticamente assim que a conexão volta (evento `online` do navegador) ou na próxima operação de leitura/gravação.
 
-Se `fetch()` falhar (por exemplo, abrindo `login.html` direto via `file://`, onde o navegador bloqueia esse tipo de leitura), o app cai para um schema vazio, como sempre fez — use a "Opção 2" abaixo (servidor estático local) para garantir que `db.json` carregue.
+Ou seja: o app **nunca trava esperando rede** e nunca perde dados por falta de Firebase — o `localStorage` é sempre a rede de segurança. O `db.json` continua existindo só como banco de fábrica (schema inicial) para o primeiríssimo uso, com ou sem Firebase configurado. Veja "Conectando ao Firebase" abaixo para o passo a passo de configuração.
 
 ### Multi-tenancy
 
-Cada conta que se cadastra vira um "tenant" isolado dentro do mesmo `localStorage`. Todo dado (usuários, categorias, despesas, orçamentos) é filtrado por `tenant_id` na camada `api.js`.
+Cada conta que se cadastra vira um "tenant" isolado dentro do mesmo banco (Firestore e/ou `localStorage`). Todo dado (usuários, categorias, despesas, orçamentos, pagamentos) é filtrado por `tenant_id` na camada `api.js`.
 
-**Importante:** como não existe mais servidor, esse isolamento é apenas lógico/organizacional — não é uma fronteira de segurança real. Qualquer pessoa com acesso ao navegador (DevTools) pode ler ou editar o `localStorage` diretamente. Isso é adequado para demo, protótipo ou uso pessoal/local, mas não deve ser usado como um SaaS multi-conta real na internet sem um backend de verdade.
+**Importante:** esse isolamento é apenas lógico/organizacional — não é uma fronteira de segurança real, com ou sem Firebase. Sem Firebase, qualquer pessoa com acesso ao navegador (DevTools) pode ler ou editar o `localStorage` diretamente. Com Firebase configurado usando as regras de teste (abertas) descritas no passo a passo abaixo, qualquer pessoa que descubra as credenciais públicas do projeto Firebase (`apiKey` etc., visíveis no código-fonte do site) também consegue ler/escrever o documento no Firestore diretamente. Isso é adequado para demo, protótipo ou uso pessoal, mas **não deve ser usado como um SaaS multi-conta real na internet** sem regras de segurança do Firestore mais restritivas e, idealmente, Firebase Authentication de verdade (fora do escopo atual — ver "Roadmap").
 
 ### Planos
 
@@ -65,6 +70,86 @@ O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atin
 ### "Autenticação"
 
 Sem servidor, não há verificação de assinatura real. A sessão logada fica salva no `localStorage` (`fintech_saas_session_v1`) e as senhas são guardadas com hash PBKDF2 (não em texto puro) usando a Web Crypto API nativa do navegador — mas, de novo, isso é higiene básica, não uma barreira de segurança contra quem tem acesso ao próprio navegador.
+
+## Conectando ao Firebase
+
+O app funciona sem Firebase (só com `localStorage`, como sempre funcionou). Para ativar a sincronização em nuvem (dados acessíveis de qualquer navegador/dispositivo), siga os passos abaixo.
+
+### 1. Criar o projeto no Firebase
+
+1. Acesse [console.firebase.google.com](https://console.firebase.google.com/) e faça login com uma conta Google.
+2. Clique em **"Adicionar projeto"**, dê um nome (ex.: `fintech-spacecworp`) e siga o assistente (pode desativar o Google Analytics, não é necessário).
+3. Aguarde a criação do projeto.
+
+### 2. Criar o banco de dados Firestore
+
+1. No menu lateral, vá em **Compilação (Build) → Firestore Database**.
+2. Clique em **"Criar banco de dados"**.
+3. Escolha uma localização (ex.: `southamerica-east1` para servidores no Brasil).
+4. Em "Regras de segurança", comece em **modo de teste** (permite leitura/escrita por um período — depois ajuste as regras, ver passo 5). Confirme.
+
+### 3. Registrar um app Web e pegar as credenciais
+
+1. Na página inicial do projeto, clique no ícone **`</>`** ("Adicionar app" → Web).
+2. Dê um apelido ao app (ex.: `fintech-web`) e clique em **"Registrar app"**. Não precisa configurar o Firebase Hosting.
+3. O console mostra um bloco `firebaseConfig` parecido com:
+
+```js
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "fintech-spacecworp.firebaseapp.com",
+  projectId: "fintech-spacecworp",
+  storageBucket: "fintech-spacecworp.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef123456",
+};
+```
+
+4. Copie esses valores.
+
+### 4. Colar as credenciais no projeto
+
+Abra `js/firebase-config.js` e substitua os valores de exemplo pelos que você copiou:
+
+```js
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSy...",
+  authDomain: "fintech-spacecworp.firebaseapp.com",
+  projectId: "fintech-spacecworp",
+  storageBucket: "fintech-spacecworp.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef123456",
+};
+```
+
+Salve o arquivo. O app detecta automaticamente que o Firebase está configurado (não precisa mudar mais nada em nenhum outro arquivo) e passa a usar o Firestore como banco primário, com `localStorage` como fallback.
+
+### 5. Ajustar as regras de segurança do Firestore
+
+O "modo de teste" do passo 2 expira sozinho depois de alguns dias e é aberto para qualquer leitura/escrita — não use em produção por muito tempo. Em **Firestore Database → Regras**, um ponto de partida razoável para este app (um único documento, sem Firebase Authentication) é restringir ao documento usado pelo app:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /fintech_saas/db_v1 {
+      allow read, write: if true; // ver aviso abaixo
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+**Aviso:** como este projeto não usa Firebase Authentication, não há como as regras do Firestore diferenciarem "seus" usuários de qualquer visitante — quem tiver a `apiKey` (pública, visível no código-fonte do site) consegue ler/escrever esse documento. Isso é aceitável para uso pessoal, demo ou protótipo (mesmo nível de segurança que o `localStorage` já tinha), mas **não é adequado para um SaaS real na internet** — para isso seria necessário adicionar Firebase Authentication e regras por usuário (fora do escopo atual).
+
+### 6. Testar
+
+1. Abra `login.html` (veja "Como rodar" abaixo) e crie uma conta.
+2. No console do Firebase, vá em **Firestore Database → Dados** e confirme que apareceu o documento `fintech_saas/db_v1` com os dados da conta criada.
+3. Abra o app em outro navegador (ou aba anônima) e faça login com a mesma conta — os dados devem aparecer, confirmando a sincronização.
+4. Para testar o fallback: desative sua conexão de internet, use o app normalmente (login já feito, adicionar despesas etc.) e reconecte — as mudanças feitas offline aparecem no Firestore automaticamente.
 
 ## Como rodar
 
@@ -102,12 +187,19 @@ Hoje o app cobre o registro manual: o usuário lança os pagamentos do mês e pa
 o que for necessário (limite excedido, upgrade de plano) via Pix real,
 confirmando com o comprovante. A evolução planejada é o próprio sistema
 executar o pagamento por conta do usuário — isso depende de um backend
-integrado a um provedor de pagamentos (PSP) e está fora do escopo atual,
-que é intencionalmente só front-end estático.
+integrado a um provedor de pagamentos (PSP) e está fora do escopo atual.
 
-## Limitações por ser 100% client-side
+Com o Firebase já conectado como banco de dados, os próximos passos naturais
+para uma segurança real de multi-tenant seriam: (1) trocar a autenticação
+client-side (PBKDF2 em `crypto-utils.js`) por **Firebase Authentication**, e
+(2) escrever regras do Firestore por usuário (`request.auth.uid`), em vez do
+documento único e aberto usado hoje. Isso continua sendo possível sem sair
+do modelo 100% front-end estático (Firebase Auth também roda no navegador).
 
-- Os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes.
-- Limpar o cache/localStorage do navegador apaga todos os dados.
-- Não há verdadeira separação de acesso entre "contas" — é só uma organização lógica dos dados dentro do mesmo storage.
-- Para um SaaS real, com múltiplos usuários acessando de dispositivos diferentes e dados protegidos de verdade, é necessário um backend com banco de dados próprio (fora do escopo deste projeto, que agora é intencionalmente só HTML/CSS/JS).
+## Limitações
+
+- **Sem Firebase configurado:** os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes — e limpar o cache/localStorage apaga todos os dados. Comportamento idêntico ao do projeto antes desta atualização.
+- **Com Firebase configurado:** os dados sincronizam entre dispositivos, mas a segurança continua sendo apenas lógica (ver "Multi-tenancy" acima) — não há Firebase Authentication real, então quem tiver a `apiKey` do projeto (pública, no código-fonte) pode ler/escrever o documento do Firestore diretamente.
+- Não há verdadeira separação de acesso entre "contas" — é só uma organização lógica dos dados dentro do mesmo documento/storage.
+- Concorrência: como cada gravação relê e reescreve o documento inteiro no Firestore, edições simultâneas feitas em duas abas/dispositivos ao mesmo tempo podem, em casos raros, sobrescrever uma à outra (a última gravação vence). Para uso pessoal/pequenas equipes isso raramente é um problema na prática.
+- Para um SaaS real, com múltiplos usuários acessando de dispositivos diferentes e dados protegidos de verdade, o próximo passo seria adicionar Firebase Authentication e regras de segurança do Firestore por usuário (ver Roadmap).

@@ -151,7 +151,7 @@ document.addEventListener("submit", async (e) => {
         document.getElementById("expense-form").reset();
         document.getElementById("expense-date").value = new Date().toISOString().slice(0, 10);
         if (result.is_extra) {
-          recordPayment({
+          await recordPayment({
             type: "despesa_extra",
             amount: result.extra_charge,
             txid,
@@ -307,7 +307,7 @@ async function loadPlanView() {
     })
     .join("");
 
-  renderPaymentsHistory();
+  await renderPaymentsHistory();
 }
 
 async function selectPlan(planKey) {
@@ -330,7 +330,7 @@ async function selectPlan(planKey) {
     expectedType: planKey === "premium" ? "plano_premium" : "plano_free",
     onConfirm: async (txid, analysis) => {
       await Api.changePlan(planKey);
-      recordPayment({
+      await recordPayment({
         type: "plano",
         plan: planKey,
         amount: plan.price_month,
@@ -347,46 +347,21 @@ async function selectPlan(planKey) {
 }
 
 // ---------- Pagamento via Pix (QR real + copia-e-cola, confirmação manual) ----------
+//
+// Histórico de pagamentos persistido via Api.listPayments/Api.addPayment,
+// que gravam no "banco" (Firestore + fallback em localStorage — ver
+// js/db.js e js/api.js), em vez de uma chave solta separada no
+// localStorage. Assim o histórico também sincroniza entre dispositivos
+// quando o Firebase está configurado.
 
-const PAYMENTS_KEY = "fintech_saas_payments_v1";
-
-function loadPayments() {
-  try {
-    const raw = localStorage.getItem(PAYMENTS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
-  }
+async function recordPayment({ type, plan, amount, txid, verifiedByAI, aiClassification }) {
+  await Api.addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification });
 }
 
-function savePayments(list) {
-  localStorage.setItem(PAYMENTS_KEY, JSON.stringify(list));
-}
-
-function recordPayment({ type, plan, amount, txid, verifiedByAI, aiClassification }) {
-  const payments = loadPayments();
-  payments.unshift({
-    id: "pay-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
-    tenant_id: CURRENT_TENANT.id,
-    user_id: CURRENT_USER.id,
-    type,
-    plan: plan || null,
-    amount,
-    txid,
-    verifiedByAI: !!verifiedByAI,
-    aiClassification: aiClassification || null,
-    date: new Date().toISOString(),
-  });
-  savePayments(payments);
-}
-
-function renderPaymentsHistory() {
+async function renderPaymentsHistory() {
   const container = document.getElementById("payments-history");
   if (!container) return;
-  const payments = loadPayments().filter(
-    (p) => p.tenant_id === CURRENT_TENANT.id && p.user_id === CURRENT_USER.id
-  );
+  const payments = await Api.listPayments();
   if (payments.length === 0) {
     container.innerHTML = '<p class="small-muted">Nenhum pagamento registrado ainda.</p>';
     return;

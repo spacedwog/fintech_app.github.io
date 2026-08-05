@@ -309,11 +309,11 @@
         </details>
         <details>
           <summary>Onde meus dados ficam salvos?</summary>
-          <p>No armazenamento local do seu navegador (localStorage). Isso é ótimo para uso pessoal e demonstrações, mas os dados não saem do dispositivo onde foram criados.</p>
+          <p>No banco de dados na nuvem (Firebase/Firestore), com o armazenamento local do seu navegador (localStorage) como reserva automática caso o Firebase esteja indisponível ou você esteja offline. Assim que a conexão volta, tudo é sincronizado.</p>
         </details>
         <details>
           <summary>Posso usar em mais de um dispositivo?</summary>
-          <p>Ainda não. Como os dados ficam no navegador, eles não sincronizam automaticamente entre computadores ou navegadores diferentes.</p>
+          <p>Sim, quando o Firebase está configurado: os dados sincronizam entre computadores e navegadores diferentes. Sem essa configuração, o app funciona normalmente só com localStorage (dados presos ao dispositivo), como antes.</p>
         </details>
       </div>
     </div>
