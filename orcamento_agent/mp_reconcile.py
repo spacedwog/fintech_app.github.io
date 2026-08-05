@@ -53,7 +53,16 @@ a chave do Firebase (ver .gitignore). Se vazarem, revogue-os imediatamente.
 Requer: pip install requests openpyxl --break-system-packages (mesmas dependências
 de mp_sync.py, reaproveitado aqui) e, só se for usar o Firestore como fonte,
 firebase-admin (pip install firebase-admin --break-system-packages).
+
+Reescrito em POO: PaymentDataSource (classe-base abstrata) + FirestoreSource/
+LocalJsonSource (implementações concretas, polimorfismo), PaymentReconciler
+(a lógica de cruzamento) e MercadoPagoReconciliationAgent (orquestra tudo em
+run()). As funções de nível de módulo usadas pelos testes (to_utc_date,
+reconcile_payments, run, LocalJsonSource, FirestoreSource) continuam
+existindo com a MESMA assinatura, agora como uma fina camada de
+compatibilidade sobre as classes.
 """
+import abc
 import argparse
 import json
 import os
@@ -64,38 +73,48 @@ from datetime import datetime, timedelta, timezone
 import mp_sync  # reaproveita fetch_mp_payments() -- mesma busca já usada pela planilha
 
 
-# ---------- utilidades de data ----------
+# ---------- DateParser: utilidades de data ----------
+
+class DateParser:
+    @staticmethod
+    def to_utc_date(iso_str):
+        """Converte uma string ISO 8601 (com 'Z' ou offset numérico, como as geradas
+        por Date.toISOString() no navegador ou pela API do Mercado Pago) num
+        datetime "naive" em UTC, pronto para comparar. Retorna None se não der
+        para interpretar (nunca lança exceção -- comparação heurística, não crítica)."""
+        if not iso_str:
+            return None
+        s = str(iso_str).strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = None
+        try:
+            dt = datetime.fromisoformat(s)
+        except ValueError:
+            try:
+                dt = datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                return None
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+
+    @staticmethod
+    def day_range(dias):
+        """Janela [agora - dias, agora] no formato exigido pela API do Mercado Pago
+        (mesmo formato usado em mp_sync.month_bounds)."""
+        fim = datetime.now()
+        inicio = fim - timedelta(days=dias)
+        fmt = "%Y-%m-%dT%H:%M:%S.000-03:00"
+        return inicio.strftime(fmt), fim.strftime(fmt)
+
 
 def to_utc_date(iso_str):
-    """Converte uma string ISO 8601 (com 'Z' ou offset numérico, como as geradas
-    por Date.toISOString() no navegador ou pela API do Mercado Pago) num
-    datetime "naive" em UTC, pronto para comparar. Retorna None se não der
-    para interpretar (nunca lança exceção -- comparação heurística, não crítica)."""
-    if not iso_str:
-        return None
-    s = str(iso_str).strip()
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    dt = None
-    try:
-        dt = datetime.fromisoformat(s)
-    except ValueError:
-        try:
-            dt = datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S")
-        except ValueError:
-            return None
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt
+    return DateParser.to_utc_date(iso_str)
 
 
 def day_range(dias):
-    """Janela [agora - dias, agora] no formato exigido pela API do Mercado Pago
-    (mesmo formato usado em mp_sync.month_bounds)."""
-    fim = datetime.now()
-    inicio = fim - timedelta(days=dias)
-    fmt = "%Y-%m-%dT%H:%M:%S.000-03:00"
-    return inicio.strftime(fmt), fim.strftime(fmt)
+    return DateParser.day_range(dias)
 
 
 # ---------- log (best-effort, nunca derruba o script) ----------
@@ -114,7 +133,30 @@ def log(linha):
 
 # ---------- fontes de dados do app (Firestore ou db.json local) ----------
 
-class FirestoreSource:
+class PaymentDataSource(abc.ABC):
+    """Classe-base das fontes de dados do app usadas pela reconciliação --
+    define o contrato (read/write_fields/write_payments/describe) que
+    FirestoreSource e LocalJsonSource implementam cada uma a sua maneira
+    (polimorfismo: MercadoPagoReconciliationAgent.run() não precisa saber
+    qual das duas está em uso)."""
+
+    @abc.abstractmethod
+    def read(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def write_fields(self, fields):
+        raise NotImplementedError
+
+    def write_payments(self, payments):
+        self.write_fields({"payments": payments})
+
+    @abc.abstractmethod
+    def describe(self):
+        raise NotImplementedError
+
+
+class FirestoreSource(PaymentDataSource):
     """Lê/grava direto no mesmo documento Firestore usado pelo painel web
     (js/db.js: colecao `fintech_saas`, documento `db_v1`). A gravação usa
     update() em vez de set() no documento inteiro -- só os campos passados a
@@ -153,14 +195,11 @@ class FirestoreSource:
         tocar no resto do documento -- ver docstring da classe."""
         self._ref.update(fields)
 
-    def write_payments(self, payments):
-        self.write_fields({"payments": payments})
-
     def describe(self):
         return f"Firestore ({self.COLLECTION}/{self.DOC_ID})"
 
 
-class LocalJsonSource:
+class LocalJsonSource(PaymentDataSource):
     """Fonte alternativa sem Firebase: lê/grava uma cópia local do banco no
     mesmo formato do db.json/localStorage. Regrava o arquivo inteiro (sem
     concorrência a considerar, é um arquivo local)."""
@@ -180,37 +219,39 @@ class LocalJsonSource:
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(db, f, ensure_ascii=False, indent=2)
 
-    def write_payments(self, payments):
-        self.write_fields({"payments": payments})
-
     def describe(self):
         return f"db.json local ({self.path})"
 
 
+class DataSourceFactory:
+    @staticmethod
+    def build(cfg, args):
+        sa_path = args.firebase_service_account or cfg.get("firebase_service_account")
+        if sa_path:
+            if not os.path.exists(sa_path):
+                raise RuntimeError(f"Chave de conta de serviço do Firebase não encontrada: {sa_path}")
+            return FirestoreSource(sa_path)
+
+        db_json = args.db_json or cfg.get("db_json")
+        if db_json:
+            return LocalJsonSource(db_json)
+
+        raise RuntimeError(
+            "Nenhuma fonte de dados configurada. Defina \"firebase_service_account\" (recomendado -- "
+            "mesmo banco do painel web) ou \"db_json\" (cópia local) em mp_reconcile_config.json -- "
+            "veja mp_reconcile_config.example.json."
+        )
+
+
 def build_source(cfg, args):
-    sa_path = args.firebase_service_account or cfg.get("firebase_service_account")
-    if sa_path:
-        if not os.path.exists(sa_path):
-            raise RuntimeError(f"Chave de conta de serviço do Firebase não encontrada: {sa_path}")
-        return FirestoreSource(sa_path)
-
-    db_json = args.db_json or cfg.get("db_json")
-    if db_json:
-        return LocalJsonSource(db_json)
-
-    raise RuntimeError(
-        "Nenhuma fonte de dados configurada. Defina \"firebase_service_account\" (recomendado -- "
-        "mesmo banco do painel web) ou \"db_json\" (cópia local) em mp_reconcile_config.json -- "
-        "veja mp_reconcile_config.example.json."
-    )
+    return DataSourceFactory.build(cfg, args)
 
 
-# ---------- reconciliação ----------
+# ---------- PaymentReconciler: cruza pagamentos do app com o Mercado Pago ----------
 
-def reconcile_payments(app_payments, mp_payments, window_days=2, tolerance=0.01):
+class PaymentReconciler:
     """Cruza os pagamentos do app com os pagamentos aprovados do Mercado Pago.
 
-    Não muta as listas recebidas -- devolve (payments_atualizados, resumo).
     Regras:
       - Pagamentos já verificados (por IA ou por uma execução anterior deste
         script) são deixados exatamente como estão.
@@ -230,36 +271,21 @@ def reconcile_payments(app_payments, mp_payments, window_days=2, tolerance=0.01)
         pagamento do app (evita que um único Pix real "confirme" dois
         lançamentos diferentes).
     """
-    approved = [
-        p for p in mp_payments
-        if p.get("status") == "approved" and to_utc_date(p.get("date_approved") or p.get("date_created")) is not None
-    ]
 
-    used_mp_ids = {
-        p.get("mercadoPagoPaymentId")
-        for p in app_payments
-        if p.get("verifiedByMercadoPago") and p.get("mercadoPagoPaymentId") is not None
-    }
+    def __init__(self, window_days=2, tolerance=0.01):
+        self.window_days = window_days
+        self.tolerance = tolerance
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    resumo = {"verificados": [], "ambiguos": [], "sem_correspondencia": [], "ja_verificados": 0, "ignorados": 0}
-    updated = []
+    def _approved(self, mp_payments):
+        return [
+            p for p in mp_payments
+            if p.get("status") == "approved"
+            and DateParser.to_utc_date(p.get("date_approved") or p.get("date_created")) is not None
+        ]
 
-    for payment in app_payments:
-        p = dict(payment)
-
-        if p.get("verifiedByAI") or p.get("verifiedByMercadoPago"):
-            resumo["ja_verificados"] += 1
-            updated.append(p)
-            continue
-
-        amount = p.get("amount")
-        pay_date = to_utc_date(p.get("date"))
-        if amount is None or pay_date is None:
-            resumo["ignorados"] += 1
-            updated.append(p)
-            continue
-
+    def _find_candidates(self, payment, approved, used_mp_ids):
+        amount = payment.get("amount")
+        pay_date = DateParser.to_utc_date(payment.get("date"))
         candidatos = []
         for mp in approved:
             mp_id = mp.get("id")
@@ -269,118 +295,161 @@ def reconcile_payments(app_payments, mp_payments, window_days=2, tolerance=0.01)
                 mp_amount = float(mp.get("transaction_amount", 0))
             except (TypeError, ValueError):
                 continue
-            if abs(mp_amount - float(amount)) > tolerance:
+            if abs(mp_amount - float(amount)) > self.tolerance:
                 continue
-            mp_date = to_utc_date(mp.get("date_approved") or mp.get("date_created"))
-            if mp_date is None or abs((mp_date - pay_date).days) > window_days:
+            mp_date = DateParser.to_utc_date(mp.get("date_approved") or mp.get("date_created"))
+            if mp_date is None or abs((mp_date - pay_date).days) > self.window_days:
                 continue
             candidatos.append(mp)
+        return candidatos
 
-        p["mercadoPagoCheckedAt"] = now_iso
+    def reconcile(self, app_payments, mp_payments):
+        """Não muta as listas recebidas -- devolve (payments_atualizados, resumo)."""
+        approved = self._approved(mp_payments)
 
-        if len(candidatos) == 1:
-            match = candidatos[0]
-            p["verifiedByMercadoPago"] = True
-            p["mercadoPagoPaymentId"] = match.get("id")
-            used_mp_ids.add(match.get("id"))
-            resumo["verificados"].append(
-                {"payment_id": p.get("id"), "mp_payment_id": match.get("id"), "amount": amount}
+        used_mp_ids = {
+            p.get("mercadoPagoPaymentId")
+            for p in app_payments
+            if p.get("verifiedByMercadoPago") and p.get("mercadoPagoPaymentId") is not None
+        }
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        resumo = {"verificados": [], "ambiguos": [], "sem_correspondencia": [], "ja_verificados": 0, "ignorados": 0}
+        updated = []
+
+        for payment in app_payments:
+            p = dict(payment)
+
+            if p.get("verifiedByAI") or p.get("verifiedByMercadoPago"):
+                resumo["ja_verificados"] += 1
+                updated.append(p)
+                continue
+
+            amount = p.get("amount")
+            pay_date = DateParser.to_utc_date(p.get("date"))
+            if amount is None or pay_date is None:
+                resumo["ignorados"] += 1
+                updated.append(p)
+                continue
+
+            candidatos = self._find_candidates(p, approved, used_mp_ids)
+            p["mercadoPagoCheckedAt"] = now_iso
+
+            if len(candidatos) == 1:
+                match = candidatos[0]
+                p["verifiedByMercadoPago"] = True
+                p["mercadoPagoPaymentId"] = match.get("id")
+                used_mp_ids.add(match.get("id"))
+                resumo["verificados"].append(
+                    {"payment_id": p.get("id"), "mp_payment_id": match.get("id"), "amount": amount}
+                )
+            elif len(candidatos) > 1:
+                resumo["ambiguos"].append(
+                    {"payment_id": p.get("id"), "amount": amount, "candidatos": [c.get("id") for c in candidatos]}
+                )
+            else:
+                resumo["sem_correspondencia"].append({"payment_id": p.get("id"), "amount": amount})
+
+            updated.append(p)
+
+        return updated, resumo
+
+
+def reconcile_payments(app_payments, mp_payments, window_days=2, tolerance=0.01):
+    return PaymentReconciler(window_days=window_days, tolerance=tolerance).reconcile(app_payments, mp_payments)
+
+
+# ---------- MercadoPagoReconciliationAgent: orquestra a reconciliação completa ----------
+
+class MercadoPagoReconciliationAgent:
+    def run(self, args):
+        """Executa a reconciliação e devolve (resultado, mensagem), no mesmo
+        estilo de mp_sync.run() -- para uso programático e por agendamento."""
+        if not os.path.exists(args.config):
+            return "erro", (
+                f"Config não encontrado: {args.config}. Copie mp_reconcile_config.example.json -> "
+                f"{args.config} e preencha o token + a fonte de dados (firebase_service_account ou db_json)."
             )
-        elif len(candidatos) > 1:
-            resumo["ambiguos"].append(
-                {"payment_id": p.get("id"), "amount": amount, "candidatos": [c.get("id") for c in candidatos]}
-            )
+
+        with open(args.config, encoding="utf-8") as f:
+            cfg = json.load(f)
+
+        token = cfg.get("mercado_pago_access_token")
+        if not token or str(token).startswith("COLE_"):
+            return "erro", "Access token do Mercado Pago não configurado em mp_reconcile_config.json."
+
+        try:
+            source = DataSourceFactory.build(cfg, args)
+        except Exception as e:
+            return "erro", str(e)
+
+        dias = args.dias or cfg.get("janela_dias") or 30
+        begin, end = DateParser.day_range(dias)
+        print(f"Buscando pagamentos aprovados no Mercado Pago dos últimos {dias} dia(s) ({begin} a {end})...")
+        try:
+            mp_payments = mp_sync.fetch_mp_payments(token, begin, end)
+        except Exception as e:
+            return "erro", f"Falha ao consultar o Mercado Pago: {e}"
+        print(f"{len(mp_payments)} pagamento(s) encontrado(s) no Mercado Pago no período.")
+
+        try:
+            db = source.read()
+        except Exception as e:
+            return "erro", f"Falha ao ler os dados do app ({source.describe()}): {e}"
+
+        app_payments = db.get("payments", [])
+        reconciler = PaymentReconciler(window_days=args.janela_correspondencia)
+        updated, resumo = reconciler.reconcile(app_payments, mp_payments)
+
+        n_verificados = len(resumo["verificados"])
+        n_ambiguos = len(resumo["ambiguos"])
+        n_sem = len(resumo["sem_correspondencia"])
+
+        log(
+            f"fonte={source.describe()} dias={dias} pagamentos_app={len(app_payments)} "
+            f"mp_encontrados={len(mp_payments)} verificados={n_verificados} ambiguos={n_ambiguos} "
+            f"sem_correspondencia={n_sem} ja_verificados={resumo['ja_verificados']}"
+        )
+
+        if args.dry_run:
+            print("\n[dry-run] Nada foi gravado. Resumo do que seria feito:")
         else:
-            resumo["sem_correspondencia"].append({"payment_id": p.get("id"), "amount": amount})
+            try:
+                source.write_payments(updated)
+            except Exception as e:
+                return "erro", f"Falha ao gravar os dados de volta ({source.describe()}): {e}"
 
-        updated.append(p)
+        linhas = [
+            f"Fonte: {source.describe()}",
+            f"{n_verificados} pagamento(s) verificado(s) automaticamente via Mercado Pago.",
+        ]
+        for v in resumo["verificados"]:
+            linhas.append(f"  - pagamento #{v['payment_id']} (R$ {v['amount']:.2f}) <- Mercado Pago #{v['mp_payment_id']}")
 
-    return updated, resumo
+        if n_ambiguos:
+            linhas.append(
+                f"⚠️  {n_ambiguos} pagamento(s) com mais de uma correspondência possível "
+                "(não marcados automaticamente — revise manualmente):"
+            )
+            for a in resumo["ambiguos"]:
+                linhas.append(f"  - pagamento #{a['payment_id']} (R$ {a['amount']:.2f}) -> candidatos: {a['candidatos']}")
+
+        if n_sem:
+            linhas.append(
+                f"{n_sem} pagamento(s) ainda sem correspondência no Mercado Pago "
+                "(tentaremos de novo na próxima execução)."
+            )
+
+        msg = "\n".join(linhas)
+        icon = "✅" if n_verificados else ("⚠️" if n_ambiguos else "ℹ️")
+        print(f"\n{icon} {msg}")
+
+        resultado = "ok" if n_verificados > 0 else ("ambiguo" if n_ambiguos else "sem_pendencias")
+        return resultado, msg
 
 
 def run(args):
-    """Executa a reconciliação e devolve (resultado, mensagem), no mesmo
-    estilo de mp_sync.run() -- para uso programático e por agendamento."""
-    if not os.path.exists(args.config):
-        return "erro", (
-            f"Config não encontrado: {args.config}. Copie mp_reconcile_config.example.json -> "
-            f"{args.config} e preencha o token + a fonte de dados (firebase_service_account ou db_json)."
-        )
-
-    with open(args.config, encoding="utf-8") as f:
-        cfg = json.load(f)
-
-    token = cfg.get("mercado_pago_access_token")
-    if not token or str(token).startswith("COLE_"):
-        return "erro", "Access token do Mercado Pago não configurado em mp_reconcile_config.json."
-
-    try:
-        source = build_source(cfg, args)
-    except Exception as e:
-        return "erro", str(e)
-
-    dias = args.dias or cfg.get("janela_dias") or 30
-    begin, end = day_range(dias)
-    print(f"Buscando pagamentos aprovados no Mercado Pago dos últimos {dias} dia(s) ({begin} a {end})...")
-    try:
-        mp_payments = mp_sync.fetch_mp_payments(token, begin, end)
-    except Exception as e:
-        return "erro", f"Falha ao consultar o Mercado Pago: {e}"
-    print(f"{len(mp_payments)} pagamento(s) encontrado(s) no Mercado Pago no período.")
-
-    try:
-        db = source.read()
-    except Exception as e:
-        return "erro", f"Falha ao ler os dados do app ({source.describe()}): {e}"
-
-    app_payments = db.get("payments", [])
-    updated, resumo = reconcile_payments(app_payments, mp_payments, window_days=args.janela_correspondencia)
-
-    n_verificados = len(resumo["verificados"])
-    n_ambiguos = len(resumo["ambiguos"])
-    n_sem = len(resumo["sem_correspondencia"])
-
-    log(
-        f"fonte={source.describe()} dias={dias} pagamentos_app={len(app_payments)} "
-        f"mp_encontrados={len(mp_payments)} verificados={n_verificados} ambiguos={n_ambiguos} "
-        f"sem_correspondencia={n_sem} ja_verificados={resumo['ja_verificados']}"
-    )
-
-    if args.dry_run:
-        print("\n[dry-run] Nada foi gravado. Resumo do que seria feito:")
-    else:
-        try:
-            source.write_payments(updated)
-        except Exception as e:
-            return "erro", f"Falha ao gravar os dados de volta ({source.describe()}): {e}"
-
-    linhas = [
-        f"Fonte: {source.describe()}",
-        f"{n_verificados} pagamento(s) verificado(s) automaticamente via Mercado Pago.",
-    ]
-    for v in resumo["verificados"]:
-        linhas.append(f"  - pagamento #{v['payment_id']} (R$ {v['amount']:.2f}) <- Mercado Pago #{v['mp_payment_id']}")
-
-    if n_ambiguos:
-        linhas.append(
-            f"⚠️  {n_ambiguos} pagamento(s) com mais de uma correspondência possível "
-            "(não marcados automaticamente — revise manualmente):"
-        )
-        for a in resumo["ambiguos"]:
-            linhas.append(f"  - pagamento #{a['payment_id']} (R$ {a['amount']:.2f}) -> candidatos: {a['candidatos']}")
-
-    if n_sem:
-        linhas.append(
-            f"{n_sem} pagamento(s) ainda sem correspondência no Mercado Pago "
-            "(tentaremos de novo na próxima execução)."
-        )
-
-    msg = "\n".join(linhas)
-    icon = "✅" if n_verificados else ("⚠️" if n_ambiguos else "ℹ️")
-    print(f"\n{icon} {msg}")
-
-    resultado = "ok" if n_verificados > 0 else ("ambiguo" if n_ambiguos else "sem_pendencias")
-    return resultado, msg
+    return MercadoPagoReconciliationAgent().run(args)
 
 
 def main():

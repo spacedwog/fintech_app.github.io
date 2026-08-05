@@ -3,89 +3,107 @@
 // Camada de "API" 100% client-side (sem servidor, sem Python).
 // Mantém a mesma interface que o antigo client REST usava, mas toda
 // a lógica de negócio (antes em FastAPI) roda aqui, no navegador,
-// persistindo em localStorage via db.js.
+// persistindo em localStorage/Firestore via db.js.
 //
 // AVISO: como não há servidor, o isolamento entre "contas" (tenants)
 // é apenas lógico/organizacional dentro do mesmo navegador — não é uma
 // fronteira de segurança real. Qualquer pessoa com acesso ao navegador
 // pode inspecionar o localStorage.
+//
+// Reescrito em POO: cada área de negócio (autenticação, planos, equipe,
+// categorias, despesas, orçamento, relatórios, layouts de leitura,
+// pagamentos) vira uma classe de serviço própria, e ApiFacade as compõe
+// e expõe com a MESMA interface pública de antes (Api.signup(...),
+// Api.addExpense(...) etc.) — nada muda para quem consome js/api.js
+// (js/dashboard.js, js/auth-page.js, tests/*.test.js).
 // ===============================
 
 const SESSION_KEY = "fintech_saas_session_v1";
 
-// E-mails que sempre têm a conta (tenant) no plano Premium, sem precisar
-// pagar via Pix. Aplicado no cadastro e "auto-curado" a cada login, caso o
-// plano tenha sido alterado por algum outro motivo.
-const PREMIUM_OVERRIDE_EMAILS = ["felipersantos1988@gmail.com"];
-
-function _isPremiumOverrideEmail(email) {
-  return PREMIUM_OVERRIDE_EMAILS.includes(String(email || "").trim().toLowerCase());
-}
-
-const Auth = {
+class SessionManager {
   getToken() {
     return localStorage.getItem(SESSION_KEY);
-  },
+  }
+
   setToken(token) {
     localStorage.setItem(SESSION_KEY, token);
-  },
+  }
+
   clearToken() {
     localStorage.removeItem(SESSION_KEY);
-  },
+  }
+
   isLoggedIn() {
     return !!this.getToken();
-  },
-};
+  }
 
-function _getSession() {
-  const raw = Auth.getToken();
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    return null;
+  getSession() {
+    const raw = this.getToken();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  requireSession() {
+    const session = this.getSession();
+    if (!session) {
+      const err = new Error("Não autenticado");
+      err.status = 401;
+      throw err;
+    }
+    return session;
+  }
+
+  requireAdmin() {
+    const session = this.requireSession();
+    if (session.role !== "admin") {
+      const err = new Error("Apenas administradores podem executar esta ação");
+      err.status = 403;
+      throw err;
+    }
+    return session;
   }
 }
 
-function _requireSession() {
-  const session = _getSession();
-  if (!session) {
-    const err = new Error("Não autenticado");
-    err.status = 401;
-    throw err;
+const Auth = new SessionManager();
+
+// ---------- TenantRepository: leitura/serialização de tenants ----------
+
+class TenantRepository {
+  static find(db, tenantId) {
+    return db.tenants.find((t) => t.id === tenantId) || null;
   }
-  return session;
-}
 
-function _requireAdmin() {
-  const session = _requireSession();
-  if (session.role !== "admin") {
-    const err = new Error("Apenas administradores podem executar esta ação");
-    err.status = 403;
-    throw err;
+  static planDetails(tenant) {
+    return getPlan(tenant.plan);
   }
-  return session;
+
+  static serialize(tenant) {
+    return {
+      id: tenant.id,
+      name: tenant.name,
+      plan: tenant.plan,
+      plan_details: TenantRepository.planDetails(tenant),
+    };
+  }
 }
 
-function _tenantPlanDetails(tenant) {
-  return getPlan(tenant.plan);
-}
+// ---------- AuthService: signup/login/me ----------
 
-function _findTenant(db, tenantId) {
-  return db.tenants.find((t) => t.id === tenantId) || null;
-}
+class AuthService {
+  constructor() {
+    // E-mails que sempre têm a conta (tenant) no plano Premium, sem
+    // precisar pagar via Pix. Aplicado no cadastro e "auto-curado" a cada
+    // login, caso o plano tenha sido alterado por algum outro motivo.
+    this.premiumOverrideEmails = ["felipersantos1988@gmail.com"];
+  }
 
-function _serializeTenant(tenant) {
-  return {
-    id: tenant.id,
-    name: tenant.name,
-    plan: tenant.plan,
-    plan_details: _tenantPlanDetails(tenant),
-  };
-}
-
-const Api = {
-  // ---------- Auth ----------
+  _isPremiumOverrideEmail(email) {
+    return this.premiumOverrideEmails.includes(String(email || "").trim().toLowerCase());
+  }
 
   async signup({ company_name, admin_name, email, password }) {
     const db = await loadDb();
@@ -97,7 +115,7 @@ const Api = {
     const tenant = {
       id: nextId(db, "tenants"),
       name: company_name,
-      plan: _isPremiumOverrideEmail(email) ? "premium" : DEFAULT_PLAN,
+      plan: this._isPremiumOverrideEmail(email) ? "premium" : DEFAULT_PLAN,
       created_at: nowIso(),
     };
     db.tenants.push(tenant);
@@ -119,7 +137,7 @@ const Api = {
 
     const session = { user_id: user.id, tenant_id: tenant.id, name: user.name, role: user.role };
     return { token: JSON.stringify(session) };
-  },
+  }
 
   async login({ email, password }) {
     const db = await loadDb();
@@ -132,8 +150,8 @@ const Api = {
     // Auto-cura: garante que e-mails da lista de override sempre estejam
     // no plano Premium, mesmo que o tenant tenha sido criado antes dessa
     // regra existir (ou o plano tenha sido alterado por outro motivo).
-    if (_isPremiumOverrideEmail(user.email)) {
-      const tenant = _findTenant(db, user.tenant_id);
+    if (this._isPremiumOverrideEmail(user.email)) {
+      const tenant = TenantRepository.find(db, user.tenant_id);
       if (tenant && tenant.plan !== "premium") {
         tenant.plan = "premium";
         await saveDb(db);
@@ -142,12 +160,12 @@ const Api = {
 
     const session = { user_id: user.id, tenant_id: user.tenant_id, name: user.name, role: user.role };
     return { token: JSON.stringify(session) };
-  },
+  }
 
   async me() {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
-    const tenant = _findTenant(db, session.tenant_id);
+    const tenant = TenantRepository.find(db, session.tenant_id);
     if (!tenant) throw new Error("Conta não encontrada");
 
     // Busca o registro atual do usuário no banco em vez de confiar cegamente
@@ -162,43 +180,47 @@ const Api = {
       user: user
         ? { id: user.id, name: user.name, email: user.email, role: user.role }
         : { id: session.user_id, name: session.name, role: session.role },
-      tenant: _serializeTenant(tenant),
+      tenant: TenantRepository.serialize(tenant),
     };
-  },
+  }
+}
 
-  // ---------- Plans ----------
+// ---------- PlanService: catálogo de planos + troca de plano ----------
 
+class PlanService {
   async plans() {
     return PLANS;
-  },
+  }
 
   async changePlan(plan) {
-    const session = _requireAdmin();
+    const session = Auth.requireAdmin();
     if (!planExists(plan)) throw new Error("Plano inválido");
 
     const db = await loadDb();
-    const tenant = _findTenant(db, session.tenant_id);
+    const tenant = TenantRepository.find(db, session.tenant_id);
     tenant.plan = plan;
     await saveDb(db);
-    return _serializeTenant(tenant);
-  },
+    return TenantRepository.serialize(tenant);
+  }
+}
 
-  // ---------- Users (equipe do tenant) ----------
+// ---------- UserService: equipe do tenant ----------
 
+class UserService {
   async listUsers() {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     return db.users
       .filter((u) => u.tenant_id === session.tenant_id)
       .map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, created_at: u.created_at }));
-  },
+  }
 
   async inviteUser({ name, email, password, role }) {
-    const session = _requireAdmin();
+    const session = Auth.requireAdmin();
     const db = await loadDb();
-    const tenant = _findTenant(db, session.tenant_id);
+    const tenant = TenantRepository.find(db, session.tenant_id);
 
-    const maxUsers = _tenantPlanDetails(tenant).max_users;
+    const maxUsers = TenantRepository.planDetails(tenant).max_users;
     const currentUsers = db.users.filter((u) => u.tenant_id === session.tenant_id).length;
     if (currentUsers >= maxUsers) {
       const err = new Error(
@@ -224,21 +246,23 @@ const Api = {
     });
     await saveDb(db);
     return { ok: true };
-  },
+  }
+}
 
-  // ---------- Categories ----------
+// ---------- CategoryService ----------
 
+class CategoryService {
   async listCategories() {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     return db.categories
       .filter((c) => c.tenant_id === session.tenant_id)
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((c) => ({ id: c.id, name: c.name }));
-  },
+  }
 
   async addCategory(name) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const exists = db.categories.some((c) => c.tenant_id === session.tenant_id && c.name === name);
     if (!exists) {
@@ -246,12 +270,14 @@ const Api = {
       await saveDb(db);
     }
     return { ok: true };
-  },
+  }
+}
 
-  // ---------- Expenses ----------
+// ---------- ExpenseService ----------
 
+class ExpenseService {
   async listExpenses(allUsers = false) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const scoped = db.expenses.filter((e) => e.tenant_id === session.tenant_id);
     const filtered =
@@ -280,14 +306,14 @@ const Api = {
           mercado_pago_payment_id: e.mercadoPagoPaymentId || null,
         };
       });
-  },
+  }
 
   // Uso do limite diário de despesas do plano (para exibir "3/6 hoje" etc.)
   async getExpenseQuota() {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
-    const tenant = _findTenant(db, session.tenant_id);
-    const planDetails = _tenantPlanDetails(tenant);
+    const tenant = TenantRepository.find(db, session.tenant_id);
+    const planDetails = TenantRepository.planDetails(tenant);
     const today = nowIso().slice(0, 10);
     const usedToday = db.expenses.filter(
       (e) =>
@@ -302,13 +328,13 @@ const Api = {
       overage_price: planDetails.overage_price || 0,
       unlimited: !isFinite(planDetails.max_expenses_day),
     };
-  },
+  }
 
   async addExpense({ amount, date, description, category_id }) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
-    const tenant = _findTenant(db, session.tenant_id);
-    const planDetails = _tenantPlanDetails(tenant);
+    const tenant = TenantRepository.find(db, session.tenant_id);
+    const planDetails = TenantRepository.planDetails(tenant);
 
     // Limite é diário e por usuário (plano Free = 6 despesas/dia).
     const today = nowIso().slice(0, 10); // "YYYY-MM-DD"
@@ -342,22 +368,24 @@ const Api = {
     db.expenses.push(expense);
     await saveDb(db);
     return { id: expense.id, is_extra: isExtra, extra_charge: extraCharge, plan: tenant.plan };
-  },
+  }
 
   async deleteExpense(id) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const before = db.expenses.length;
     db.expenses = db.expenses.filter((e) => !(e.id === id && e.tenant_id === session.tenant_id));
     await saveDb(db);
     if (db.expenses.length === before) throw new Error("Despesa não encontrada");
     return { ok: true };
-  },
+  }
+}
 
-  // ---------- Budgets & Alerts ----------
+// ---------- BudgetService: limite geral do mês (sem categoria) ----------
 
+class BudgetService {
   async setBudget({ limit_value, month }) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     let budget = db.budgets.find(
       (b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id && b.month === month
@@ -375,10 +403,10 @@ const Api = {
     }
     await saveDb(db);
     return { ok: true };
-  },
+  }
 
   async getAlerts(month) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const targetMonth = month || new Date().toISOString().slice(0, 7);
 
@@ -397,21 +425,23 @@ const Api = {
       .reduce((sum, e) => sum + e.amount, 0);
 
     return { total, limit: limitValue, over_budget: !!(limitValue && total > limitValue) };
-  },
+  }
+}
 
-  // ---------- Category Budgets (Previsto por categoria, vindo do fluxo
-  // "Orçamento & Despesas" -> Página 1 "Importar Orçamento") ----------
-  //
-  // Diferente de "budgets" acima (um limite geral por usuário/mês), isto é
-  // o Previsto POR CATEGORIA, compartilhado pela conta inteira (tenant) --
-  // é o orçamento importado de uma planilha (ver js/budget-ai.js) e
-  // "adotado" no app. O Realizado nunca é lido daqui: é sempre calculado
-  // na hora a partir das despesas reais (ver getBudgetOverview), para que
-  // registrar uma despesa na Página 2 do fluxo reflita automaticamente no
-  // comparativo da Página 3, sem precisar reimportar nada.
+// ---------- CategoryBudgetService: Previsto por categoria (fluxo
+// "Orçamento & Despesas" -> Página 1 "Importar Orçamento") ----------
+//
+// Diferente de BudgetService acima (um limite geral por usuário/mês), isto
+// é o Previsto POR CATEGORIA, compartilhado pela conta inteira (tenant) --
+// é o orçamento importado de uma planilha (ver js/budget-ai.js) e
+// "adotado" no app. O Realizado nunca é lido daqui: é sempre calculado
+// na hora a partir das despesas reais (ver getBudgetOverview), para que
+// registrar uma despesa na Página 2 do fluxo reflita automaticamente no
+// comparativo da Página 3, sem precisar reimportar nada.
 
+class CategoryBudgetService {
   async listCategoryBudgets(month) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     return db.categoryBudgets
       .filter((b) => b.tenant_id === session.tenant_id && (!month || b.month === month))
@@ -419,10 +449,10 @@ const Api = {
         const category = db.categories.find((c) => c.id === b.category_id);
         return { id: b.id, category_id: b.category_id, category_name: category ? category.name : null, month: b.month, previsto: b.previsto };
       });
-  },
+  }
 
   async setCategoryBudget({ category_id, month, previsto }) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     let record = db.categoryBudgets.find(
       (b) => b.tenant_id === session.tenant_id && b.category_id === category_id && b.month === month
@@ -435,7 +465,7 @@ const Api = {
     }
     await saveDb(db);
     return record;
-  },
+  }
 
   // Fecha o fluxo Importar Orçamento -> Previsto por categoria: recebe as
   // linhas lidas de uma planilha (js/budget-ai.js: [{ categoria, previsto }])
@@ -444,7 +474,7 @@ const Api = {
   // o Previsto de cada uma. Idempotente: rodar de novo com o mesmo arquivo
   // e mês só atualiza os valores, não duplica nada.
   async importCategoryBudgets({ month, rows }) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     if (!month) throw new Error("Informe o mês (AAAA-MM) para aplicar este orçamento.");
     if (!Array.isArray(rows) || !rows.length) throw new Error("Nenhuma linha de orçamento para importar.");
 
@@ -491,7 +521,7 @@ const Api = {
 
     await saveDb(db);
     return { month, created_categories: createdCategories, categories_count: applied.length, rows: applied };
-  },
+  }
 
   // Visão completa do fluxo: Previsto (importado, por categoria) x
   // Realizado (soma das despesas reais da conta inteira naquele mês) --
@@ -501,7 +531,7 @@ const Api = {
   // cuidado do orcamento_agent/mp_sync.py para meses sem orçamento
   // cadastrado).
   async getBudgetOverview(month) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const targetMonth = month || nowIso().slice(0, 7);
 
@@ -552,12 +582,14 @@ const Api = {
       overBudget: alerts.length > 0,
       hasAnyBudget: budgets.length > 0,
     };
-  },
+  }
+}
 
-  // ---------- Reports ----------
+// ---------- ReportService ----------
 
+class ReportService {
   async monthlyReport(allUsers = false) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const scoped = db.expenses.filter((e) => e.tenant_id === session.tenant_id);
     const filtered =
@@ -572,10 +604,10 @@ const Api = {
     return Object.keys(totals)
       .sort()
       .map((month) => ({ month, total: totals[month] }));
-  },
+  }
 
   async categoryReport(allUsers = false) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const scoped = db.expenses.filter((e) => e.tenant_id === session.tenant_id);
     const filtered =
@@ -591,24 +623,26 @@ const Api = {
     return Object.keys(totals)
       .sort((a, b) => totals[b] - totals[a])
       .map((category) => ({ category, total: totals[category] }));
-  },
+  }
+}
 
-  // ---------- Budget Layouts (layout de leitura de orçamento) ----------
-  // Salvos pelo modal "Configurar layout de leitura" (view Importar
-  // Orçamento, js/dashboard.js) e consumidos por BudgetAI.analyzeWithLayout
-  // (js/budget-ai.js) na hora de ler uma planilha enviada pelo usuário.
+// ---------- BudgetLayoutService: layout de leitura de orçamento ----------
+// Salvos pelo modal "Configurar layout de leitura" (view Importar
+// Orçamento, js/dashboard.js) e consumidos por BudgetAI.analyzeWithLayout
+// (js/budget-ai.js) na hora de ler uma planilha enviada pelo usuário.
 
+class BudgetLayoutService {
   async listBudgetLayouts() {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     return db.budgetLayouts
       .filter((l) => l.tenant_id === session.tenant_id)
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name));
-  },
+  }
 
   async saveBudgetLayout(layout) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
 
     const name = (layout.name || "").trim();
@@ -647,34 +681,36 @@ const Api = {
 
     await saveDb(db);
     return record;
-  },
+  }
 
   async deleteBudgetLayout(id) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const before = db.budgetLayouts.length;
     db.budgetLayouts = db.budgetLayouts.filter((l) => !(l.id === id && l.tenant_id === session.tenant_id));
     await saveDb(db);
     if (db.budgetLayouts.length === before) throw new Error("Layout não encontrado");
     return { ok: true };
-  },
+  }
+}
 
-  // ---------- Payments (histórico de pagamentos via Pix) ----------
-  // Persistido junto com o resto do "banco" (Firestore + fallback em
-  // localStorage, ver js/db.js), em vez de uma chave solta separada no
-  // localStorage — assim o histórico também sincroniza entre dispositivos.
+// ---------- PaymentService: histórico de pagamentos via Pix ----------
+// Persistido junto com o resto do "banco" (Firestore + fallback em
+// localStorage, ver js/db.js), em vez de uma chave solta separada no
+// localStorage — assim o histórico também sincroniza entre dispositivos.
 
+class PaymentService {
   async listPayments() {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     return db.payments
       .filter((p) => p.tenant_id === session.tenant_id && p.user_id === session.user_id)
       .slice()
       .sort((a, b) => (a.date < b.date ? 1 : -1));
-  },
+  }
 
   async addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification }) {
-    const session = _requireSession();
+    const session = Auth.requireSession();
     const db = await loadDb();
     const payment = {
       id: nextId(db, "payments"),
@@ -691,5 +727,123 @@ const Api = {
     db.payments.push(payment);
     await saveDb(db);
     return payment;
-  },
-};
+  }
+}
+
+// ---------- ApiFacade: compõe os serviços acima com a interface pública
+// que o resto do sistema já usa (Api.signup, Api.addExpense, ...) ----------
+
+class ApiFacade {
+  constructor() {
+    this.authService = new AuthService();
+    this.planService = new PlanService();
+    this.userService = new UserService();
+    this.categoryService = new CategoryService();
+    this.expenseService = new ExpenseService();
+    this.budgetService = new BudgetService();
+    this.categoryBudgetService = new CategoryBudgetService();
+    this.reportService = new ReportService();
+    this.budgetLayoutService = new BudgetLayoutService();
+    this.paymentService = new PaymentService();
+  }
+
+  // ---------- Auth ----------
+  signup(payload) {
+    return this.authService.signup(payload);
+  }
+  login(payload) {
+    return this.authService.login(payload);
+  }
+  me() {
+    return this.authService.me();
+  }
+
+  // ---------- Plans ----------
+  plans() {
+    return this.planService.plans();
+  }
+  changePlan(plan) {
+    return this.planService.changePlan(plan);
+  }
+
+  // ---------- Users (equipe do tenant) ----------
+  listUsers() {
+    return this.userService.listUsers();
+  }
+  inviteUser(payload) {
+    return this.userService.inviteUser(payload);
+  }
+
+  // ---------- Categories ----------
+  listCategories() {
+    return this.categoryService.listCategories();
+  }
+  addCategory(name) {
+    return this.categoryService.addCategory(name);
+  }
+
+  // ---------- Expenses ----------
+  listExpenses(allUsers = false) {
+    return this.expenseService.listExpenses(allUsers);
+  }
+  getExpenseQuota() {
+    return this.expenseService.getExpenseQuota();
+  }
+  addExpense(payload) {
+    return this.expenseService.addExpense(payload);
+  }
+  deleteExpense(id) {
+    return this.expenseService.deleteExpense(id);
+  }
+
+  // ---------- Budgets & Alerts ----------
+  setBudget(payload) {
+    return this.budgetService.setBudget(payload);
+  }
+  getAlerts(month) {
+    return this.budgetService.getAlerts(month);
+  }
+
+  // ---------- Category Budgets ----------
+  listCategoryBudgets(month) {
+    return this.categoryBudgetService.listCategoryBudgets(month);
+  }
+  setCategoryBudget(payload) {
+    return this.categoryBudgetService.setCategoryBudget(payload);
+  }
+  importCategoryBudgets(payload) {
+    return this.categoryBudgetService.importCategoryBudgets(payload);
+  }
+  getBudgetOverview(month) {
+    return this.categoryBudgetService.getBudgetOverview(month);
+  }
+
+  // ---------- Reports ----------
+  monthlyReport(allUsers = false) {
+    return this.reportService.monthlyReport(allUsers);
+  }
+  categoryReport(allUsers = false) {
+    return this.reportService.categoryReport(allUsers);
+  }
+
+  // ---------- Budget Layouts ----------
+  listBudgetLayouts() {
+    return this.budgetLayoutService.listBudgetLayouts();
+  }
+  saveBudgetLayout(layout) {
+    return this.budgetLayoutService.saveBudgetLayout(layout);
+  }
+  deleteBudgetLayout(id) {
+    return this.budgetLayoutService.deleteBudgetLayout(id);
+  }
+
+  // ---------- Payments ----------
+  listPayments() {
+    return this.paymentService.listPayments();
+  }
+  addPayment(payload) {
+    return this.paymentService.addPayment(payload);
+  }
+}
+
+const Api = new ApiFacade();

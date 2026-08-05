@@ -49,6 +49,14 @@
               <div><strong>Leitura de comprovante</strong><span>OCR confere o Pix automaticamente</span></div>
             </a>
             <a href="#recursos" class="lp-mega-item">
+              <i class="fa fa-file-excel-o"></i>
+              <div><strong>Importar orçamento</strong><span>Suba sua planilha e compare Previsto x Realizado</span></div>
+            </a>
+            <a href="#recursos" class="lp-mega-item">
+              <i class="fa fa-refresh"></i>
+              <div><strong>Mercado Pago</strong><span>Confirmação automática de pagamentos</span></div>
+            </a>
+            <a href="#recursos" class="lp-mega-item">
               <i class="fa fa-users"></i>
               <div><strong>Equipe</strong><span>Convide colegas para o mesmo painel</span></div>
             </a>
@@ -158,7 +166,8 @@
 
         <div class="lp-tab-panel" data-panel="financeiro">
           <div class="lp-tab-item"><i class="fa fa-bar-chart"></i><div><strong>Relatórios automáticos</strong><p>Resumo mensal por categoria, pronto para revisar sem exportar nada.</p></div></div>
-          <div class="lp-tab-item"><i class="fa fa-sliders"></i><div><strong>Orçamento com limite</strong><p>Defina o teto de gastos e receba o alerta antes de estourar.</p></div></div>
+          <div class="lp-tab-item"><i class="fa fa-file-excel-o"></i><div><strong>Previsto x Realizado por categoria</strong><p>Importe a planilha de orçamento e compare com as despesas reais lançadas no mês.</p></div></div>
+          <div class="lp-tab-item"><i class="fa fa-refresh"></i><div><strong>Concilia com o Mercado Pago</strong><p>Um agente local pode gerar despesas e confirmar pagamentos automaticamente a partir de transações reais.</p></div></div>
           <div class="lp-tab-item"><i class="fa fa-credit-card"></i><div><strong>Planos flexíveis</strong><p>Comece no Free e migre para o Premium quando precisar de despesas ilimitadas.</p></div></div>
         </div>
       </div>
@@ -194,12 +203,48 @@
           <h3>Equipe multi-usuário</h3>
           <p>Convide familiares ou amigos para lançar despesas no mesmo painel, organizado por conta.</p>
         </div>
+        <div class="lp-card">
+          <i class="fa fa-file-excel-o"></i>
+          <h3>Importe sua planilha de orçamento</h3>
+          <p>Suba um .xlsx/.xls/.csv direto do navegador — a leitura é 100% local e reconhece categorias e valores automaticamente, com um editor de layout para planilhas fora do padrão.</p>
+        </div>
+        <div class="lp-card">
+          <i class="fa fa-refresh"></i>
+          <h3>Confirmação automática via Mercado Pago</h3>
+          <p>Um agente local opcional cruza seus pagamentos Pix com a API do Mercado Pago e confirma sozinho — sem depender só do "já paguei" do usuário.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Fluxo Orçamento & Despesas -->
+  <section class="lp-section lp-section-alt" id="fluxo-orcamento">
+    <div class="lp-section-inner">
+      <span class="lp-kicker">Orçamento & Despesas</span>
+      <h2 class="lp-h2">Do Previsto ao Realizado, em 3 passos</h2>
+
+      <div class="lp-steps">
+        <div class="lp-step">
+          <span class="lp-step-num">1</span>
+          <h3>Importe o orçamento</h3>
+          <p>Suba a planilha (ou monte um layout manual) e o app grava o Previsto de cada categoria automaticamente.</p>
+        </div>
+        <div class="lp-step">
+          <span class="lp-step-num">2</span>
+          <h3>Registre despesas reais</h3>
+          <p>Cada despesa lançada já mostra, na hora, quanto falta do Previsto daquela categoria no mês.</p>
+        </div>
+        <div class="lp-step">
+          <span class="lp-step-num">3</span>
+          <h3>Compare Previsto x Realizado</h3>
+          <p>Veja por categoria o que está dentro do orçamento, o que estourou e o que ainda não tem orçamento definido — com dados 100% reais.</p>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- Como funciona -->
-  <section class="lp-section lp-section-alt" id="como-funciona">
+  <section class="lp-section" id="como-funciona">
     <div class="lp-section-inner">
       <span class="lp-kicker">Como funciona</span>
       <h2 class="lp-h2">Comece a usar em 3 passos</h2>
@@ -225,7 +270,7 @@
   </section>
 
   <!-- Planos -->
-  <section class="lp-section" id="planos">
+  <section class="lp-section lp-section-alt" id="planos">
     <div class="lp-section-inner">
       <span class="lp-kicker">Planos</span>
       <h2 class="lp-h2">Comece grátis, evolua quando precisar</h2>
@@ -258,7 +303,7 @@
   </section>
 
   <!-- Segurança / transparência -->
-  <section class="lp-section lp-section-alt" id="seguranca">
+  <section class="lp-section" id="seguranca">
     <div class="lp-section-inner">
       <span class="lp-kicker">Segurança e transparência</span>
       <h2 class="lp-h2">Como cuidamos dos seus dados</h2>
@@ -275,11 +320,17 @@
           <i class="fa fa-qrcode"></i>
           <p>Cobranças Pix seguem o padrão oficial do Banco Central (BR Code com CRC16).</p>
         </div>
+        <div class="lp-security-item">
+          <i class="fa fa-refresh"></i>
+          <p>Um agente local opcional cruza os pagamentos com a API do Mercado Pago e confirma automaticamente, sem precisar reabrir o app.</p>
+        </div>
       </div>
       <p class="lp-fineprint">
         Por ser 100% client-side, o isolamento entre contas é lógico, não uma fronteira de
-        segurança real, e a confirmação de pagamento Pix é feita pelo próprio usuário. Ideal
-        para demonstração, protótipo ou uso pessoal.
+        segurança real. A confirmação de pagamento Pix combina até duas checagens automáticas —
+        leitura do comprovante por IA (OCR local) e cruzamento com o Mercado Pago — mas nenhuma das
+        duas é um webhook bancário em tempo real; quando nenhuma confirma, o pagamento fica marcado
+        para revisão manual. Ideal para demonstração, protótipo ou uso pessoal.
       </p>
     </div>
   </section>
@@ -306,6 +357,14 @@
         <details>
           <summary>O sistema já paga minhas contas por mim?</summary>
           <p>Ainda não. Hoje você registra os pagamentos do mês e usa o Pix real para pagar manualmente. A ideia é evoluir para o sistema realizar o pagamento automaticamente por você — isso está no roadmap para uma versão futura.</p>
+        </details>
+        <details>
+          <summary>Dá para importar meu orçamento de uma planilha já pronta?</summary>
+          <p>Sim. Envie o arquivo (.xlsx/.xls/.csv) na tela "Importar Orçamento" — a leitura acontece no seu navegador, sem subir nada para nenhum servidor. Se a planilha fugir do padrão, dá para configurar manualmente onde estão as colunas em um layout que fica salvo para os próximos uploads.</p>
+        </details>
+        <details>
+          <summary>Como o Mercado Pago confirma meus pagamentos automaticamente?</summary>
+          <p>Além da conferência do comprovante por IA na hora, um agente local opcional cruza o histórico de pagamentos do painel com os pagamentos reais aprovados na sua conta do Mercado Pago (por valor e data) e marca como verificado quando encontra uma correspondência clara. Não é um webhook em tempo real — depende de rodar (ou agendar) esse agente fora do navegador.</p>
         </details>
         <details>
           <summary>Onde meus dados ficam salvos?</summary>

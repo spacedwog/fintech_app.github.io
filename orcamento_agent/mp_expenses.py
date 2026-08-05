@@ -44,6 +44,13 @@ mesmo esquema de orcamento_agent/mp_reconcile.py).
 ⚠️ Segurança: mesmos cuidados de mp_reconcile.py -- nunca versione
 mp_expenses_config.json nem a chave de conta de serviço do Firebase (ver
 .gitignore).
+
+Reescrito em POO: IdGenerator (gera ids únicos), ExpenseCategorizer
+(categorização por palavra-chave + filtro de descrição) e ExpenseGenerator
+(gera as despesas propriamente ditas, usando o categorizador) compõem
+MercadoPagoExpenseAgent, que orquestra run() de ponta a ponta. As funções
+de nível de módulo usadas pelo teste (generate_expenses, run, mp_sync)
+continuam existindo com a MESMA assinatura.
 """
 import argparse
 import json
@@ -73,13 +80,20 @@ def log(linha):
         pass
 
 
+class IdGenerator:
+    """Ids únicos (string) no mesmo espírito do nextId() de js/db.js -- não
+    precisam bater byte a byte com o formato do navegador, só ser
+    praticamente únicos (timestamp + sufixo aleatório)."""
+
+    @staticmethod
+    def generate(prefix):
+        ts = format(int(time.time() * 1000), "x")
+        rand = secrets.token_hex(4)
+        return f"{prefix}{ts}{rand}"
+
+
 def gen_id(prefix):
-    """Id único (string) no mesmo espírito do nextId() de js/db.js -- não
-    precisa bater byte a byte com o formato do navegador, só ser uma string
-    praticamente única (timestamp + sufixo aleatório)."""
-    ts = format(int(time.time() * 1000), "x")
-    rand = secrets.token_hex(4)
-    return f"{prefix}{ts}{rand}"
+    return IdGenerator.generate(prefix)
 
 
 def find_user_by_email(db, email):
@@ -90,23 +104,49 @@ def find_user_by_email(db, email):
     return None
 
 
+class ExpenseCategorizer:
+    """Decide a categoria (por palavra-chave) e se um pagamento deve ser
+    ignorado (filtro de descrição) -- lógica pequena, mas separada da
+    geração de despesas em si (ExpenseGenerator) para poder ser testada/
+    reaproveitada isoladamente."""
+
+    def __init__(self, mapeamento=None, categoria_padrao=None, ignorar_descricoes=None):
+        self.mapeamento = mapeamento or []
+        self.categoria_padrao = categoria_padrao or DEFAULT_CATEGORIA_PADRAO
+        self.ignorar_descricoes = (
+            DEFAULT_IGNORAR_DESCRICOES if ignorar_descricoes is None else ignorar_descricoes
+        )
+
+    # Só a correspondência por palavra-chave -- None quando nenhuma regra bate
+    # (quem chama decide o que fazer no fallback; ver categorize() abaixo).
+    def match_keyword(self, description):
+        desc_norm = mp_sync.normalize(description)
+        for regra in self.mapeamento:
+            kw = mp_sync.normalize(regra.get("palavra_chave") or regra.get("keyword") or "")
+            categoria = regra.get("categoria")
+            if kw and categoria and kw in desc_norm:
+                return categoria
+        return None
+
+    # Correspondência por palavra-chave, com fallback pra categoria padrão.
+    def categorize(self, description):
+        return self.match_keyword(description) or self.categoria_padrao
+
+    def should_ignore(self, description):
+        desc_norm = mp_sync.normalize(description)
+        for termo in self.ignorar_descricoes:
+            termo_norm = mp_sync.normalize(termo)
+            if termo_norm and termo_norm in desc_norm:
+                return True
+        return False
+
+
 def categorize(description, mapeamento):
-    desc_norm = mp_sync.normalize(description)
-    for regra in mapeamento or []:
-        kw = mp_sync.normalize(regra.get("palavra_chave") or regra.get("keyword") or "")
-        categoria = regra.get("categoria")
-        if kw and categoria and kw in desc_norm:
-            return categoria
-    return None
+    return ExpenseCategorizer(mapeamento=mapeamento).match_keyword(description)
 
 
 def should_ignore(description, ignorar_lista):
-    desc_norm = mp_sync.normalize(description)
-    for termo in ignorar_lista or []:
-        termo_norm = mp_sync.normalize(termo)
-        if termo_norm and termo_norm in desc_norm:
-            return True
-    return False
+    return ExpenseCategorizer(ignorar_descricoes=ignorar_lista).should_ignore(description)
 
 
 def find_or_create_category(db, tenant_id, name):
@@ -118,183 +158,200 @@ def find_or_create_category(db, tenant_id, name):
     return category, True
 
 
-def generate_expenses(db, mp_payments, tenant_id, user_id, cfg):
-    """Gera despesas em `db` (mutado in-place) a partir de `mp_payments`.
-    Devolve um resumo -- não grava nada, quem chama decide (permite --dry-run)."""
-    mapeamento = cfg.get("mapeamento") or []
-    categoria_padrao = cfg.get("categoria_padrao") or DEFAULT_CATEGORIA_PADRAO
-    ignorar = cfg.get("ignorar_descricoes_contendo")
-    if ignorar is None:
-        ignorar = DEFAULT_IGNORAR_DESCRICOES
+class ExpenseGenerator:
+    """Gera despesas reais (no formato do painel web) a partir de pagamentos
+    aprovados no Mercado Pago, evitando duplicatas e excluindo o que já é
+    receita da conta (ver docstring do módulo)."""
 
-    # Pagamentos já reconciliados como cobrança RECEBIDA pela própria chave
-    # Pix do app (assinatura/despesa extra de algum usuário do painel, ver
-    # mp_reconcile.py) -- isso é receita da conta, nunca deve virar despesa.
-    ja_em_payments = {
-        p.get("mercadoPagoPaymentId")
-        for p in db.get("payments", [])
-        if p.get("tenant_id") == tenant_id and p.get("mercadoPagoPaymentId") is not None
-    }
-    # Pagamentos já importados como despesa em execuções anteriores deste
-    # próprio script -- garante idempotência (rodar de novo não duplica).
-    ja_importados = {
-        e.get("mercadoPagoPaymentId")
-        for e in db.get("expenses", [])
-        if e.get("tenant_id") == tenant_id and e.get("mercadoPagoPaymentId") is not None
-    }
+    def __init__(self, categorizer):
+        self.categorizer = categorizer
 
-    criadas = []
-    ignoradas_duplicadas = 0
-    ignoradas_receita = 0
-    ignoradas_filtro = 0
-    categorias_novas = 0
+    def generate(self, db, mp_payments, tenant_id, user_id):
+        """Gera despesas em `db` (mutado in-place) a partir de `mp_payments`.
+        Devolve um resumo -- não grava nada, quem chama decide (permite --dry-run)."""
 
-    for p in mp_payments:
-        if p.get("status") != "approved":
-            continue
-
-        mp_id = p.get("id")
-        if mp_id in ja_em_payments:
-            ignoradas_receita += 1
-            continue
-        if mp_id in ja_importados:
-            ignoradas_duplicadas += 1
-            continue
-
-        desc = p.get("description") or p.get("statement_descriptor") or "(sem descrição)"
-        if should_ignore(desc, ignorar):
-            ignoradas_filtro += 1
-            continue
-
-        categoria_nome = categorize(desc, mapeamento) or categoria_padrao
-        category, created = find_or_create_category(db, tenant_id, categoria_nome)
-        if created:
-            categorias_novas += 1
-
-        valor = p.get("transaction_amount", 0) or 0
-        data_iso = p.get("date_approved") or p.get("date_created") or ""
-        data = data_iso[:10] if data_iso else datetime.now().strftime("%Y-%m-%d")
-
-        expense = {
-            "id": gen_id("exp"),
-            "tenant_id": tenant_id,
-            "user_id": user_id,
-            "category_id": category["id"],
-            "amount": valor,
-            "date": data,
-            "description": desc,
-            "created_at": data_iso or (datetime.now().isoformat() + "Z"),
-            "is_extra": False,
-            "extra_charge": 0,
-            # Campos extras (ignorados por js/api.js em bancos antigos, sem
-            # quebrar nada): rastreiam a origem para idempotência e para o
-            # selo "gerada via Mercado Pago" no painel (ver js/dashboard.js).
-            "mercadoPagoPaymentId": mp_id,
-            "generatedByMercadoPago": True,
+        # Pagamentos já reconciliados como cobrança RECEBIDA pela própria chave
+        # Pix do app (assinatura/despesa extra de algum usuário do painel, ver
+        # mp_reconcile.py) -- isso é receita da conta, nunca deve virar despesa.
+        ja_em_payments = {
+            p.get("mercadoPagoPaymentId")
+            for p in db.get("payments", [])
+            if p.get("tenant_id") == tenant_id and p.get("mercadoPagoPaymentId") is not None
         }
-        db.setdefault("expenses", []).append(expense)
-        criadas.append(expense)
+        # Pagamentos já importados como despesa em execuções anteriores deste
+        # próprio script -- garante idempotência (rodar de novo não duplica).
+        ja_importados = {
+            e.get("mercadoPagoPaymentId")
+            for e in db.get("expenses", [])
+            if e.get("tenant_id") == tenant_id and e.get("mercadoPagoPaymentId") is not None
+        }
 
-    return {
-        "criadas": criadas,
-        "categorias_novas": categorias_novas,
-        "ignoradas_duplicadas": ignoradas_duplicadas,
-        "ignoradas_receita": ignoradas_receita,
-        "ignoradas_filtro": ignoradas_filtro,
-    }
+        criadas = []
+        ignoradas_duplicadas = 0
+        ignoradas_receita = 0
+        ignoradas_filtro = 0
+        categorias_novas = 0
+
+        for p in mp_payments:
+            if p.get("status") != "approved":
+                continue
+
+            mp_id = p.get("id")
+            if mp_id in ja_em_payments:
+                ignoradas_receita += 1
+                continue
+            if mp_id in ja_importados:
+                ignoradas_duplicadas += 1
+                continue
+
+            desc = p.get("description") or p.get("statement_descriptor") or "(sem descrição)"
+            if self.categorizer.should_ignore(desc):
+                ignoradas_filtro += 1
+                continue
+
+            categoria_nome = self.categorizer.categorize(desc)
+            category, created = find_or_create_category(db, tenant_id, categoria_nome)
+            if created:
+                categorias_novas += 1
+
+            valor = p.get("transaction_amount", 0) or 0
+            data_iso = p.get("date_approved") or p.get("date_created") or ""
+            data = data_iso[:10] if data_iso else datetime.now().strftime("%Y-%m-%d")
+
+            expense = {
+                "id": gen_id("exp"),
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "category_id": category["id"],
+                "amount": valor,
+                "date": data,
+                "description": desc,
+                "created_at": data_iso or (datetime.now().isoformat() + "Z"),
+                "is_extra": False,
+                "extra_charge": 0,
+                # Campos extras (ignorados por js/api.js em bancos antigos, sem
+                # quebrar nada): rastreiam a origem para idempotência e para o
+                # selo "gerada via Mercado Pago" no painel (ver js/dashboard.js).
+                "mercadoPagoPaymentId": mp_id,
+                "generatedByMercadoPago": True,
+            }
+            db.setdefault("expenses", []).append(expense)
+            criadas.append(expense)
+
+        return {
+            "criadas": criadas,
+            "categorias_novas": categorias_novas,
+            "ignoradas_duplicadas": ignoradas_duplicadas,
+            "ignoradas_receita": ignoradas_receita,
+            "ignoradas_filtro": ignoradas_filtro,
+        }
+
+
+def generate_expenses(db, mp_payments, tenant_id, user_id, cfg):
+    categorizer = ExpenseCategorizer(
+        mapeamento=cfg.get("mapeamento") or [],
+        categoria_padrao=cfg.get("categoria_padrao") or DEFAULT_CATEGORIA_PADRAO,
+        ignorar_descricoes=cfg.get("ignorar_descricoes_contendo"),
+    )
+    return ExpenseGenerator(categorizer).generate(db, mp_payments, tenant_id, user_id)
+
+
+class MercadoPagoExpenseAgent:
+    def run(self, args):
+        """Executa a geração de despesas e devolve (resultado, mensagem), no
+        mesmo estilo de mp_sync.run()/mp_reconcile.run()."""
+        if not os.path.exists(args.config):
+            return "erro", (
+                f"Config não encontrado: {args.config}. Copie mp_expenses_config.example.json -> "
+                f"{args.config} e preencha o token, \"conta_email\" e a fonte de dados."
+            )
+
+        with open(args.config, encoding="utf-8") as f:
+            cfg = json.load(f)
+
+        token = cfg.get("mercado_pago_access_token")
+        if not token or str(token).startswith("COLE_"):
+            return "erro", "Access token do Mercado Pago não configurado em mp_expenses_config.json."
+
+        conta_email = cfg.get("conta_email")
+        if not conta_email:
+            return "erro", (
+                "Informe \"conta_email\" no config -- o e-mail da conta do painel web que vai "
+                "receber as despesas geradas."
+            )
+
+        try:
+            source = mp_reconcile.build_source(cfg, args)
+        except Exception as e:
+            return "erro", str(e)
+
+        dias = args.dias or cfg.get("janela_dias") or 30
+        begin, end = mp_reconcile.day_range(dias)
+        print(f"Buscando pagamentos aprovados no Mercado Pago dos últimos {dias} dia(s) ({begin} a {end})...")
+        try:
+            mp_payments = mp_sync.fetch_mp_payments(token, begin, end)
+        except Exception as e:
+            return "erro", f"Falha ao consultar o Mercado Pago: {e}"
+        print(f"{len(mp_payments)} pagamento(s) encontrado(s) no Mercado Pago no período.")
+
+        try:
+            db = source.read()
+        except Exception as e:
+            return "erro", f"Falha ao ler os dados do app ({source.describe()}): {e}"
+
+        user = find_user_by_email(db, conta_email)
+        if not user:
+            return "erro", f"Nenhum usuário com o e-mail '{conta_email}' encontrado em {source.describe()}."
+        tenant_id = user.get("tenant_id")
+        user_id = user.get("id")
+
+        resultado = generate_expenses(db, mp_payments, tenant_id, user_id, cfg)
+        n_criadas = len(resultado["criadas"])
+
+        log(
+            f"fonte={source.describe()} conta={conta_email} dias={dias} mp_encontrados={len(mp_payments)} "
+            f"despesas_criadas={n_criadas} categorias_novas={resultado['categorias_novas']} "
+            f"ignoradas_receita={resultado['ignoradas_receita']} ignoradas_duplicadas={resultado['ignoradas_duplicadas']} "
+            f"ignoradas_filtro={resultado['ignoradas_filtro']}"
+        )
+
+        if args.dry_run:
+            print("\n[dry-run] Nada foi gravado. Resumo do que seria feito:")
+        elif n_criadas or resultado["categorias_novas"]:
+            try:
+                source.write_fields({"categories": db.get("categories", []), "expenses": db.get("expenses", [])})
+            except Exception as e:
+                return "erro", f"Falha ao gravar os dados de volta ({source.describe()}): {e}"
+
+        linhas = [
+            f"Fonte: {source.describe()} | Conta: {conta_email}",
+            f"{n_criadas} despesa(s) gerada(s) a partir do Mercado Pago"
+            + (f" ({resultado['categorias_novas']} categoria(s) nova(s) criada(s))" if resultado["categorias_novas"] else "")
+            + ".",
+        ]
+        for e in resultado["criadas"]:
+            linhas.append(f"  - {e['date']} · R$ {e['amount']:.2f} · {e['description']}")
+        if resultado["ignoradas_receita"]:
+            linhas.append(
+                f"{resultado['ignoradas_receita']} pagamento(s) ignorado(s) por já serem cobranças recebidas "
+                "pela própria chave Pix do app (não são despesa)."
+            )
+        if resultado["ignoradas_duplicadas"]:
+            linhas.append(f"{resultado['ignoradas_duplicadas']} pagamento(s) ignorado(s) por já terem sido importados antes.")
+        if resultado["ignoradas_filtro"]:
+            linhas.append(
+                f"{resultado['ignoradas_filtro']} pagamento(s) ignorado(s) pelo filtro \"ignorar_descricoes_contendo\"."
+            )
+
+        msg = "\n".join(linhas)
+        icon = "✅" if n_criadas else "ℹ️"
+        print(f"\n{icon} {msg}")
+
+        return ("ok" if n_criadas else "sem_novidades"), msg
 
 
 def run(args):
-    """Executa a geração de despesas e devolve (resultado, mensagem), no
-    mesmo estilo de mp_sync.run()/mp_reconcile.run()."""
-    if not os.path.exists(args.config):
-        return "erro", (
-            f"Config não encontrado: {args.config}. Copie mp_expenses_config.example.json -> "
-            f"{args.config} e preencha o token, \"conta_email\" e a fonte de dados."
-        )
-
-    with open(args.config, encoding="utf-8") as f:
-        cfg = json.load(f)
-
-    token = cfg.get("mercado_pago_access_token")
-    if not token or str(token).startswith("COLE_"):
-        return "erro", "Access token do Mercado Pago não configurado em mp_expenses_config.json."
-
-    conta_email = cfg.get("conta_email")
-    if not conta_email:
-        return "erro", (
-            "Informe \"conta_email\" no config -- o e-mail da conta do painel web que vai "
-            "receber as despesas geradas."
-        )
-
-    try:
-        source = mp_reconcile.build_source(cfg, args)
-    except Exception as e:
-        return "erro", str(e)
-
-    dias = args.dias or cfg.get("janela_dias") or 30
-    begin, end = mp_reconcile.day_range(dias)
-    print(f"Buscando pagamentos aprovados no Mercado Pago dos últimos {dias} dia(s) ({begin} a {end})...")
-    try:
-        mp_payments = mp_sync.fetch_mp_payments(token, begin, end)
-    except Exception as e:
-        return "erro", f"Falha ao consultar o Mercado Pago: {e}"
-    print(f"{len(mp_payments)} pagamento(s) encontrado(s) no Mercado Pago no período.")
-
-    try:
-        db = source.read()
-    except Exception as e:
-        return "erro", f"Falha ao ler os dados do app ({source.describe()}): {e}"
-
-    user = find_user_by_email(db, conta_email)
-    if not user:
-        return "erro", f"Nenhum usuário com o e-mail '{conta_email}' encontrado em {source.describe()}."
-    tenant_id = user.get("tenant_id")
-    user_id = user.get("id")
-
-    resultado = generate_expenses(db, mp_payments, tenant_id, user_id, cfg)
-    n_criadas = len(resultado["criadas"])
-
-    log(
-        f"fonte={source.describe()} conta={conta_email} dias={dias} mp_encontrados={len(mp_payments)} "
-        f"despesas_criadas={n_criadas} categorias_novas={resultado['categorias_novas']} "
-        f"ignoradas_receita={resultado['ignoradas_receita']} ignoradas_duplicadas={resultado['ignoradas_duplicadas']} "
-        f"ignoradas_filtro={resultado['ignoradas_filtro']}"
-    )
-
-    if args.dry_run:
-        print("\n[dry-run] Nada foi gravado. Resumo do que seria feito:")
-    elif n_criadas or resultado["categorias_novas"]:
-        try:
-            source.write_fields({"categories": db.get("categories", []), "expenses": db.get("expenses", [])})
-        except Exception as e:
-            return "erro", f"Falha ao gravar os dados de volta ({source.describe()}): {e}"
-
-    linhas = [
-        f"Fonte: {source.describe()} | Conta: {conta_email}",
-        f"{n_criadas} despesa(s) gerada(s) a partir do Mercado Pago"
-        + (f" ({resultado['categorias_novas']} categoria(s) nova(s) criada(s))" if resultado["categorias_novas"] else "")
-        + ".",
-    ]
-    for e in resultado["criadas"]:
-        linhas.append(f"  - {e['date']} · R$ {e['amount']:.2f} · {e['description']}")
-    if resultado["ignoradas_receita"]:
-        linhas.append(
-            f"{resultado['ignoradas_receita']} pagamento(s) ignorado(s) por já serem cobranças recebidas "
-            "pela própria chave Pix do app (não são despesa)."
-        )
-    if resultado["ignoradas_duplicadas"]:
-        linhas.append(f"{resultado['ignoradas_duplicadas']} pagamento(s) ignorado(s) por já terem sido importados antes.")
-    if resultado["ignoradas_filtro"]:
-        linhas.append(
-            f"{resultado['ignoradas_filtro']} pagamento(s) ignorado(s) pelo filtro \"ignorar_descricoes_contendo\"."
-        )
-
-    msg = "\n".join(linhas)
-    icon = "✅" if n_criadas else "ℹ️"
-    print(f"\n{icon} {msg}")
-
-    return ("ok" if n_criadas else "sem_novidades"), msg
+    return MercadoPagoExpenseAgent().run(args)
 
 
 def main():

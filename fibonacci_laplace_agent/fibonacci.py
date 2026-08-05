@@ -23,17 +23,28 @@ literalmente 1, 1, 2, 3, 5, 8, ...).
 """
 
 
+class LayoutArithmetic:
+    """Operações aritméticas sobre layouts (dict categoria -> valor) --
+    hoje só a soma categoria a categoria usada pela recorrência de
+    Fibonacci, isolada numa classe própria para poder crescer (ex.:
+    subtração, multiplicação por fator) sem inchar FibonacciLayoutEngine."""
+
+    @staticmethod
+    def soma(anterior, atual):
+        """Soma dois layouts (dict categoria -> valor), categoria a
+        categoria. Categorias que só existem em um dos dois entram com o
+        valor original (equivalente a considerar 0 do lado ausente)."""
+        anterior = anterior or {}
+        atual = atual or {}
+        categorias = set(anterior) | set(atual)
+        return {
+            cat: round((anterior.get(cat, 0) or 0) + (atual.get(cat, 0) or 0), 2)
+            for cat in categorias
+        }
+
+
 def soma_layouts(anterior, atual):
-    """Soma dois layouts (dict categoria -> valor), categoria a
-    categoria. Categorias que só existem em um dos dois entram com o
-    valor original (equivalente a considerar 0 do lado ausente)."""
-    anterior = anterior or {}
-    atual = atual or {}
-    categorias = set(anterior) | set(atual)
-    return {
-        cat: round((anterior.get(cat, 0) or 0) + (atual.get(cat, 0) or 0), 2)
-        for cat in categorias
-    }
+    return LayoutArithmetic.soma(anterior, atual)
 
 
 class FibonacciLayoutEngine:

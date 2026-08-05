@@ -37,6 +37,15 @@ Este script é pensado para rodar tanto manualmente quanto via agendamento
 (sem intervenção humana): nunca lança exceção não tratada, sempre grava um
 log em logs/mp_sync.log e sempre termina com uma linha final clara indicando
 o resultado (OK, ESTOURADO, ou ERRO).
+
+Reescrito em POO: TextNormalizer, MonthFormatter, MercadoPagoPaymentsClient,
+BudgetWorkbook (validação, categorização, gravação, recálculo e alertas da
+planilha) e MercadoPagoBudgetSyncAgent (orquestra run()) concentram a lógica
+em classes coesas. As funções de nível de módulo usadas pelos testes
+(normalize, fetch_mp_payments, load_mapping_rules, categorize, mes_label,
+validate_workbook, write_transactions, recalc, check_alerts, run) continuam
+existindo com a MESMA assinatura -- inclusive fetch_mp_payments, que os
+testes reatribuem diretamente (monkeypatch) para simular o Mercado Pago.
 """
 import argparse
 import json
@@ -68,10 +77,48 @@ MESES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
 
+class TextNormalizer:
+    @staticmethod
+    def normalize(text):
+        """minúsculo, sem acento, para comparação de palavra-chave."""
+        if text is None:
+            return ""
+        text = str(text).lower().strip()
+        text = unicodedata.normalize("NFKD", text)
+        return "".join(c for c in text if not unicodedata.combining(c))
+
+
+def normalize(text):
+    return TextNormalizer.normalize(text)
+
+
+class MonthFormatter:
+    @staticmethod
+    def label(mes_str):
+        """'2025-01' -> 'Janeiro - 2025' (mesmo rótulo usado nas abas Orcamento/Resumo_MP)."""
+        ano, mes = mes_str.split("-")
+        return f"{MESES_PT[int(mes) - 1]} - {ano}"
+
+    @staticmethod
+    def bounds(mes_str):
+        """'2025-01' -> (inicio_iso, fim_iso) cobrindo o mês inteiro, timezone -03:00."""
+        ano, mes = (int(x) for x in mes_str.split("-"))
+        inicio = datetime(ano, mes, 1)
+        if mes == 12:
+            fim = datetime(ano + 1, 1, 1)
+        else:
+            fim = datetime(ano, mes + 1, 1)
+        fim = fim - timedelta(seconds=1)
+        fmt = "%Y-%m-%dT%H:%M:%S.000-03:00"
+        return inicio.strftime(fmt), fim.strftime(fmt)
+
+
 def mes_label(mes_str):
-    """'2025-01' -> 'Janeiro - 2025' (mesmo rótulo usado nas abas Orcamento/Resumo_MP)."""
-    ano, mes = mes_str.split("-")
-    return f"{MESES_PT[int(mes) - 1]} - {ano}"
+    return MonthFormatter.label(mes_str)
+
+
+def month_bounds(mes_str):
+    return MonthFormatter.bounds(mes_str)
 
 
 def log_path_for(planilha):
@@ -90,232 +137,264 @@ def log(planilha, linha):
         pass  # log é best-effort, nunca deve derrubar o sync
 
 
-def normalize(text):
-    """minúsculo, sem acento, para comparação de palavra-chave."""
-    if text is None:
-        return ""
-    text = str(text).lower().strip()
-    text = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in text if not unicodedata.combining(c))
+class MercadoPagoPaymentsClient:
+    """Cliente HTTP fino sobre a API de busca de pagamentos do Mercado Pago."""
 
+    def __init__(self, api_url=MP_API_URL):
+        self.api_url = api_url
 
-def month_bounds(mes_str):
-    """'2025-01' -> (inicio_iso, fim_iso) cobrindo o mês inteiro, timezone -03:00."""
-    ano, mes = (int(x) for x in mes_str.split("-"))
-    inicio = datetime(ano, mes, 1)
-    if mes == 12:
-        fim = datetime(ano + 1, 1, 1)
-    else:
-        fim = datetime(ano, mes + 1, 1)
-    fim = fim - timedelta(seconds=1)
-    fmt = "%Y-%m-%dT%H:%M:%S.000-03:00"
-    return inicio.strftime(fmt), fim.strftime(fmt)
+    def search(self, token, begin_date, end_date):
+        """Pagina sobre /v1/payments/search e devolve a lista completa de resultados."""
+        headers = {"Authorization": f"Bearer {token}"}
+        results = []
+        offset = 0
+        limit = 50
+        while True:
+            params = {
+                "range": "date_created",
+                "begin_date": begin_date,
+                "end_date": end_date,
+                "sort": "date_created",
+                "criteria": "desc",
+                "limit": limit,
+                "offset": offset,
+            }
+            resp = requests.get(self.api_url, headers=headers, params=params, timeout=30)
+            if resp.status_code != 200:
+                raise RuntimeError(f"Erro Mercado Pago ({resp.status_code}): {resp.text[:500]}")
+            data = resp.json()
+            page = data.get("results", [])
+            results.extend(page)
+            total = data.get("paging", {}).get("total", len(results))
+            offset += limit
+            if offset >= total or not page:
+                break
+        return results
 
 
 def fetch_mp_payments(token, begin_date, end_date):
-    """Pagina sobre /v1/payments/search e devolve a lista completa de resultados."""
-    headers = {"Authorization": f"Bearer {token}"}
-    results = []
-    offset = 0
-    limit = 50
-    while True:
-        params = {
-            "range": "date_created",
-            "begin_date": begin_date,
-            "end_date": end_date,
-            "sort": "date_created",
-            "criteria": "desc",
-            "limit": limit,
-            "offset": offset,
-        }
-        resp = requests.get(MP_API_URL, headers=headers, params=params, timeout=30)
-        if resp.status_code != 200:
-            raise RuntimeError(f"Erro Mercado Pago ({resp.status_code}): {resp.text[:500]}")
-        data = resp.json()
-        page = data.get("results", [])
-        results.extend(page)
-        total = data.get("paging", {}).get("total", len(results))
-        offset += limit
-        if offset >= total or not page:
-            break
-    return results
+    return MercadoPagoPaymentsClient().search(token, begin_date, end_date)
+
+
+class BudgetWorkbook:
+    """Encapsula as operações sobre a planilha de orçamento: validação de
+    estrutura, categorização por palavra-chave, gravação de transações,
+    recálculo (LibreOffice) e leitura de alertas -- os métodos recebem o
+    workbook (openpyxl) explicitamente para continuar podendo operar sobre
+    qualquer arquivo, sem estado fixo de caminho."""
+
+    @staticmethod
+    def validate(wb, planilha):
+        """Confere se a planilha enviada tem a estrutura mínima esperada, com
+        mensagem clara em vez de deixar estourar um KeyError cru mais adiante."""
+        faltando = [s for s in REQUIRED_SHEETS if s not in wb.sheetnames]
+        if faltando:
+            raise ValueError(
+                f"A planilha '{planilha}' não tem a(s) aba(s) {', '.join(faltando)}. "
+                "Use uma planilha de orçamento com a mesma estrutura (abas Orcamento, Mapeamento, "
+                "MP_Transacoes e Resumo_MP) -- pode ser qualquer arquivo que você mesmo exportou ou "
+                "subiu, não precisa ter nome nem local fixos."
+            )
+
+    @staticmethod
+    def load_mapping_rules(wb):
+        ws = wb["Mapeamento"]
+        rules = []
+        for row in ws.iter_rows(min_row=3, values_only=True):
+            kw, categoria, _desc = (row + (None, None, None))[:3]
+            if kw and categoria:
+                rules.append((TextNormalizer.normalize(kw), categoria))
+        return rules
+
+    @staticmethod
+    def categorize(description, rules):
+        desc_norm = TextNormalizer.normalize(description)
+        for kw, categoria in rules:
+            if kw and kw in desc_norm:
+                return categoria
+        return "Não categorizado"
+
+    @staticmethod
+    def write_transactions(wb, payments, rules, mes_ref, somente_aprovados):
+        ws = wb["MP_Transacoes"]
+
+        # limpa placeholder / lançamentos já gravados para este mês (evita duplicar ao re-rodar)
+        rows_to_delete = []
+        for r in range(2, ws.max_row + 1):
+            val_a = ws.cell(row=r, column=1).value
+            val_g = ws.cell(row=r, column=7).value
+            if val_a == "(vazio até rodar mp_sync.py)" or val_g == mes_ref:
+                rows_to_delete.append(r)
+        for r in reversed(rows_to_delete):
+            ws.delete_rows(r)
+
+        next_row = ws.max_row + 1
+        gravados = 0
+        for p in payments:
+            status = p.get("status", "")
+            if somente_aprovados and status != "approved":
+                continue
+            desc = p.get("description") or p.get("statement_descriptor") or "(sem descrição)"
+            categoria = BudgetWorkbook.categorize(desc, rules)
+            valor = p.get("transaction_amount", 0)
+            data = (p.get("date_approved") or p.get("date_created") or "")[:10]
+            ws.cell(row=next_row, column=1, value=p.get("id"))
+            ws.cell(row=next_row, column=2, value=data)
+            ws.cell(row=next_row, column=3, value=desc)
+            ws.cell(row=next_row, column=4, value=categoria)
+            ws.cell(row=next_row, column=5, value=valor)
+            ws.cell(row=next_row, column=6, value=status)
+            ws.cell(row=next_row, column=7, value=mes_ref)
+            next_row += 1
+            gravados += 1
+        return gravados
+
+    @staticmethod
+    def recalc(path):
+        """Recalcula fórmulas via LibreOffice headless (convert-to no próprio formato).
+
+        Best-effort: se o LibreOffice ('soffice') não estiver instalado ou não
+        estiver no PATH, isso não deve derrubar o sync -- as fórmulas serão
+        recalculadas normalmente quando a planilha for aberta no Excel/LibreOffice.
+        """
+        outdir = os.path.join(tempfile.gettempdir(), "mp_sync_recalc")
+        os.makedirs(outdir, exist_ok=True)
+
+        # 1) tenta achar no PATH; 2) senão, checa os locais padrão de instalação
+        #    (Windows costuma não colocar o LibreOffice no PATH automaticamente).
+        soffice = shutil.which("soffice") or shutil.which("soffice.exe")
+        if not soffice:
+            candidatos = [
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+                "/usr/bin/soffice",
+                "/opt/libreoffice/program/soffice",
+                "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+            ]
+            soffice = next((c for c in candidatos if os.path.isfile(c)), None)
+
+        if not soffice:
+            print("[aviso] LibreOffice ('soffice') não encontrado no PATH nem nos "
+                  "locais padrão de instalação; pulando recálculo automático. "
+                  "As fórmulas serão recalculadas ao abrir a planilha no Excel/LibreOffice.")
+            return
+        cmd = [soffice, "--headless", "--convert-to", "xlsx", "--outdir", outdir, path]
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, timeout=90)
+            converted = os.path.join(outdir, os.path.basename(path))
+            shutil.move(converted, path)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+            print(f"[aviso] falha ao recalcular via LibreOffice ({e}); "
+                  "planilha gravada sem recálculo automático.")
+
+    @staticmethod
+    def check_alerts(path, mes_nome):
+        """Retorna (mes_existe_no_orcamento, lista_de_estouros)."""
+        wb = openpyxl.load_workbook(path, data_only=True)
+        ws = wb["Resumo_MP"]
+        alerts = []
+        mes_existe = False
+        for row in ws.iter_rows(min_row=3, values_only=True):
+            categoria, mes, previsto, gasto, saldo, status = (row + (None,) * 6)[:6]
+            if mes == mes_nome:
+                mes_existe = True
+                if status == "ESTOURADO":
+                    alerts.append((categoria, previsto, gasto, saldo))
+        return mes_existe, alerts
 
 
 def validate_workbook(wb, planilha):
-    """Confere se a planilha enviada tem a estrutura mínima esperada, com
-    mensagem clara em vez de deixar estourar um KeyError cru mais adiante."""
-    faltando = [s for s in REQUIRED_SHEETS if s not in wb.sheetnames]
-    if faltando:
-        raise ValueError(
-            f"A planilha '{planilha}' não tem a(s) aba(s) {', '.join(faltando)}. "
-            "Use uma planilha de orçamento com a mesma estrutura (abas Orcamento, Mapeamento, "
-            "MP_Transacoes e Resumo_MP) -- pode ser qualquer arquivo que você mesmo exportou ou "
-            "subiu, não precisa ter nome nem local fixos."
-        )
+    return BudgetWorkbook.validate(wb, planilha)
 
 
 def load_mapping_rules(wb):
-    ws = wb["Mapeamento"]
-    rules = []
-    for row in ws.iter_rows(min_row=3, values_only=True):
-        kw, categoria, _desc = (row + (None, None, None))[:3]
-        if kw and categoria:
-            rules.append((normalize(kw), categoria))
-    return rules
+    return BudgetWorkbook.load_mapping_rules(wb)
 
 
 def categorize(description, rules):
-    desc_norm = normalize(description)
-    for kw, categoria in rules:
-        if kw and kw in desc_norm:
-            return categoria
-    return "Não categorizado"
+    return BudgetWorkbook.categorize(description, rules)
 
 
 def write_transactions(wb, payments, rules, mes_ref, somente_aprovados):
-    ws = wb["MP_Transacoes"]
-
-    # limpa placeholder / lançamentos já gravados para este mês (evita duplicar ao re-rodar)
-    rows_to_delete = []
-    for r in range(2, ws.max_row + 1):
-        val_a = ws.cell(row=r, column=1).value
-        val_g = ws.cell(row=r, column=7).value
-        if val_a == "(vazio até rodar mp_sync.py)" or val_g == mes_ref:
-            rows_to_delete.append(r)
-    for r in reversed(rows_to_delete):
-        ws.delete_rows(r)
-
-    next_row = ws.max_row + 1
-    gravados = 0
-    for p in payments:
-        status = p.get("status", "")
-        if somente_aprovados and status != "approved":
-            continue
-        desc = p.get("description") or p.get("statement_descriptor") or "(sem descrição)"
-        categoria = categorize(desc, rules)
-        valor = p.get("transaction_amount", 0)
-        data = (p.get("date_approved") or p.get("date_created") or "")[:10]
-        ws.cell(row=next_row, column=1, value=p.get("id"))
-        ws.cell(row=next_row, column=2, value=data)
-        ws.cell(row=next_row, column=3, value=desc)
-        ws.cell(row=next_row, column=4, value=categoria)
-        ws.cell(row=next_row, column=5, value=valor)
-        ws.cell(row=next_row, column=6, value=status)
-        ws.cell(row=next_row, column=7, value=mes_ref)
-        next_row += 1
-        gravados += 1
-    return gravados
+    return BudgetWorkbook.write_transactions(wb, payments, rules, mes_ref, somente_aprovados)
 
 
 def recalc(path):
-    """Recalcula fórmulas via LibreOffice headless (convert-to no próprio formato).
-
-    Best-effort: se o LibreOffice ('soffice') não estiver instalado ou não
-    estiver no PATH, isso não deve derrubar o sync -- as fórmulas serão
-    recalculadas normalmente quando a planilha for aberta no Excel/LibreOffice.
-    """
-    outdir = os.path.join(tempfile.gettempdir(), "mp_sync_recalc")
-    os.makedirs(outdir, exist_ok=True)
-
-    # 1) tenta achar no PATH; 2) senão, checa os locais padrão de instalação
-    #    (Windows costuma não colocar o LibreOffice no PATH automaticamente).
-    soffice = shutil.which("soffice") or shutil.which("soffice.exe")
-    if not soffice:
-        candidatos = [
-            r"C:\Program Files\LibreOffice\program\soffice.exe",
-            r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-            "/usr/bin/soffice",
-            "/opt/libreoffice/program/soffice",
-            "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-        ]
-        soffice = next((c for c in candidatos if os.path.isfile(c)), None)
-
-    if not soffice:
-        print("[aviso] LibreOffice ('soffice') não encontrado no PATH nem nos "
-              "locais padrão de instalação; pulando recálculo automático. "
-              "As fórmulas serão recalculadas ao abrir a planilha no Excel/LibreOffice.")
-        return
-    cmd = [soffice, "--headless", "--convert-to", "xlsx", "--outdir", outdir, path]
-    try:
-        subprocess.run(cmd, check=True, capture_output=True, timeout=90)
-        converted = os.path.join(outdir, os.path.basename(path))
-        shutil.move(converted, path)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
-        print(f"[aviso] falha ao recalcular via LibreOffice ({e}); "
-              "planilha gravada sem recálculo automático.")
+    return BudgetWorkbook.recalc(path)
 
 
 def check_alerts(path, mes_nome):
-    """Retorna (mes_existe_no_orcamento, lista_de_estouros)."""
-    wb = openpyxl.load_workbook(path, data_only=True)
-    ws = wb["Resumo_MP"]
-    alerts = []
-    mes_existe = False
-    for row in ws.iter_rows(min_row=3, values_only=True):
-        categoria, mes, previsto, gasto, saldo, status = (row + (None,) * 6)[:6]
-        if mes == mes_nome:
-            mes_existe = True
-            if status == "ESTOURADO":
-                alerts.append((categoria, previsto, gasto, saldo))
-    return mes_existe, alerts
+    return BudgetWorkbook.check_alerts(path, mes_nome)
+
+
+class WebhookNotifier:
+    @staticmethod
+    def send(url, text):
+        try:
+            requests.post(url, json={"text": text}, timeout=10)
+        except Exception as e:
+            print(f"[aviso] falha ao enviar webhook: {e}")
 
 
 def send_webhook(url, text):
-    try:
-        requests.post(url, json={"text": text}, timeout=10)
-    except Exception as e:
-        print(f"[aviso] falha ao enviar webhook: {e}")
+    return WebhookNotifier.send(url, text)
 
 
-def _ask(prompt, default=None, required=False):
-    suffix = f" [{default}]" if default not in (None, "") else ""
-    while True:
-        resp = input(f"{prompt}{suffix}: ").strip()
-        if not resp:
-            resp = default
-        if resp or not required:
-            return resp
-        print("Esse campo é obrigatório.")
+class LayoutWizard:
+    """Assistente interativo (equivalente em CLI ao modal 'Configurar layout
+    de leitura' do painel web) que monta um layout.json passo a passo."""
+
+    @staticmethod
+    def _ask(prompt, default=None, required=False):
+        suffix = f" [{default}]" if default not in (None, "") else ""
+        while True:
+            resp = input(f"{prompt}{suffix}: ").strip()
+            if not resp:
+                resp = default
+            if resp or not required:
+                return resp
+            print("Esse campo é obrigatório.")
+
+    def run(self, dest_path):
+        print("=== Criar layout de leitura de orçamento ===")
+        print("Responda as perguntas abaixo (Enter mantém o valor padrão entre colchetes).\n")
+
+        nome = self._ask("Nome do layout", default="Meu orçamento", required=True)
+        aba = self._ask("Nome da aba (em branco = detectar automaticamente)", default="")
+
+        formato = ""
+        while formato not in ("longo", "largo"):
+            formato = (self._ask(
+                "Formato: 'largo' (Previsto/Realizado por mês, lado a lado) ou "
+                "'longo' (uma linha por categoria)", default="largo",
+            ) or "").lower()
+
+        layout = {"name": nome, "sheetName": aba or None, "format": formato}
+
+        if formato == "longo":
+            layout["headerRow"] = int(self._ask("Linha do cabeçalho", default="1"))
+            layout["colCategoria"] = self._ask("Coluna da Categoria (ex: A)", default="A", required=True).upper()
+            col_mes = self._ask("Coluna do Mês (em branco = não usar)", default="")
+            layout["colMes"] = col_mes.upper() or None
+            layout["colPrevisto"] = self._ask("Coluna do Previsto (ex: C)", default="C", required=True).upper()
+            col_real = self._ask("Coluna do Realizado (em branco = não usar)", default="")
+            layout["colRealizado"] = col_real.upper() or None
+        else:
+            layout["colCategoriaLarga"] = self._ask("Coluna da Categoria (ex: A)", default="A", required=True).upper()
+            layout["monthRow"] = int(self._ask("Linha com o nome dos meses", default="1"))
+            layout["subHeaderRow"] = int(
+                self._ask("Linha com 'Previsto'/'Realizado'", default=str(layout["monthRow"] + 1))
+            )
+
+        with open(dest_path, "w", encoding="utf-8") as f:
+            json.dump(layout, f, ensure_ascii=False, indent=2)
+        print(f"\nLayout salvo em {dest_path}")
+        print("Use com: python3 mp_sync.py --ler-orcamento --layout " + dest_path + " --planilha SUA_PLANILHA.xlsx")
+        return layout
 
 
 def wizard_criar_layout(dest_path):
-    """Assistente interativo (equivalente em CLI ao modal 'Configurar layout
-    de leitura' do painel web) que monta um layout.json passo a passo."""
-    print("=== Criar layout de leitura de orçamento ===")
-    print("Responda as perguntas abaixo (Enter mantém o valor padrão entre colchetes).\n")
-
-    nome = _ask("Nome do layout", default="Meu orçamento", required=True)
-    aba = _ask("Nome da aba (em branco = detectar automaticamente)", default="")
-
-    formato = ""
-    while formato not in ("longo", "largo"):
-        formato = (_ask(
-            "Formato: 'largo' (Previsto/Realizado por mês, lado a lado) ou "
-            "'longo' (uma linha por categoria)", default="largo",
-        ) or "").lower()
-
-    layout = {"name": nome, "sheetName": aba or None, "format": formato}
-
-    if formato == "longo":
-        layout["headerRow"] = int(_ask("Linha do cabeçalho", default="1"))
-        layout["colCategoria"] = _ask("Coluna da Categoria (ex: A)", default="A", required=True).upper()
-        col_mes = _ask("Coluna do Mês (em branco = não usar)", default="")
-        layout["colMes"] = col_mes.upper() or None
-        layout["colPrevisto"] = _ask("Coluna do Previsto (ex: C)", default="C", required=True).upper()
-        col_real = _ask("Coluna do Realizado (em branco = não usar)", default="")
-        layout["colRealizado"] = col_real.upper() or None
-    else:
-        layout["colCategoriaLarga"] = _ask("Coluna da Categoria (ex: A)", default="A", required=True).upper()
-        layout["monthRow"] = int(_ask("Linha com o nome dos meses", default="1"))
-        layout["subHeaderRow"] = int(
-            _ask("Linha com 'Previsto'/'Realizado'", default=str(layout["monthRow"] + 1))
-        )
-
-    with open(dest_path, "w", encoding="utf-8") as f:
-        json.dump(layout, f, ensure_ascii=False, indent=2)
-    print(f"\nLayout salvo em {dest_path}")
-    print("Use com: python3 mp_sync.py --ler-orcamento --layout " + dest_path + " --planilha SUA_PLANILHA.xlsx")
-    return layout
+    return LayoutWizard().run(dest_path)
 
 
 def ler_orcamento_run(args):
@@ -369,81 +448,89 @@ def ler_orcamento_run(args):
     return "ok", "\n".join(linhas)
 
 
+class MercadoPagoBudgetSyncAgent:
+    """Orquestra a sincronização completa: busca no Mercado Pago, grava na
+    planilha (BudgetWorkbook), recalcula e verifica alertas."""
+
+    def run(self, args):
+        """Executa o sync e devolve (resultado, mensagem) para uso programático e pelo agendamento."""
+        if not os.path.exists(args.config):
+            return "erro", (f"Config não encontrado: {args.config}. "
+                             f"Copie config.example.json -> config.json e preencha o token.")
+
+        with open(args.config, encoding="utf-8") as f:
+            cfg = json.load(f)
+
+        token = cfg.get("mercado_pago_access_token")
+        if not token or token.startswith("COLE_"):
+            return "erro", "Access token do Mercado Pago não configurado em config.json."
+
+        # --planilha (CLI) tem prioridade sobre "planilha" no config.json -- assim
+        # dá pra apontar para qualquer arquivo que você mesmo subiu, sem precisar
+        # editar o config.json nem usar um nome fixo.
+        planilha = getattr(args, "planilha", None) or cfg.get("planilha")
+        if not planilha:
+            return "erro", (
+                "Nenhuma planilha de orçamento informada. Use --planilha caminho/para/seu_orcamento.xlsx "
+                "ou defina \"planilha\" em config.json (veja config.example.json)."
+            )
+        config_dir = os.path.dirname(os.path.abspath(args.config))
+        if not os.path.isabs(planilha):
+            planilha = os.path.join(config_dir, planilha)
+        if not os.path.exists(planilha):
+            return "erro", f"Planilha não encontrada: {planilha}"
+
+        mes = args.mes or datetime.now().strftime("%Y-%m")
+        mes_nome = MonthFormatter.label(mes)
+
+        begin, end = MonthFormatter.bounds(mes)
+        print(f"Buscando pagamentos do Mercado Pago entre {begin} e {end} ...")
+        payments = fetch_mp_payments(token, begin, end)
+        print(f"{len(payments)} pagamento(s) encontrado(s) no período.")
+
+        wb = openpyxl.load_workbook(planilha)
+        try:
+            BudgetWorkbook.validate(wb, planilha)
+        except ValueError as e:
+            return "erro", str(e)
+        rules = BudgetWorkbook.load_mapping_rules(wb)
+        gravados = BudgetWorkbook.write_transactions(wb, payments, rules, mes, args.somente_aprovados)
+        wb.save(planilha)
+        print(f"{gravados} lançamento(s) gravado(s) em MP_Transacoes (status filtrado: aprovados={args.somente_aprovados}).")
+
+        print("Recalculando planilha...")
+        BudgetWorkbook.recalc(planilha)
+
+        mes_existe, alerts = BudgetWorkbook.check_alerts(planilha, mes_nome)
+        log(planilha, f"mes={mes} gravados={gravados} mes_existe_no_orcamento={mes_existe} estouros={len(alerts)}")
+
+        if not mes_existe:
+            msg = (f"O mês {mes_nome} ainda não tem colunas Previsto/Realizado na aba Orcamento. "
+                   f"{gravados} pagamento(s) foram gravados em MP_Transacoes mesmo assim, mas não dá "
+                   f"para comparar com orçamento até você adicionar esse mês na planilha.")
+            print(f"\n⚠️  {msg}")
+            return "sem_orcamento", msg
+
+        if alerts:
+            linhas = []
+            for categoria, previsto, gasto, saldo in alerts:
+                linha = f"  - {categoria}: previsto R$ {previsto:,.2f} | gasto MP R$ {gasto:,.2f} | excesso R$ {abs(saldo):,.2f}"
+                print(linha)
+                linhas.append(linha)
+            msg = f"Orçamento ESTOURADO em {mes_nome}:\n" + "\n".join(linhas)
+            print(f"\n⚠️  {msg}")
+            webhook = cfg.get("alerta_webhook")
+            if webhook:
+                WebhookNotifier.send(webhook, msg)
+            return "estourado", msg
+
+        msg = f"Nenhuma categoria estourou o orçamento em {mes_nome} ({gravados} pagamento(s) sincronizado(s))."
+        print(f"\n✅ {msg}")
+        return "ok", msg
+
+
 def run(args):
-    """Executa o sync e devolve (resultado, mensagem) para uso programático e pelo agendamento."""
-    if not os.path.exists(args.config):
-        return "erro", (f"Config não encontrado: {args.config}. "
-                         f"Copie config.example.json -> config.json e preencha o token.")
-
-    with open(args.config, encoding="utf-8") as f:
-        cfg = json.load(f)
-
-    token = cfg.get("mercado_pago_access_token")
-    if not token or token.startswith("COLE_"):
-        return "erro", "Access token do Mercado Pago não configurado em config.json."
-
-    # --planilha (CLI) tem prioridade sobre "planilha" no config.json -- assim
-    # dá pra apontar para qualquer arquivo que você mesmo subiu, sem precisar
-    # editar o config.json nem usar um nome fixo.
-    planilha = getattr(args, "planilha", None) or cfg.get("planilha")
-    if not planilha:
-        return "erro", (
-            "Nenhuma planilha de orçamento informada. Use --planilha caminho/para/seu_orcamento.xlsx "
-            "ou defina \"planilha\" em config.json (veja config.example.json)."
-        )
-    config_dir = os.path.dirname(os.path.abspath(args.config))
-    if not os.path.isabs(planilha):
-        planilha = os.path.join(config_dir, planilha)
-    if not os.path.exists(planilha):
-        return "erro", f"Planilha não encontrada: {planilha}"
-
-    mes = args.mes or datetime.now().strftime("%Y-%m")
-    mes_nome = mes_label(mes)
-
-    begin, end = month_bounds(mes)
-    print(f"Buscando pagamentos do Mercado Pago entre {begin} e {end} ...")
-    payments = fetch_mp_payments(token, begin, end)
-    print(f"{len(payments)} pagamento(s) encontrado(s) no período.")
-
-    wb = openpyxl.load_workbook(planilha)
-    try:
-        validate_workbook(wb, planilha)
-    except ValueError as e:
-        return "erro", str(e)
-    rules = load_mapping_rules(wb)
-    gravados = write_transactions(wb, payments, rules, mes, args.somente_aprovados)
-    wb.save(planilha)
-    print(f"{gravados} lançamento(s) gravado(s) em MP_Transacoes (status filtrado: aprovados={args.somente_aprovados}).")
-
-    print("Recalculando planilha...")
-    recalc(planilha)
-
-    mes_existe, alerts = check_alerts(planilha, mes_nome)
-    log(planilha, f"mes={mes} gravados={gravados} mes_existe_no_orcamento={mes_existe} estouros={len(alerts)}")
-
-    if not mes_existe:
-        msg = (f"O mês {mes_nome} ainda não tem colunas Previsto/Realizado na aba Orcamento. "
-               f"{gravados} pagamento(s) foram gravados em MP_Transacoes mesmo assim, mas não dá "
-               f"para comparar com orçamento até você adicionar esse mês na planilha.")
-        print(f"\n⚠️  {msg}")
-        return "sem_orcamento", msg
-
-    if alerts:
-        linhas = []
-        for categoria, previsto, gasto, saldo in alerts:
-            linha = f"  - {categoria}: previsto R$ {previsto:,.2f} | gasto MP R$ {gasto:,.2f} | excesso R$ {abs(saldo):,.2f}"
-            print(linha)
-            linhas.append(linha)
-        msg = f"Orçamento ESTOURADO em {mes_nome}:\n" + "\n".join(linhas)
-        print(f"\n⚠️  {msg}")
-        webhook = cfg.get("alerta_webhook")
-        if webhook:
-            send_webhook(webhook, msg)
-        return "estourado", msg
-
-    msg = f"Nenhuma categoria estourou o orçamento em {mes_nome} ({gravados} pagamento(s) sincronizado(s))."
-    print(f"\n✅ {msg}")
-    return "ok", msg
+    return MercadoPagoBudgetSyncAgent().run(args)
 
 
 def main():
