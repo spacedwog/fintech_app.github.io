@@ -31,6 +31,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import traceback
 import unicodedata
 from datetime import datetime, timedelta
@@ -175,13 +176,28 @@ def write_transactions(wb, payments, rules, mes_ref, somente_aprovados):
 
 
 def recalc(path):
-    """Recalcula fórmulas via LibreOffice headless (convert-to no próprio formato)."""
-    outdir = "/tmp/mp_sync_recalc"
+    """Recalcula fórmulas via LibreOffice headless (convert-to no próprio formato).
+
+    Best-effort: se o LibreOffice ('soffice') não estiver instalado ou não
+    estiver no PATH, isso não deve derrubar o sync -- as fórmulas serão
+    recalculadas normalmente quando a planilha for aberta no Excel/LibreOffice.
+    """
+    outdir = os.path.join(tempfile.gettempdir(), "mp_sync_recalc")
     os.makedirs(outdir, exist_ok=True)
-    cmd = ["soffice", "--headless", "--convert-to", "xlsx", "--outdir", outdir, path]
-    subprocess.run(cmd, check=True, capture_output=True, timeout=90)
-    converted = os.path.join(outdir, os.path.basename(path))
-    shutil.move(converted, path)
+    soffice = shutil.which("soffice") or shutil.which("soffice.exe")
+    if not soffice:
+        print("[aviso] LibreOffice ('soffice') não encontrado no PATH; "
+              "pulando recálculo automático. As fórmulas serão recalculadas "
+              "ao abrir a planilha no Excel/LibreOffice.")
+        return
+    cmd = [soffice, "--headless", "--convert-to", "xlsx", "--outdir", outdir, path]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, timeout=90)
+        converted = os.path.join(outdir, os.path.basename(path))
+        shutil.move(converted, path)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+        print(f"[aviso] falha ao recalcular via LibreOffice ({e}); "
+              "planilha gravada sem recálculo automático.")
 
 
 def check_alerts(path, mes_nome):
