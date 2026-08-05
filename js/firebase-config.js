@@ -23,7 +23,7 @@ const FIREBASE_CONFIG = {
   appId: "1:233270525145:web:e23ea3132a95f4daffd2c8",
 };
 
-// Todo o "banco" (tenants, users, categories, expenses, budgets, payments,
+// Todo o "banco" (tenants, users, categories, expenses, budgets, payednts,
 // _seq) é salvo como um único documento no Firestore — mesmo formato do
 // db.json/localStorage. Simples e suficiente para o volume de dados de
 // um app pessoal/demo como este.
