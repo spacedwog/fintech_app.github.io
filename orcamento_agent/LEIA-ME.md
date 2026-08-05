@@ -24,6 +24,15 @@ e-mail) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local)
    acesso IMAP a uma caixa de entrada que receba esses e-mails. Ver "Gerar despesas
    a partir dos e-mails do Mercado Pago (`mp_email_expenses.py`)" mais abaixo.
 
+Além dos quatro, **`mp_list_activities.py`** é um utilitário só de leitura: lista as
+atividades (pagamentos) reais da conta do Mercado Pago no terminal (e pode exportar
+para CSV/JSON), sem gerar nenhuma despesa e sem precisar de Firebase nem de nenhuma
+cópia do banco do painel — só o Access Token que já está em `config.json` (ou
+qualquer um dos outros configs desta pasta). Útil para conferir rápido o que existe
+na conta antes de configurar `mp_reconcile.py`/`mp_expenses.py` de verdade. Ver
+"Ver as atividades do Mercado Pago sem gerar despesas (`mp_list_activities.py`)"
+mais abaixo.
+
 Para uma leitura rápida e sem configuração — sem Mercado Pago, sem agendamento —
 existe também uma versão web para orçamento: a aba **Importar Orçamento** do painel
 do site (`dashboard.html`), onde você sobe a planilha do orçamento (.xlsx/.xls/.csv)
@@ -93,6 +102,38 @@ leitura/escrita total ao banco do app). Por isso:
 - `mp_email_expenses_config.example.json` — modelo de configuração do
   `mp_email_expenses.py` (copie para `mp_email_expenses_config.json`, nunca versione
   o arquivo copiado).
+- `mp_list_activities.py` — utilitário só de leitura: lista/exporta as atividades
+  reais da conta do Mercado Pago sem gerar despesa nenhuma. Ver seção própria abaixo.
+- `test_mp_list_activities.py` — teste automatizado do `mp_list_activities.py` com
+  pagamentos simulados (não chama a API real). Rode `python3 test_mp_list_activities.py`
+  depois de qualquer alteração no script.
+
+## Ver as atividades do Mercado Pago sem gerar despesas (`mp_list_activities.py`)
+Antes de configurar o Firebase para `mp_reconcile.py`/`mp_expenses.py` valer a pena,
+pode ser útil só **ver** o que existe na conta primeiro: quantos pagamentos, que
+valores, que descrições. O `mp_list_activities.py` faz exatamente isso — busca as
+atividades (pagamentos) reais na API do Mercado Pago e mostra numa tabela no
+terminal, com um resumo por status e o total aprovado no período. **Não grava nada**
+em lugar nenhum (nem no painel web, nem no Mercado Pago) — só precisa do Access
+Token que já está em `config.json` (reaproveita automaticamente o primeiro entre
+`config.json`, `mp_reconcile_config.json`, `mp_expenses_config.json` ou
+`mp_email_expenses_config.json` que existir, já que todos usam a mesma conta).
+
+**Rodar:**
+```bash
+cd orcamento_agent
+python3 mp_list_activities.py                      # últimos 30 dias
+python3 mp_list_activities.py --dias 90
+python3 mp_list_activities.py --status approved     # só um status
+python3 mp_list_activities.py --export mp_activities.csv   # também salva um CSV
+python3 mp_list_activities.py --export mp_activities.json  # ou um JSON, pela extensão
+```
+Rode `python3 test_mp_list_activities.py` depois de qualquer alteração no script.
+
+⚠️ Se usar `--export`, o arquivo salvo tem dados financeiros reais (valores,
+descrições, e-mail de quem pagou) — os nomes sugeridos acima (`mp_activities.*`)
+já estão cobertos pelo `.gitignore`; se usar outro nome, adicione-o também antes de
+commitar.
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).

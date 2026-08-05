@@ -20,6 +20,14 @@ orcamento_agent/mp_reconcile_config.json
 orcamento_agent/mp_expenses_config.json
 orcamento_agent/mp_email_expenses_config.json
 orcamento_agent/*serviceAccount*.json
+# Exportações de atividades reais do Mercado Pago (mp_list_activities.py
+# --export) -- são dados financeiros reais (valores, descrições, e-mail de
+# pagadores), nunca versionar. Cubra qualquer nome usado com --export
+# começando com um destes prefixos.
+orcamento_agent/mp_activities*.csv
+orcamento_agent/mp_activities*.json
+orcamento_agent/atividades*.csv
+orcamento_agent/atividades*.json
 orcamento_agent/*service-account*.json
 orcamento_agent/firebase-adminsdk*.json
 

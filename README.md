@@ -126,6 +126,8 @@ Código: `js/dashboard.js` (`loadPlanView`, `selectPlan`, `openPixPayment`, `ren
 
 O site é 100% estático (GitHub Pages) — o Access Token do Mercado Pago **nunca** pode ir para o navegador. Por isso a cobrança em si continua sendo um Pix estático real (ver [💳 Plano](#-plano) acima), e a confirmação automática roda como um **agente local separado**, que só existe fora do site publicado:
 
+> Quer só **ver** as atividades reais da conta antes de configurar tudo? `orcamento_agent/mp_list_activities.py` lista/exporta os pagamentos do Mercado Pago (data, valor, status, descrição) direto no terminal — só o Access Token, sem Firebase e sem gravar nada. Ver `orcamento_agent/LEIA-ME.md` → "Ver as atividades do Mercado Pago sem gerar despesas".
+
 **`orcamento_agent/mp_reconcile.py`** busca pagamentos aprovados de verdade na API do Mercado Pago (mesma conta da chave Pix usada no modal) e cruza por **valor + data** com o histórico de pagamentos já gravado pelo app (lendo/gravando o mesmo Firestore que o painel usa, ou uma cópia local do banco). Pagamentos que baterem com clareza passam a ter o selo "✓ verificado via Mercado Pago" no histórico — sem o usuário precisar fazer nada. Quando duas transações reais têm o mesmo valor na mesma janela de dias, o pagamento fica marcado como **ambíguo** e não é confirmado automaticamente, para não arriscar confirmar o errado.
 
 <details>
