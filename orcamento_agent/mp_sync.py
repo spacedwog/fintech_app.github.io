@@ -184,11 +184,24 @@ def recalc(path):
     """
     outdir = os.path.join(tempfile.gettempdir(), "mp_sync_recalc")
     os.makedirs(outdir, exist_ok=True)
+
+    # 1) tenta achar no PATH; 2) senão, checa os locais padrão de instalação
+    #    (Windows costuma não colocar o LibreOffice no PATH automaticamente).
     soffice = shutil.which("soffice") or shutil.which("soffice.exe")
     if not soffice:
-        print("[aviso] LibreOffice ('soffice') não encontrado no PATH; "
-              "pulando recálculo automático. As fórmulas serão recalculadas "
-              "ao abrir a planilha no Excel/LibreOffice.")
+        candidatos = [
+            r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+            "/usr/bin/soffice",
+            "/opt/libreoffice/program/soffice",
+            "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+        ]
+        soffice = next((c for c in candidatos if os.path.isfile(c)), None)
+
+    if not soffice:
+        print("[aviso] LibreOffice ('soffice') não encontrado no PATH nem nos "
+              "locais padrão de instalação; pulando recálculo automático. "
+              "As fórmulas serão recalculadas ao abrir a planilha no Excel/LibreOffice.")
         return
     cmd = [soffice, "--headless", "--convert-to", "xlsx", "--outdir", outdir, path]
     try:
