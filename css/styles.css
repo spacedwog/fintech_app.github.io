@@ -363,6 +363,27 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .badge.free { background: #e5e7eb; color: #374151; }
 .badge.premium { background: #dbeafe; color: #1e40af; }
 
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin: -12px 0 20px;
+  color: #9ca3af;
+}
+
+.sync-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sync-status.synced .dot { background: #22c55e; }
+.sync-status.pending .dot { background: #f59e0b; }
+.sync-status.local .dot { background: #6b7280; }
+.sync-status.error .dot { background: #ef4444; }
+
 .plan-card {
   border: 1px solid var(--border);
   border-radius: 10px;

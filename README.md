@@ -32,6 +32,10 @@ js/
   pix.js                  -> geração de QR Code / Pix Copia e Cola (BR Code real)
   receipt-ai.js           -> "IA" (OCR local, Tesseract.js) que lê o comprovante do
                               Pix e confere valor/recebedor automaticamente
+tests/
+  firebase-sync.test.js  -> teste de integração (Node) da sincronização com o
+                            Firebase — migração, multi-dispositivo, fallback
+                            offline e reconciliação (ver "Testes automatizados")
 ```
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o projeto é só front-end estático.
@@ -150,6 +154,15 @@ service cloud.firestore {
 2. No console do Firebase, vá em **Firestore Database → Dados** e confirme que apareceu o documento `fintech_saas/db_v1` com os dados da conta criada.
 3. Abra o app em outro navegador (ou aba anônima) e faça login com a mesma conta — os dados devem aparecer, confirmando a sincronização.
 4. Para testar o fallback: desative sua conexão de internet, use o app normalmente (login já feito, adicionar despesas etc.) e reconecte — as mudanças feitas offline aparecem no Firestore automaticamente.
+5. No painel (`dashboard.html`), a barra lateral mostra um indicador de status logo abaixo do plano: bolinha verde + "Sincronizado" (tudo certo com o Firebase), amarela + "Sincronizando…" (há mudanças locais aguardando conexão), ou cinza + "Modo local" (Firebase não configurado). Ele se atualiza sozinho a cada poucos segundos e também ao ficar online/offline.
+
+**Testes automatizados:** `tests/firebase-sync.test.js` executa `js/db.js`/`js/api.js` de verdade (sem modificar nada) contra um Firestore simulado (mesma interface `.collection().doc().get()/.set()` do SDK), cobrindo: migração automática do localStorage para o Firestore, leitura dos mesmos dados a partir de um segundo dispositivo, fallback quando o Firebase cai, e reconciliação (merge de 3 vias) ao reconectar sem apagar mudanças que outro dispositivo tenha sincronizado nesse meio tempo. Não precisa de projeto Firebase real nem de rede — só Node.js:
+
+```bash
+node tests/firebase-sync.test.js
+```
+
+Se o arquivo já tiver credenciais reais coladas em `js/firebase-config.js`, o teste as usa (só para simular a "ativação" do Firebase; nenhuma chamada de rede é feita de verdade). Rode de novo sempre que alterar `js/db.js` ou `js/api.js`.
 
 ## Como rodar
 
@@ -201,5 +214,7 @@ do modelo 100% front-end estático (Firebase Auth também roda no navegador).
 - **Sem Firebase configurado:** os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes — e limpar o cache/localStorage apaga todos os dados. Comportamento idêntico ao do projeto antes desta atualização.
 - **Com Firebase configurado:** os dados sincronizam entre dispositivos, mas a segurança continua sendo apenas lógica (ver "Multi-tenancy" acima) — não há Firebase Authentication real, então quem tiver a `apiKey` do projeto (pública, no código-fonte) pode ler/escrever o documento do Firestore diretamente.
 - Não há verdadeira separação de acesso entre "contas" — é só uma organização lógica dos dados dentro do mesmo documento/storage.
-- Concorrência: como cada gravação relê e reescreve o documento inteiro no Firestore, edições simultâneas feitas em duas abas/dispositivos ao mesmo tempo podem, em casos raros, sobrescrever uma à outra (a última gravação vence). Para uso pessoal/pequenas equipes isso raramente é um problema na prática.
+- **Concorrência (reconectar depois de ficar offline):** quando um dispositivo que ficou offline volta a sincronizar, `js/db.js` faz um merge de 3 vias (`_threeWayMerge`, comparando o último estado sincronizado, o que mudou localmente e o que está no Firestore agora) antes de gravar — isso evita que criações/edições/exclusões feitas em OUTRO dispositivo nesse meio tempo sejam apagadas. Esse merge foi validado por um teste automatizado (ver seção de testes abaixo).
+- **Concorrência (duas gravações ao mesmo tempo, ambas online):** fora do cenário acima, gravações simultâneas feitas por dois dispositivos dentro da mesma pequena janela de tempo (sem que um deles tenha ficado offline) ainda seguem o modelo simples "a última gravação vence" — não há travamento nem transação do Firestore nesse caminho. Para uso pessoal/pequenas equipes isso raramente é um problema na prática (é preciso duas pessoas salvarem algo no mesmíssimo instante).
+- IDs de novos registros (despesas, categorias etc.) são strings geradas no dispositivo (timestamp + sufixo aleatório), não um contador sequencial — de propósito, para não colidir quando dois dispositivos criam registros ao mesmo tempo sem saber um do outro. Bancos antigos com ids numéricos sequenciais continuam funcionando normalmente (são convertidos para string automaticamente ao carregar).
 - Para um SaaS real, com múltiplos usuários acessando de dispositivos diferentes e dados protegidos de verdade, o próximo passo seria adicionar Firebase Authentication e regras de segurança do Firestore por usuário (ver Roadmap).

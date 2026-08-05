@@ -31,6 +31,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderShell();
   bindNav();
   showView("expenses");
+
+  // Indicador de status de sincronização com o Firebase (ver
+  // getSyncStatus() em js/db.js): atualiza já ao carregar e depois
+  // periodicamente, além de reagir a ficar online/offline na hora.
+  renderSyncStatus();
+  setInterval(renderSyncStatus, 5000);
+  window.addEventListener("online", renderSyncStatus);
+  window.addEventListener("offline", renderSyncStatus);
 });
 
 function renderShell() {
@@ -48,6 +56,26 @@ function renderShell() {
     Auth.clearToken();
     window.location.href = "login.html";
   });
+}
+
+// ---------- Status de sincronização (Firebase x localStorage) ----------
+
+function renderSyncStatus() {
+  const box = document.getElementById("sync-status");
+  const label = document.getElementById("sync-status-label");
+  if (!box || !label || typeof getSyncStatus !== "function") return;
+
+  const status = getSyncStatus();
+  box.className = `sync-status ${status.state}`;
+  box.title = status.label;
+
+  const shortLabels = {
+    local: "Modo local (sem Firebase)",
+    error: "Firebase com erro — modo local",
+    pending: "Sincronizando…",
+    synced: "Sincronizado",
+  };
+  label.textContent = shortLabels[status.state] || status.label;
 }
 
 function bindNav() {
@@ -113,7 +141,7 @@ async function refreshExpenseTable() {
         <td>${e.category_name || "-"}</td>
         <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}</td>
         <td>R$ ${e.amount.toFixed(2)}</td>
-        <td><button class="secondary" onclick="removeExpense(${e.id})">Excluir</button></td>
+        <td><button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button></td>
       </tr>`
     )
     .join("");
@@ -136,7 +164,9 @@ document.addEventListener("submit", async (e) => {
     const amount = parseFloat(document.getElementById("expense-amount").value);
     const date = document.getElementById("expense-date").value;
     const description = document.getElementById("expense-description").value;
-    const category_id = parseInt(document.getElementById("expense-category").value, 10);
+    // IDs são strings (ver js/db.js) — usa o valor do <select> como está,
+    // sem converter para número.
+    const category_id = document.getElementById("expense-category").value;
 
     try {
       const quota = await Api.getExpenseQuota();

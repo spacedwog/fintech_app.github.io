@@ -24,9 +24,11 @@
 
 const DB_JSON_KEY = "fintech_saas_db_v1"; // cache local / fallback (localStorage)
 const DB_PENDING_SYNC_KEY = "fintech_saas_pending_sync_v1"; // flag: há mudanças locais ainda não enviadas ao Firestore
+const DB_LAST_SYNCED_KEY = "fintech_saas_last_synced_v1"; // "base" do último merge bem-sucedido com o Firestore (ver _threeWayMerge)
 const DB_SEED_JSON_URL = "db.json"; // banco "de fábrica", só para o 1º carregamento
 
 const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros"];
+const DB_COLLECTIONS = ["tenants", "users", "categories", "expenses", "budgets", "payments"];
 
 function _emptySchema() {
   return {
@@ -40,9 +42,39 @@ function _emptySchema() {
   };
 }
 
+// Campos que guardam um id (próprio ou de outra coleção/"FK"), por
+// coleção — usados para normalizar tudo como string (ver _coerceIds).
+const ID_FIELDS_BY_COLLECTION = {
+  tenants: ["id"],
+  users: ["id", "tenant_id"],
+  categories: ["id", "tenant_id"],
+  expenses: ["id", "tenant_id", "user_id", "category_id"],
+  budgets: ["id", "tenant_id", "user_id"],
+  payments: ["id", "tenant_id", "user_id"],
+};
+
+// Garante que todo id (e toda referência a id de outra coleção) seja
+// sempre uma string — inclusive em bancos antigos, de antes desta versão,
+// que tinham ids numéricos sequenciais (1, 2, 3…). Sem isso, comparações
+// como `categoria.id === despesa.category_id` podiam falhar por diferença
+// de tipo (number vs. string) dependendo de onde cada valor veio (JSON
+// salvo vs. valor lido de um <select> no formulário, por exemplo).
+function _coerceIds(db) {
+  DB_COLLECTIONS.forEach((key) => {
+    const fields = ID_FIELDS_BY_COLLECTION[key] || [];
+    (db[key] || []).forEach((rec) => {
+      fields.forEach((f) => {
+        if (rec[f] !== null && rec[f] !== undefined) rec[f] = String(rec[f]);
+      });
+    });
+  });
+  return db;
+}
+
 function _normalize(parsed) {
   const base = _emptySchema();
-  return { ...base, ...parsed, _seq: { ...base._seq, ...(parsed._seq || {}) } };
+  const merged = { ...base, ...parsed, _seq: { ...base._seq, ...(parsed._seq || {}) } };
+  return _coerceIds(merged);
 }
 
 // ---------- localStorage (fallback / cache offline) ----------
@@ -81,6 +113,82 @@ function _hasPendingSync() {
   } catch (e) {
     return false;
   }
+}
+
+// "Base" do último estado que sabemos, com certeza, que estava igual nos
+// dois lados (local e Firestore) — usada para calcular o merge de 3 vias
+// quando este dispositivo volta a ficar online depois de ter feito
+// alterações offline (ver _threeWayMerge/trySyncPending).
+function _readLastSynced() {
+  try {
+    const raw = localStorage.getItem(DB_LAST_SYNCED_KEY);
+    return raw ? _normalize(JSON.parse(raw)) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function _writeLastSynced(db) {
+  try {
+    localStorage.setItem(DB_LAST_SYNCED_KEY, JSON.stringify(db));
+  } catch (e) {
+    // não crítico: na pior das hipóteses, o próximo merge trata tudo como "novo".
+  }
+}
+
+function _byId(arr) {
+  const map = new Map();
+  (arr || []).forEach((rec) => map.set(rec.id, rec));
+  return map;
+}
+
+// Merge de 3 vias, coleção por coleção (mesma ideia de "git merge"):
+// - "base"   = último estado que já esteve sincronizado nos dois lados.
+// - "local"  = estado atual deste dispositivo (pode ter criado, editado ou
+//              apagado registros enquanto o Firestore estava indisponível).
+// - "remote" = o que está no Firestore agora (pode ter mudanças de OUTROS
+//              dispositivos feitas nesse meio tempo).
+//
+// Resultado: parte do "remote" (preserva o que outros dispositivos fizeram)
+// e aplica por cima as mudanças deste dispositivo desde a "base" — inclusive
+// exclusões. Sem isso, reconectar depois de ficar offline podia sobrescrever
+// e apagar dados que outro dispositivo tinha sincronizado nesse intervalo.
+function _threeWayMerge(base, local, remote) {
+  const merged = _emptySchema();
+
+  DB_COLLECTIONS.forEach((key) => {
+    const baseMap = _byId(base && base[key]);
+    const localMap = _byId(local && local[key]);
+    const remoteMap = _byId(remote && remote[key]);
+    const result = new Map(remoteMap);
+
+    // Exclusões feitas neste dispositivo (existia na base, não existe mais localmente).
+    baseMap.forEach((_rec, id) => {
+      if (!localMap.has(id)) result.delete(id);
+    });
+
+    // Criações/edições feitas neste dispositivo (id novo, ou conteúdo
+    // diferente do que havia na base).
+    localMap.forEach((rec, id) => {
+      const baseRec = baseMap.get(id);
+      if (!baseRec || JSON.stringify(baseRec) !== JSON.stringify(rec)) {
+        result.set(id, rec);
+      }
+    });
+
+    merged[key] = Array.from(result.values());
+  });
+
+  merged._seq = {};
+  Object.keys(_emptySchema()._seq).forEach((k) => {
+    merged._seq[k] = Math.max(
+      (base && base._seq && base._seq[k]) || 0,
+      (local && local._seq && local._seq[k]) || 0,
+      (remote && remote._seq && remote._seq[k]) || 0
+    );
+  });
+
+  return merged;
 }
 
 // ---------- db.json (banco de fábrica) ----------
@@ -126,6 +234,12 @@ async function _writeFirestore(db) {
 // Tenta reenviar ao Firestore o que estiver pendente de sincronização
 // (gravações que aconteceram enquanto o Firebase estava indisponível).
 // Chamado automaticamente ao voltar a ficar online e no início de loadDb().
+//
+// Antes de gravar, busca o estado atual no Firestore e faz um merge de 3
+// vias com a última base sincronizada (ver _threeWayMerge) — em vez de
+// simplesmente sobrescrever o documento com o que ficou salvo localmente.
+// Isso preserva mudanças que outros dispositivos tenham sincronizado
+// enquanto este ficou offline.
 async function trySyncPending() {
   if (!_hasPendingSync()) return false;
   const local = _readLocalStorage();
@@ -133,9 +247,24 @@ async function trySyncPending() {
     _markPendingSync(false);
     return false;
   }
+
   try {
-    const ok = await _writeFirestore(local);
+    let toWrite = local;
+    try {
+      const remote = await _readFirestore();
+      if (remote) {
+        const base = _readLastSynced() || remote;
+        toWrite = _threeWayMerge(base, local, remote);
+      }
+    } catch (e) {
+      // Não conseguiu ler o remoto agora (ainda offline?) — tenta de novo depois.
+      throw e;
+    }
+
+    const ok = await _writeFirestore(toWrite);
     if (ok) {
+      _writeLocalStorage(toWrite); // cache local reflete o resultado do merge
+      _writeLastSynced(toWrite);
       _markPendingSync(false);
       console.info("Fintech Spacecworp: dados sincronizados com o Firebase.");
       return true;
@@ -165,16 +294,19 @@ async function loadDb() {
       const remote = await _readFirestore();
       if (remote) {
         _writeLocalStorage(remote); // mantém o cache local em dia
+        _writeLastSynced(remote); // local e remoto estão idênticos neste momento
         return remote;
       }
 
       // Documento ainda não existe no Firestore: usa o que já tiver
       // localmente (localStorage) ou o banco de fábrica, e envia pro
-      // Firestore para "adotar" esse conteúdo como ponto de partida.
+      // Firestore para "adotar" esse conteúdo como ponto de partida
+      // (migração automática do que já existia antes do Firebase).
       const local = _readLocalStorage();
       if (local) {
         try {
           await _writeFirestore(local);
+          _writeLastSynced(local);
         } catch (e) {
           _markPendingSync(true);
         }
@@ -185,6 +317,7 @@ async function loadDb() {
       _writeLocalStorage(seeded);
       try {
         await _writeFirestore(seeded);
+        _writeLastSynced(seeded);
       } catch (e) {
         _markPendingSync(true);
       }
@@ -224,6 +357,7 @@ async function saveDb(db) {
 
   try {
     await _writeFirestore(db);
+    _writeLastSynced(db); // local e remoto ficam idênticos após esta gravação
     _markPendingSync(false);
   } catch (e) {
     console.warn(
@@ -235,8 +369,18 @@ async function saveDb(db) {
 }
 
 function nextId(db, collectionName) {
-  db._seq[collectionName] = (db._seq[collectionName] || 0) + 1;
-  return db._seq[collectionName];
+  // Ids são strings, geradas de forma praticamente única (timestamp em
+  // base36 + sufixo aleatório) — não mais um contador sequencial simples.
+  // Isso evita colisão quando dois dispositivos criam registros na mesma
+  // coleção enquanto cada um está com sua própria cópia local (ex.: um
+  // deles offline), e depois sincronizam: com um contador sequencial por
+  // dispositivo, dois registros diferentes podiam nascer com o mesmo id
+  // (ex.: "a despesa nº 4" de dois navegadores distintos) e um acabava
+  // apagando o outro na hora do merge.
+  db._seq[collectionName] = (db._seq[collectionName] || 0) + 1; // mantido só para depuração/compatibilidade
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${collectionName}_${ts}_${rand}`;
 }
 
 function seedDefaultCategories(db, tenantId) {
@@ -250,4 +394,28 @@ function seedDefaultCategories(db, tenantId) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+// ---------- status de sincronização (para exibir na UI) ----------
+//
+// Leitura síncrona e barata (só olha flags no localStorage + config),
+// pensada para ser chamada com frequência pela UI (ex.: dashboard.js)
+// sem custo de rede. Estados possíveis:
+//   "local"   — Firebase não configurado; app funciona só com localStorage.
+//   "error"   — Firebase configurado, mas a inicialização falhou (config inválida?).
+//   "pending" — há gravações locais aguardando sincronizar com o Firestore.
+//   "synced"  — Firebase configurado e sem pendências (dados sincronizados).
+function getSyncStatus() {
+  const configured = typeof isFirebaseConfigured === "function" && isFirebaseConfigured();
+  if (!configured) return { state: "local", label: "Modo local (Firebase não configurado)" };
+
+  if (typeof _firebaseInitFailed !== "undefined" && _firebaseInitFailed) {
+    return { state: "error", label: "Firebase configurado, mas falhou ao iniciar — usando localStorage" };
+  }
+
+  if (_hasPendingSync()) {
+    return { state: "pending", label: "Sincronização pendente (offline ou instável)" };
+  }
+
+  return { state: "synced", label: "Sincronizado com o Firebase" };
 }
