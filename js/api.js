@@ -432,6 +432,72 @@ const Api = {
       .map((category) => ({ category, total: totals[category] }));
   },
 
+  // ---------- Budget Layouts (layout de leitura de orçamento) ----------
+  // Salvos pelo modal "Configurar layout de leitura" (view Importar
+  // Orçamento, js/dashboard.js) e consumidos por BudgetAI.analyzeWithLayout
+  // (js/budget-ai.js) na hora de ler uma planilha enviada pelo usuário.
+
+  async listBudgetLayouts() {
+    const session = _requireSession();
+    const db = await loadDb();
+    return db.budgetLayouts
+      .filter((l) => l.tenant_id === session.tenant_id)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  async saveBudgetLayout(layout) {
+    const session = _requireSession();
+    const db = await loadDb();
+
+    const name = (layout.name || "").trim();
+    if (!name) throw new Error("Dê um nome para o layout.");
+    if (layout.format !== "longo" && layout.format !== "largo") {
+      throw new Error("Formato de layout inválido.");
+    }
+
+    const fields = {
+      name,
+      format: layout.format,
+      sheetName: layout.sheetName || null,
+      headerRow: layout.headerRow || null,
+      colCategoria: layout.colCategoria || null,
+      colMes: layout.colMes || null,
+      colPrevisto: layout.colPrevisto || null,
+      colRealizado: layout.colRealizado || null,
+      colCategoriaLarga: layout.colCategoriaLarga || null,
+      monthRow: layout.monthRow || null,
+      subHeaderRow: layout.subHeaderRow || null,
+    };
+
+    // Edita por id se veio um (editando um layout existente); senão, se já
+    // existir um layout com o mesmo nome deste tenant, atualiza em vez de
+    // duplicar.
+    let record = layout.id
+      ? db.budgetLayouts.find((l) => l.id === layout.id && l.tenant_id === session.tenant_id)
+      : db.budgetLayouts.find((l) => l.tenant_id === session.tenant_id && l.name === name);
+
+    if (record) {
+      Object.assign(record, fields);
+    } else {
+      record = { id: nextId(db, "budgetLayouts"), tenant_id: session.tenant_id, created_at: nowIso(), ...fields };
+      db.budgetLayouts.push(record);
+    }
+
+    await saveDb(db);
+    return record;
+  },
+
+  async deleteBudgetLayout(id) {
+    const session = _requireSession();
+    const db = await loadDb();
+    const before = db.budgetLayouts.length;
+    db.budgetLayouts = db.budgetLayouts.filter((l) => !(l.id === id && l.tenant_id === session.tenant_id));
+    await saveDb(db);
+    if (db.budgetLayouts.length === before) throw new Error("Layout não encontrado");
+    return { ok: true };
+  },
+
   // ---------- Payments (histórico de pagamentos via Pix) ----------
   // Persistido junto com o resto do "banco" (Firestore + fallback em
   // localStorage, ver js/db.js), em vez de uma chave solta separada no

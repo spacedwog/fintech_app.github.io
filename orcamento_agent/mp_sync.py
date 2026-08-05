@@ -23,6 +23,13 @@ mesmo exportou/subiu via --planilha, ou defina "planilha" em config.json.
 Qualquer planilha com a mesma estrutura de abas (Orcamento, Mapeamento,
 MP_Transacoes, Resumo_MP) funciona — veja config.example.json.
 
+Leitura por layout (sem Mercado Pago, sem token -- mesmo conceito do modal
+"Configurar layout de leitura" do painel web, ver js/budget-ai.js):
+  python3 mp_sync.py --criar-layout                        (assistente interativo, salva layout.json)
+  python3 mp_sync.py --criar-layout --layout outro.json     (salva em outro caminho)
+  python3 mp_sync.py --ler-orcamento --layout layout.json --planilha meu_orcamento.xlsx
+                                                             (lê Previsto/Realizado com esse layout e imprime o resumo)
+
 Requer um config.json (veja config.example.json) com:
   { "mercado_pago_access_token": "...", "planilha": "meu_orcamento.xlsx" }
 
@@ -48,6 +55,8 @@ except ImportError:
     sys.exit("Falta o pacote 'requests'. Rode: pip install requests --break-system-packages")
 
 import openpyxl
+
+import budget_layout
 
 MP_API_URL = "https://api.mercadopago.com/v1/payments/search"
 
@@ -258,6 +267,108 @@ def send_webhook(url, text):
         print(f"[aviso] falha ao enviar webhook: {e}")
 
 
+def _ask(prompt, default=None, required=False):
+    suffix = f" [{default}]" if default not in (None, "") else ""
+    while True:
+        resp = input(f"{prompt}{suffix}: ").strip()
+        if not resp:
+            resp = default
+        if resp or not required:
+            return resp
+        print("Esse campo é obrigatório.")
+
+
+def wizard_criar_layout(dest_path):
+    """Assistente interativo (equivalente em CLI ao modal 'Configurar layout
+    de leitura' do painel web) que monta um layout.json passo a passo."""
+    print("=== Criar layout de leitura de orçamento ===")
+    print("Responda as perguntas abaixo (Enter mantém o valor padrão entre colchetes).\n")
+
+    nome = _ask("Nome do layout", default="Meu orçamento", required=True)
+    aba = _ask("Nome da aba (em branco = detectar automaticamente)", default="")
+
+    formato = ""
+    while formato not in ("longo", "largo"):
+        formato = (_ask(
+            "Formato: 'largo' (Previsto/Realizado por mês, lado a lado) ou "
+            "'longo' (uma linha por categoria)", default="largo",
+        ) or "").lower()
+
+    layout = {"name": nome, "sheetName": aba or None, "format": formato}
+
+    if formato == "longo":
+        layout["headerRow"] = int(_ask("Linha do cabeçalho", default="1"))
+        layout["colCategoria"] = _ask("Coluna da Categoria (ex: A)", default="A", required=True).upper()
+        col_mes = _ask("Coluna do Mês (em branco = não usar)", default="")
+        layout["colMes"] = col_mes.upper() or None
+        layout["colPrevisto"] = _ask("Coluna do Previsto (ex: C)", default="C", required=True).upper()
+        col_real = _ask("Coluna do Realizado (em branco = não usar)", default="")
+        layout["colRealizado"] = col_real.upper() or None
+    else:
+        layout["colCategoriaLarga"] = _ask("Coluna da Categoria (ex: A)", default="A", required=True).upper()
+        layout["monthRow"] = int(_ask("Linha com o nome dos meses", default="1"))
+        layout["subHeaderRow"] = int(
+            _ask("Linha com 'Previsto'/'Realizado'", default=str(layout["monthRow"] + 1))
+        )
+
+    with open(dest_path, "w", encoding="utf-8") as f:
+        json.dump(layout, f, ensure_ascii=False, indent=2)
+    print(f"\nLayout salvo em {dest_path}")
+    print("Use com: python3 mp_sync.py --ler-orcamento --layout " + dest_path + " --planilha SUA_PLANILHA.xlsx")
+    return layout
+
+
+def ler_orcamento_run(args):
+    """Só lê o orçamento (Previsto/Realizado por categoria/mês) usando um
+    layout -- sem Mercado Pago, sem token, sem gravar nada na planilha.
+    Devolve (resultado, mensagem) no mesmo estilo de run()."""
+    if not args.layout:
+        return "erro", "Informe --layout caminho/para/layout.json (crie um com --criar-layout)."
+    if not os.path.exists(args.layout):
+        return "erro", f"Layout não encontrado: {args.layout}"
+    with open(args.layout, encoding="utf-8") as f:
+        layout = json.load(f)
+
+    planilha = args.planilha
+    if not planilha and os.path.exists(args.config):
+        with open(args.config, encoding="utf-8") as f:
+            cfg = json.load(f)
+        planilha = cfg.get("planilha")
+    if not planilha:
+        return "erro", (
+            "Informe --planilha caminho/para/seu_orcamento.xlsx (ou defina \"planilha\" em config.json)."
+        )
+    if not os.path.exists(planilha):
+        return "erro", f"Planilha não encontrada: {planilha}"
+
+    wb = openpyxl.load_workbook(planilha, data_only=True)
+    try:
+        resultado = budget_layout.analyze_with_layout(wb, layout)
+    except ValueError as e:
+        return "erro", str(e)
+
+    nome_layout = layout.get("name") or args.layout
+    linhas = [f"Leitura de '{planilha}' (aba \"{resultado['sheetName']}\", layout \"{nome_layout}\"):"]
+    for r in resultado["rows"]:
+        rotulo = r["categoria"] + (f" ({r['mes']})" if r["mes"] else "")
+        linhas.append(
+            f"  - {rotulo}: previsto R$ {r['previsto']:,.2f} | realizado R$ {r['realizado']:,.2f} | "
+            f"saldo R$ {r['saldo']:,.2f} | {r['status']}"
+        )
+    linhas.append(
+        f"Total previsto: R$ {resultado['totalPrevisto']:,.2f} | "
+        f"Total realizado: R$ {resultado['totalRealizado']:,.2f} | "
+        f"Saldo: R$ {resultado['saldoTotal']:,.2f}"
+    )
+
+    if resultado["overBudget"]:
+        linhas.append(f"\n⚠️  {len(resultado['alerts'])} categoria(s) estouraram o orçamento.")
+        return "estourado", "\n".join(linhas)
+
+    linhas.append("\n✅ Nenhuma categoria estourou o orçamento.")
+    return "ok", "\n".join(linhas)
+
+
 def run(args):
     """Executa o sync e devolve (resultado, mensagem) para uso programático e pelo agendamento."""
     if not os.path.exists(args.config):
@@ -346,7 +457,40 @@ def main():
     )
     ap.add_argument("--somente-aprovados", dest="somente_aprovados", action="store_true", default=True)
     ap.add_argument("--incluir-todos-status", dest="somente_aprovados", action="store_false")
+    ap.add_argument(
+        "--layout", default=None,
+        help="Caminho de um layout.json (ver layout.example.json) que descreve como ler a aba de "
+             "orçamento -- mesmo conceito do modal 'Configurar layout de leitura' do painel web.",
+    )
+    ap.add_argument(
+        "--criar-layout", dest="criar_layout", action="store_true",
+        help="Assistente interativo para criar um layout.json (não sincroniza nada, só cria o arquivo "
+             "em --layout, ou layout.json por padrão).",
+    )
+    ap.add_argument(
+        "--ler-orcamento", dest="ler_orcamento", action="store_true",
+        help="Só lê o orçamento (Previsto/Realizado por categoria/mês) usando --layout e imprime o "
+             "resumo -- não mexe no Mercado Pago, não precisa de token, não grava nada na planilha.",
+    )
     args = ap.parse_args()
+
+    if args.criar_layout:
+        try:
+            wizard_criar_layout(args.layout or "layout.json")
+        except (KeyboardInterrupt, EOFError):
+            print("\nCancelado.")
+            sys.exit(1)
+        return
+
+    if args.ler_orcamento:
+        try:
+            resultado, msg = ler_orcamento_run(args)
+        except Exception:
+            print("\n❌ ERRO ao ler o orçamento:")
+            traceback.print_exc()
+            sys.exit(1)
+        print(msg)
+        sys.exit(0 if resultado == "ok" else (2 if resultado == "estourado" else 1))
 
     try:
         resultado, msg = run(args)

@@ -1,0 +1,8 @@
+{
+  "name": "Exemplo (formato largo)",
+  "sheetName": "Orcamento",
+  "format": "largo",
+  "colCategoriaLarga": "D",
+  "monthRow": 2,
+  "subHeaderRow": 3
+}

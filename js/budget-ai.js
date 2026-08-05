@@ -18,11 +18,16 @@
         mês, com o nome do mês na linha 1 (célula mesclada) e
         "Previsto"/"Realizado" na linha 2.
 
+   Quando a heurística não reconhece o formato (ou reconhece errado),
+   o usuário pode montar um "layout de leitura" manualmente no modal
+   "Configurar layout de leitura" (js/dashboard.js) — informando a
+   aba, o formato e as linhas/colunas exatas — e salvá-lo para reusar
+   em uploads futuros (ver analyzeWithLayout/listSheetNames abaixo e
+   Api.saveBudgetLayout em js/api.js).
+
    Mesma transparência do restante do projeto: isto NÃO é um modelo
    de linguagem hospedado em servidor — é leitura de planilha +
-   heurística de cabeçalho rodando no cliente. Serve para dar uma
-   leitura rápida de qualquer orçamento que o usuário suba, mas não
-   substitui a conferência manual quando o formato foge do comum.
+   heurística de cabeçalho (ou layout manual) rodando no cliente.
    ============================================================= */
 
 (function (global) {
@@ -58,6 +63,22 @@
     s = s.replace(/[^\d.\-]/g, '');
     var n = parseFloat(s);
     return isNaN(n) ? null : n;
+  }
+
+  // 'A' -> 0, 'B' -> 1, 'AA' -> 26 ... também aceita número de coluna 1-based
+  // (ex.: "4" -> 3), pra quem preferir digitar número em vez de letra no
+  // modal de layout.
+  function colToIndex(letter) {
+    if (letter == null || letter === '') return null;
+    var s = String(letter).trim().toUpperCase();
+    if (/^\d+$/.test(s)) return parseInt(s, 10) - 1;
+    var n = 0;
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i) - 64;
+      if (c < 1 || c > 26) return null;
+      n = n * 26 + c;
+    }
+    return n - 1;
   }
 
   function loadXLSX() {
@@ -204,6 +225,92 @@
     return entries.length ? entries : null;
   }
 
+  // ---------- Leitura por layout manual (modal "Configurar leitura") ----------
+  //
+  // Em vez de adivinhar cabeçalho/colunas (tryLongFormat/tryWideFormat acima),
+  // usa exatamente a aba/linhas/colunas que o usuário definiu no modal —
+  // útil quando a planilha foge do padrão que a heurística reconhece.
+
+  // Formato "longo" via layout: { headerRow, colCategoria, colMes, colPrevisto, colRealizado }
+  function applyLongLayout(rows, layout) {
+    var headerRow = (parseInt(layout.headerRow, 10) || 1) - 1;
+    var catCol = colToIndex(layout.colCategoria);
+    var mesCol = colToIndex(layout.colMes);
+    var prevCol = colToIndex(layout.colPrevisto);
+    var realCol = colToIndex(layout.colRealizado);
+
+    if (catCol == null || prevCol == null) {
+      throw new Error('Layout incompleto: informe pelo menos a coluna de Categoria e a de Previsto.');
+    }
+
+    var entries = [];
+    for (var i = headerRow + 1; i < rows.length; i++) {
+      var row = rows[i] || [];
+      var categoria = row[catCol];
+      if (categoria == null || String(categoria).trim() === '') continue;
+      var mes = mesCol != null ? row[mesCol] : null;
+      entries.push({
+        categoria: String(categoria).trim(),
+        mes: mes != null && String(mes).trim() !== '' ? String(mes).trim() : null,
+        previsto: toNumber(row[prevCol]) || 0,
+        realizado: realCol != null ? (toNumber(row[realCol]) || 0) : 0,
+      });
+    }
+    return entries;
+  }
+
+  // Formato "largo" via layout: { colCategoriaLarga, monthRow, subHeaderRow }
+  function applyWideLayout(rows, layout) {
+    var catCol = colToIndex(layout.colCategoriaLarga || layout.colCategoria || 'A');
+    var monthRowIdx = (parseInt(layout.monthRow, 10) || 1) - 1;
+    var subHeaderRowIdx = (parseInt(layout.subHeaderRow, 10) || (monthRowIdx + 2)) - 1;
+
+    var monthRow = rows[monthRowIdx] || [];
+    var subRow = rows[subHeaderRowIdx] || [];
+
+    var months = [];
+    var lastMonth = null;
+    for (var c = 0; c < monthRow.length; c++) {
+      var v = monthRow[c];
+      if (v != null && String(v).trim() !== '') lastMonth = String(v).trim();
+      months[c] = lastMonth;
+    }
+
+    var pairs = [];
+    for (var c2 = 0; c2 < subRow.length; c2++) {
+      var label = normalizeHeader(subRow[c2]);
+      if (label === 'previsto') {
+        var realizadoCol = normalizeHeader(subRow[c2 + 1]) === 'realizado' ? c2 + 1 : null;
+        pairs.push({ mes: months[c2], previstoCol: c2, realizadoCol: realizadoCol });
+      }
+    }
+    if (!pairs.length) {
+      throw new Error(
+        'Não encontrei nenhum par Previsto/Realizado na linha de subcabeçalho informada. ' +
+        'Confira a "Linha dos meses" e a "Linha Previsto/Realizado" do layout.'
+      );
+    }
+
+    var entries = [];
+    for (var i = subHeaderRowIdx + 1; i < rows.length; i++) {
+      var row = rows[i] || [];
+      var categoria = catCol != null ? row[catCol] : null;
+      if (categoria == null || String(categoria).trim() === '') continue;
+      pairs.forEach(function (p) {
+        var previsto = toNumber(row[p.previstoCol]);
+        var realizado = p.realizadoCol != null ? toNumber(row[p.realizadoCol]) : null;
+        if (previsto == null && realizado == null) return;
+        entries.push({
+          categoria: String(categoria).trim(),
+          mes: p.mes,
+          previsto: previsto || 0,
+          realizado: realizado || 0,
+        });
+      });
+    }
+    return entries;
+  }
+
   function buildResult(entries) {
     var rows = entries.map(function (e) {
       var saldo = e.previsto - e.realizado;
@@ -279,5 +386,67 @@
       });
   }
 
-  global.BudgetAI = { analyze: analyze };
+  /**
+   * Lista as abas de uma planilha, sem interpretar o conteúdo — usado pelo
+   * modal "Configurar layout de leitura" para deixar o usuário escolher a
+   * aba certa depois de selecionar o arquivo.
+   *
+   * file: File (.xlsx/.xls/.csv)
+   * Resolve com string[] (nomes das abas).
+   */
+  function listSheetNames(file) {
+    if (!file) return Promise.reject(new Error('Nenhum arquivo selecionado.'));
+    return loadXLSX()
+      .then(function (XLSX) { return readWorkbook(file, XLSX); })
+      .then(function (wb) { return wb.SheetNames || []; });
+  }
+
+  /**
+   * Lê e analisa uma planilha de orçamento usando um layout definido pelo
+   * usuário (modal "Configurar layout de leitura"), em vez da heurística
+   * automática de analyze().
+   *
+   * file: File (.xlsx/.xls/.csv)
+   * layout: {
+   *   name, sheetName (ou null = detecção automática),
+   *   format: 'longo' | 'largo',
+   *   // longo: headerRow, colCategoria, colMes, colPrevisto, colRealizado
+   *   // largo: colCategoriaLarga, monthRow, subHeaderRow
+   * }
+   *
+   * Resolve com o mesmo formato de analyze().
+   */
+  function analyzeWithLayout(file, layout) {
+    if (!file) return Promise.reject(new Error('Nenhum arquivo selecionado.'));
+    if (!layout || (layout.format !== 'longo' && layout.format !== 'largo')) {
+      return Promise.reject(new Error('Layout inválido: escolha o formato "longo" ou "largo".'));
+    }
+
+    return loadXLSX()
+      .then(function (XLSX) {
+        return readWorkbook(file, XLSX).then(function (wb) { return { XLSX: XLSX, wb: wb }; });
+      })
+      .then(function (ctx) {
+        var wb = ctx.wb;
+        var sheetName = layout.sheetName && wb.Sheets[layout.sheetName] ? layout.sheetName : pickSheet(wb);
+        if (!sheetName) throw new Error('A planilha enviada não tem nenhuma aba com dados.');
+
+        var sheet = wb.Sheets[sheetName];
+        var rows = ctx.XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+
+        var entries = layout.format === 'longo' ? applyLongLayout(rows, layout) : applyWideLayout(rows, layout);
+        if (!entries.length) {
+          throw new Error(
+            'Nenhuma linha reconhecida com esse layout na aba "' + sheetName + '". Confira as linhas/colunas configuradas.'
+          );
+        }
+
+        var result = buildResult(entries);
+        result.sheetName = sheetName;
+        result.layoutUsed = layout.name || null;
+        return result;
+      });
+  }
+
+  global.BudgetAI = { analyze: analyze, analyzeWithLayout: analyzeWithLayout, listSheetNames: listSheetNames };
 })(window);

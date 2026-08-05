@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   setupPixModal();
+  setupBudgetLayoutModal();
   renderShell();
   bindNav();
   showView("expenses");
@@ -282,22 +283,92 @@ document.addEventListener("submit", async (e) => {
 // ---------- Importar Orçamento (IA de leitura de orçamento via upload) ----------
 //
 // Substitui a leitura de um arquivo fixo salvo no repositório por upload
-// direto no navegador: o usuário sobe qualquer planilha de orçamento
-// e o js/budget-ai.js (SheetJS + heurística de cabeçalho, 100% client-side)
+// direto no navegador: o usuário sobe qualquer planilha de orçamento e o
+// js/budget-ai.js (SheetJS + heurística de cabeçalho, 100% client-side)
 // identifica categorias, meses e valores Previsto/Realizado.
+//
+// Quando a heurística não reconhece o formato, o usuário pode montar um
+// "layout de leitura" manualmente no modal "Configurar layout de leitura"
+// (aba, formato, linhas/colunas exatas) e salvá-lo para reusar em uploads
+// futuros — persistido via Api.saveBudgetLayout/listBudgetLayouts
+// (js/api.js + js/db.js) e aplicado por BudgetAI.analyzeWithLayout.
 
 let budgetInputBound = false;
+let budgetSelectedFile = null;
+let budgetLayouts = [];
+let budgetLayoutModalEl = null;
+let budgetEditingLayoutId = null;
 
 function loadBudgetView() {
-  if (budgetInputBound) return;
-  budgetInputBound = true;
+  if (!budgetInputBound) {
+    budgetInputBound = true;
 
-  const input = document.getElementById("budget-file-input");
-  if (input) {
-    input.addEventListener("change", () => {
-      handleBudgetFileUpload(input.files && input.files[0]);
-    });
+    const input = document.getElementById("budget-file-input");
+    if (input) {
+      input.addEventListener("change", () => {
+        budgetSelectedFile = input.files && input.files[0];
+        handleBudgetFileUpload(budgetSelectedFile);
+      });
+    }
+
+    const select = document.getElementById("budget-layout-select");
+    if (select) {
+      select.addEventListener("change", () => {
+        toggleBudgetLayoutButtons();
+        if (budgetSelectedFile) handleBudgetFileUpload(budgetSelectedFile);
+      });
+    }
+
+    const newBtn = document.getElementById("budget-layout-new-btn");
+    if (newBtn) newBtn.addEventListener("click", () => openBudgetLayoutModal(null));
+
+    const editBtn = document.getElementById("budget-layout-edit-btn");
+    if (editBtn) {
+      editBtn.addEventListener("click", () => {
+        const layout = getSelectedBudgetLayout();
+        if (layout) openBudgetLayoutModal(layout);
+      });
+    }
+
+    const deleteBtn = document.getElementById("budget-layout-delete-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async () => {
+        const layout = getSelectedBudgetLayout();
+        if (!layout) return;
+        if (!confirm(`Excluir o layout "${layout.name}"?`)) return;
+        await Api.deleteBudgetLayout(layout.id);
+        await refreshBudgetLayoutSelect();
+      });
+    }
   }
+
+  refreshBudgetLayoutSelect();
+}
+
+function getSelectedBudgetLayout() {
+  const select = document.getElementById("budget-layout-select");
+  if (!select || !select.value) return null;
+  return budgetLayouts.find((l) => l.id === select.value) || null;
+}
+
+function toggleBudgetLayoutButtons() {
+  const hasLayout = !!getSelectedBudgetLayout();
+  const editBtn = document.getElementById("budget-layout-edit-btn");
+  const deleteBtn = document.getElementById("budget-layout-delete-btn");
+  if (editBtn) editBtn.classList.toggle("hidden", !hasLayout);
+  if (deleteBtn) deleteBtn.classList.toggle("hidden", !hasLayout);
+}
+
+async function refreshBudgetLayoutSelect() {
+  const select = document.getElementById("budget-layout-select");
+  if (!select) return;
+  const previous = select.value;
+  budgetLayouts = await Api.listBudgetLayouts();
+  select.innerHTML =
+    '<option value="">Detecção automática</option>' +
+    budgetLayouts.map((l) => `<option value="${l.id}">${l.name}</option>`).join("");
+  if (previous && budgetLayouts.some((l) => l.id === previous)) select.value = previous;
+  toggleBudgetLayoutButtons();
 }
 
 function handleBudgetFileUpload(file) {
@@ -320,12 +391,19 @@ function handleBudgetFileUpload(file) {
     return;
   }
 
-  status.textContent = "Lendo orçamento com IA (leitura local no navegador)...";
+  const layout = getSelectedBudgetLayout();
+  status.textContent = layout
+    ? `Lendo orçamento com o layout "${layout.name}"...`
+    : "Lendo orçamento com IA (leitura local no navegador)...";
   status.style.color = "";
 
-  BudgetAI.analyze(file)
+  const analysis = layout ? BudgetAI.analyzeWithLayout(file, layout) : BudgetAI.analyze(file);
+
+  analysis
     .then((result) => {
-      status.textContent = `Planilha lida com sucesso (aba "${result.sheetName}").`;
+      status.textContent = `Planilha lida com sucesso (aba "${result.sheetName}")${
+        layout ? ` usando o layout "${layout.name}"` : ""
+      }.`;
       status.style.color = "var(--success)";
       renderBudgetResult(result);
     })
@@ -371,6 +449,120 @@ function renderBudgetResult(result) {
     })
     .join("");
 }
+
+// ---------- Modal: Configurar layout de leitura ----------
+
+function setupBudgetLayoutModal() {
+  budgetLayoutModalEl = document.getElementById("budget-layout-modal");
+  if (!budgetLayoutModalEl) return;
+
+  document.getElementById("budget-layout-modal-close").addEventListener("click", closeBudgetLayoutModal);
+  document.getElementById("budget-layout-cancel").addEventListener("click", closeBudgetLayoutModal);
+
+  document.querySelectorAll('input[name="layout-format"]').forEach((radio) => {
+    radio.addEventListener("change", updateBudgetLayoutFormatFields);
+  });
+}
+
+function updateBudgetLayoutFormatFields() {
+  const checked = document.querySelector('input[name="layout-format"]:checked');
+  const format = checked ? checked.value : "largo";
+  document.getElementById("layout-fields-largo").classList.toggle("hidden", format !== "largo");
+  document.getElementById("layout-fields-longo").classList.toggle("hidden", format !== "longo");
+}
+
+function openBudgetLayoutModal(existingLayout) {
+  if (!budgetLayoutModalEl) return;
+  budgetEditingLayoutId = existingLayout ? existingLayout.id : null;
+
+  const errorBox = document.getElementById("budget-layout-error");
+  errorBox.classList.add("hidden");
+
+  document.getElementById("layout-name").value = existingLayout ? existingLayout.name : "";
+
+  const format = (existingLayout && existingLayout.format) || "largo";
+  const formatRadio = document.querySelector(`input[name="layout-format"][value="${format}"]`);
+  if (formatRadio) formatRadio.checked = true;
+  updateBudgetLayoutFormatFields();
+
+  document.getElementById("layout-col-categoria-larga").value = (existingLayout && existingLayout.colCategoriaLarga) || "";
+  document.getElementById("layout-month-row").value = (existingLayout && existingLayout.monthRow) || "";
+  document.getElementById("layout-subheader-row").value = (existingLayout && existingLayout.subHeaderRow) || "";
+
+  document.getElementById("layout-header-row").value = (existingLayout && existingLayout.headerRow) || "";
+  document.getElementById("layout-col-categoria").value = (existingLayout && existingLayout.colCategoria) || "";
+  document.getElementById("layout-col-mes").value = (existingLayout && existingLayout.colMes) || "";
+  document.getElementById("layout-col-previsto").value = (existingLayout && existingLayout.colPrevisto) || "";
+  document.getElementById("layout-col-realizado").value = (existingLayout && existingLayout.colRealizado) || "";
+
+  const sheetSelect = document.getElementById("layout-sheet");
+  const desiredSheet = existingLayout ? existingLayout.sheetName : null;
+  sheetSelect.innerHTML =
+    '<option value="">Detectar automaticamente</option>' +
+    (desiredSheet ? `<option value="${desiredSheet}" selected>${desiredSheet}</option>` : "");
+
+  budgetLayoutModalEl.classList.remove("hidden");
+
+  // Se já tem um arquivo selecionado na tela anterior, usa pra listar as
+  // abas de verdade em vez de deixar o usuário digitar o nome às cegas.
+  if (budgetSelectedFile && window.BudgetAI) {
+    BudgetAI.listSheetNames(budgetSelectedFile)
+      .then((names) => {
+        const current = sheetSelect.value;
+        sheetSelect.innerHTML =
+          '<option value="">Detectar automaticamente</option>' +
+          names.map((n) => `<option value="${n}">${n}</option>`).join("");
+        if (current && names.includes(current)) sheetSelect.value = current;
+      })
+      .catch(() => {
+        // não crítico: usuário ainda pode deixar em "detectar automaticamente"
+      });
+  }
+}
+
+function closeBudgetLayoutModal() {
+  if (!budgetLayoutModalEl) return;
+  budgetLayoutModalEl.classList.add("hidden");
+  budgetEditingLayoutId = null;
+}
+
+document.addEventListener("submit", async (e) => {
+  if (e.target && e.target.id === "budget-layout-form") {
+    e.preventDefault();
+    const errorBox = document.getElementById("budget-layout-error");
+    errorBox.classList.add("hidden");
+
+    const checked = document.querySelector('input[name="layout-format"]:checked');
+    const format = checked ? checked.value : "largo";
+
+    const layout = {
+      id: budgetEditingLayoutId || undefined,
+      name: document.getElementById("layout-name").value.trim(),
+      sheetName: document.getElementById("layout-sheet").value || null,
+      format,
+      colCategoriaLarga: document.getElementById("layout-col-categoria-larga").value.trim() || null,
+      monthRow: parseInt(document.getElementById("layout-month-row").value, 10) || null,
+      subHeaderRow: parseInt(document.getElementById("layout-subheader-row").value, 10) || null,
+      headerRow: parseInt(document.getElementById("layout-header-row").value, 10) || null,
+      colCategoria: document.getElementById("layout-col-categoria").value.trim() || null,
+      colMes: document.getElementById("layout-col-mes").value.trim() || null,
+      colPrevisto: document.getElementById("layout-col-previsto").value.trim() || null,
+      colRealizado: document.getElementById("layout-col-realizado").value.trim() || null,
+    };
+
+    try {
+      const saved = await Api.saveBudgetLayout(layout);
+      await refreshBudgetLayoutSelect();
+      document.getElementById("budget-layout-select").value = saved.id;
+      toggleBudgetLayoutButtons();
+      closeBudgetLayoutModal();
+      if (budgetSelectedFile) handleBudgetFileUpload(budgetSelectedFile);
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.classList.remove("hidden");
+    }
+  }
+});
 
 // ---------- Equipe (usuários do tenant) ----------
 

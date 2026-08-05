@@ -1,0 +1,10 @@
+{
+  "name": "Exemplo (formato longo)",
+  "sheetName": null,
+  "format": "longo",
+  "headerRow": 1,
+  "colCategoria": "A",
+  "colMes": "B",
+  "colPrevisto": "C",
+  "colRealizado": "D"
+}

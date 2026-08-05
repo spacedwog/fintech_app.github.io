@@ -2,8 +2,15 @@
 # Este repositório é público (GitHub Pages) - um token do Mercado Pago aqui
 # exposto dá acesso à conta real do usuário.
 orcamento_agent/config.json
+orcamento_agent/layout.json
 orcamento_agent/logs/
 orcamento_agent/__pycache__/
 orcamento_agent/.~lock.*
 orcamento_agent/TEST_*.xlsx
 orcamento_agent/TEST_*.json
+
+# Agente Fibonacci + Laplace (ETL) - mesmos cuidados de teste/cache.
+fibonacci_laplace_agent/__pycache__/
+fibonacci_laplace_agent/TEST_*.xlsx
+fibonacci_laplace_agent/TEST_*.json
+fibonacci_laplace_agent/resultado_pipeline.json

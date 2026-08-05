@@ -37,6 +37,9 @@ conta. Por isso:
 - `mp_sync.py` — script que busca os pagamentos no Mercado Pago e atualiza a planilha. Feito para rodar sem supervisão (agendado): nunca quebra com traceback cru, sempre grava em `logs/mp_sync.log` e sempre termina com uma linha final clara (OK / ESTOURADO / mês sem orçamento cadastrado / ERRO).
 - `test_mp_sync.py` — teste automatizado com dados simulados (não chama a API real). Rode `python3 test_mp_sync.py` depois de qualquer alteração no script.
 - `config.example.json` — modelo de configuração (copie para `config.json`, nunca versione o `config.json`).
+- `budget_layout.py` — lê Previsto/Realizado de uma planilha usando um "layout" (aba/linhas/colunas
+  definidos por você) em vez de assumir a estrutura fixa da aba Orcamento. Ver "Layout de leitura" abaixo.
+- `layout.example.json` / `layout.example.longo.json` — modelos de layout (formato largo e longo).
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).
@@ -70,6 +73,33 @@ minúscula) que, se aparecer na descrição do pagamento no Mercado Pago, joga o
 para aquela Categoria. Pagamentos que não baterem com nenhuma regra caem em
 "Não categorizado" — revise essas linhas na aba MP_Transacoes de vez em quando.
 
+## Layout de leitura (quando o formato foge do padrão)
+Tanto o painel web quanto o `mp_sync.py` esperam, por padrão, uma planilha no formato
+"largo" (Categoria + colunas Previsto/Realizado por mês, lado a lado — igual à aba
+Orcamento). Se a sua planilha tiver outro layout (outra aba, outras colunas, formato
+"longo" com uma linha por categoria+mês), dá pra descrever exatamente onde está cada
+coisa em vez de depender de heurística:
+
+- **No painel web** (`dashboard.html` → Importar Orçamento): clique em **"+ Criar
+  layout de leitura"**. Um modal deixa você escolher a aba, o formato (largo/longo) e
+  as linhas/colunas de cada campo; o layout fica salvo (por conta, sincronizado como o
+  resto do app) e pode ser reaplicado em uploads futuros pelo seletor "Layout de leitura".
+- **No `mp_sync.py`** (CLI, sem token nem Mercado Pago): mesmo conceito, em formato de
+  assistente por perguntas:
+  ```
+  python3 mp_sync.py --criar-layout                 # cria layout.json (ou --layout outro.json)
+  python3 mp_sync.py --ler-orcamento --layout layout.json --planilha meu_orcamento.xlsx
+  ```
+  `--ler-orcamento` só lê e imprime o resumo (Previsto/Realizado/Saldo/Status por
+  categoria, e o total) — não grava nada na planilha nem mexe no Mercado Pago. Útil pra
+  conferir rápido uma planilha nova, mesmo antes de configurar o Access Token.
+
+Os campos do layout são os mesmos dos dois lados (o `layout.json` gerado pelo assistente
+usa a mesma estrutura salva pelo modal web — ver `layout.example.json`/`layout.example.longo.json`):
+`name`, `sheetName`, `format` ("largo" ou "longo") e, conforme o formato,
+`colCategoriaLarga`/`monthRow`/`subHeaderRow` (largo) ou
+`headerRow`/`colCategoria`/`colMes`/`colPrevisto`/`colRealizado` (longo).
+
 ## Agendamento (rodando sozinho)
 Foi configurada uma tarefa agendada que roda `mp_sync.py` automaticamente e te avisa
 por mensagem quando alguma categoria estourar o orçamento. Veja a periodicidade e
@@ -87,6 +117,8 @@ avisar que falta configurar — não falha silenciosamente.
   sem token nem agendamento — você sobe a planilha (ou um CSV simples de Categoria/
   Previsto/Realizado) e vê na hora quais categorias estouraram. Não grava nada, não
   substitui o `mp_sync.py` para acompanhamento automático dos pagamentos do Mercado Pago.
+- Os dois aceitam um "layout de leitura" manual (modal no web, `--criar-layout`/`--ler-orcamento`
+  no CLI) para quando a planilha não segue o formato padrão — ver "Layout de leitura" acima.
 
 ## Próximos passos possíveis
 - Conectar outros bancos: hoje o escopo é só Mercado Pago. Para bancos sem API pública

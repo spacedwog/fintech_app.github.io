@@ -29,7 +29,7 @@ const DB_LAST_SYNCED_KEY = "fintech_saas_last_synced_v1"; // "base" do último m
 const DB_SEED_JSON_URL = "db.json"; // banco "de fábrica", só para o 1º carregamento
 
 const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros"];
-const DB_COLLECTIONS = ["tenants", "users", "categories", "expenses", "budgets", "payments"];
+const DB_COLLECTIONS = ["tenants", "users", "categories", "expenses", "budgets", "payments", "budgetLayouts"];
 
 function _emptySchema() {
   return {
@@ -39,7 +39,12 @@ function _emptySchema() {
     expenses: [], // { id, tenant_id, user_id, category_id, amount, date, description, created_at, is_extra, extra_charge }
     budgets: [], // { id, tenant_id, user_id, limit_value, month }
     payments: [], // { id, tenant_id, user_id, type, plan, amount, txid, verifiedByAI, aiClassification, date }
-    _seq: { tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0 },
+    // Layouts de leitura salvos no modal "Configurar layout de leitura"
+    // (view Importar Orçamento) -- descrevem como ler uma planilha de
+    // orçamento (aba, formato longo/largo, linhas e colunas) em vez de
+    // depender só da heurística automática do js/budget-ai.js.
+    budgetLayouts: [], // { id, tenant_id, name, format, sheetName, headerRow, colCategoria, colMes, colPrevisto, colRealizado, colCategoriaLarga, monthRow, subHeaderRow, created_at }
+    _seq: { tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, budgetLayouts: 0 },
   };
 }
 
@@ -52,6 +57,7 @@ const ID_FIELDS_BY_COLLECTION = {
   expenses: ["id", "tenant_id", "user_id", "category_id"],
   budgets: ["id", "tenant_id", "user_id"],
   payments: ["id", "tenant_id", "user_id"],
+  budgetLayouts: ["id", "tenant_id"],
 };
 
 // Garante que todo id (e toda referência a id de outra coleção) seja
