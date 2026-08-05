@@ -435,6 +435,11 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   text-align: center;
 }
 
+/* Modal do criador de layout de leitura — 15px menor que o padrão */
+#budget-layout-modal .modal-box {
+  max-width: 355px;
+}
+
 .qr-wrap {
   background: #fff;
   padding: 12px;
