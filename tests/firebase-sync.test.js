@@ -226,6 +226,10 @@ function check(name, cond) {
     `
     const categories = await Api.listCategories();
     await Api.addExpense({ amount: 12.9, date: "2026-08-02", description: "Uber", category_id: categories[0].id });
+    // saveDb() agora sincroniza com o Firestore em segundo plano (não bloqueia
+    // a UI); para testar o resultado da sincronização, esperamos a fila
+    // esvaziar explicitamente (uso normal do app não precisa disso).
+    await waitForPendingFirestoreWrites();
     return {};
   `
   );

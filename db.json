@@ -4,5 +4,6 @@
   "categories": [],
   "expenses": [],
   "budgets": [],
-  "_seq": { "tenants": 0, "users": 0, "categories": 0, "expenses": 0, "budgets": 0 }
+  "payments": [],
+  "_seq": { "tenants": 0, "users": 0, "categories": 0, "expenses": 0, "budgets": 0, "payments": 0 }
 }

@@ -12,9 +12,10 @@
 //    estiver configurado, o SDK não tiver carregado, o navegador estiver
 //    offline, ou a chamada ao Firestore falhar por qualquer motivo. Toda
 //    gravação grava no localStorage IMEDIATAMENTE (nunca falha, nunca
-//    espera rede) e, em paralelo, tenta sincronizar com o Firestore. Se a
-//    sincronização falhar, fica marcada como pendente e é retentada
-//    automaticamente (evento "online" do navegador, ou próxima chamada a
+//    espera rede) e, em segundo plano (sem bloquear quem chamou saveDb),
+//    tenta sincronizar com o Firestore. Se a sincronização falhar, fica
+//    marcada como pendente e é retentada automaticamente (evento "online"
+//    do navegador, retry periódico a cada 20s, ou próxima chamada a
 //    loadDb/saveDb).
 //
 // db.json continua existindo apenas como o banco "de fábrica": usado para
@@ -281,6 +282,17 @@ if (typeof window !== "undefined" && window.addEventListener) {
   });
 }
 
+// Retry periódico "de segurança": cobre os casos em que ficamos pendentes
+// sem um evento "online" claro para reagir (ex.: Firestore respondeu com
+// erro mesmo com rede presente, aba ficou em segundo plano e perdeu o
+// evento, etc.). Roda a cada 20s e só faz algo quando há pendência —
+// custo desprezível no caso comum (nenhuma pendência).
+if (typeof window !== "undefined" && window.setInterval) {
+  window.setInterval(() => {
+    if (_hasPendingSync()) trySyncPending();
+  }, 20000);
+}
+
 // ---------- API pública ----------
 
 async function loadDb() {
@@ -345,9 +357,16 @@ async function loadDb() {
   return fresh;
 }
 
+// Fila que serializa as gravações no Firestore, para que rodem em segundo
+// plano SEM bloquear quem chamou saveDb (ver abaixo) mas ainda assim na
+// ordem certa — evita que uma gravação mais recente seja sobrescrita por
+// uma mais antiga caso a rede responda fora de ordem.
+let _firestoreWriteQueue = Promise.resolve();
+
 async function saveDb(db) {
   // Grava local sempre primeiro: rápido, síncrono na prática, nunca
-  // depende de rede — garante que nada se perde mesmo sem Firebase.
+  // depende de rede — garante que nada se perde mesmo sem Firebase, e já
+  // deixa a interface livre para continuar sem esperar a rede.
   _writeLocalStorage(db);
 
   if (!_firestoreAvailable() || !getFirestoreDocRef()) {
@@ -355,17 +374,35 @@ async function saveDb(db) {
     return;
   }
 
-  try {
-    await _writeFirestore(db);
-    _writeLastSynced(db); // local e remoto ficam idênticos após esta gravação
-    _markPendingSync(false);
-  } catch (e) {
-    console.warn(
-      "Fintech Spacecworp: não foi possível sincronizar com o Firebase agora (offline ou erro); os dados estão seguros no localStorage e serão sincronizados automaticamente depois.",
-      e
-    );
-    _markPendingSync(true);
-  }
+  // Sincroniza com o Firebase em segundo plano: saveDb() retorna assim que
+  // o localStorage é gravado, sem esperar o round-trip de rede do
+  // Firestore. Isso agiliza toda ação da UI (criar despesa, mudar plano,
+  // etc.), que antes ficava bloqueada até o Firestore confirmar a escrita.
+  // Fica marcado como pendente até a gravação em nuvem realmente terminar;
+  // se a aba fechar antes disso, o próximo carregamento retenta via
+  // trySyncPending().
+  _markPendingSync(true);
+  _firestoreWriteQueue = _firestoreWriteQueue.then(() =>
+    _writeFirestore(db)
+      .then(() => {
+        _writeLastSynced(db); // local e remoto ficam idênticos após esta gravação
+        _markPendingSync(false);
+      })
+      .catch((e) => {
+        console.warn(
+          "Fintech Spacecworp: não foi possível sincronizar com o Firebase agora (offline ou erro); os dados estão seguros no localStorage e serão sincronizados automaticamente depois.",
+          e
+        );
+        _markPendingSync(true);
+      })
+  );
+}
+
+// Permite que quem realmente precisar esperar a confirmação do Firebase
+// (ex.: testes automatizados) possa fazê-lo — uso normal do app não
+// precisa disso, já que saveDb() não bloqueia mais.
+function waitForPendingFirestoreWrites() {
+  return _firestoreWriteQueue;
 }
 
 function nextId(db, collectionName) {
