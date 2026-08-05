@@ -844,6 +844,33 @@ class ApiFacade {
   addPayment(payload) {
     return this.paymentService.addPayment(payload);
   }
+
+  // ---------- Mercado Pago (resumo para o badge da sidebar) ----------
+  // Agrega, num único objeto, o que orcamento_agent/mp_expenses.py já gerou
+  // (despesas reais, generated_by_mercado_pago) e o que mp_reconcile.py já
+  // confirmou (pagamentos com verifiedByMercadoPago) para o usuário logado —
+  // ambos scripts rodam fora do navegador e só chegam aqui via Firestore/
+  // localStorage (ver js/db.js). Não chama a API do Mercado Pago diretamente
+  // (nenhum Access Token existe no front-end, de propósito).
+  async getMercadoPagoStatus() {
+    const [expenses, payments] = await Promise.all([this.listExpenses(), this.listPayments()]);
+    const mpExpenses = expenses.filter((e) => e.generated_by_mercado_pago);
+    const mpPayments = payments.filter((p) => p.verifiedByMercadoPago);
+    const expensesTotal = mpExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const lastSyncDate =
+      [...mpExpenses.map((e) => e.date), ...mpPayments.map((p) => p.date)]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+
+    return {
+      connected: mpExpenses.length > 0 || mpPayments.length > 0,
+      expenses_count: mpExpenses.length,
+      expenses_total: expensesTotal,
+      payments_verified_count: mpPayments.length,
+      last_sync_date: lastSyncDate,
+    };
+  }
 }
 
 const Api = new ApiFacade();

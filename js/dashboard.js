@@ -35,6 +35,47 @@ class SyncStatusIndicator {
   }
 }
 
+// ---------- MercadoPagoStatusIndicator: badge da sidebar com o resumo do
+// que orcamento_agent/mp_expenses.py (despesas geradas) e mp_reconcile.py
+// (pagamentos confirmados) já trouxeram do Mercado Pago para esta conta.
+// Distinto do selo "Mercado Pago" por linha na tabela de despesas (Página 2
+// do fluxo Orçamento & Despesas) — este é um resumo único, sempre visível,
+// no topo da sidebar. ----------
+
+class MercadoPagoStatusIndicator {
+  async render() {
+    const box = document.getElementById("mp-status");
+    const label = document.getElementById("mp-status-label");
+    if (!box || !label || typeof Api === "undefined") return;
+
+    try {
+      const status = await Api.getMercadoPagoStatus();
+      box.classList.toggle("connected", status.connected);
+      box.classList.toggle("idle", !status.connected);
+
+      if (status.connected) {
+        const plural = status.expenses_count === 1 ? "" : "s";
+        label.textContent =
+          `${status.expenses_count} despesa${plural} via Mercado Pago (R$ ${status.expenses_total.toFixed(2)})`;
+        const lastSync = status.last_sync_date
+          ? new Date(status.last_sync_date).toLocaleDateString("pt-BR")
+          : "data desconhecida";
+        box.title =
+          `Última atualização: ${lastSync}. ${status.payments_verified_count} pagamento(s) confirmado(s) ` +
+          `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py.`;
+      } else {
+        label.textContent = "Nenhuma despesa sincronizada ainda";
+        box.title =
+          "Nenhum pagamento do Mercado Pago foi importado ainda. Rode orcamento_agent/mp_reconcile.py e depois " +
+          "mp_expenses.py (fora do navegador) para gerar despesas reais a partir da sua conta do Mercado Pago.";
+      }
+    } catch (e) {
+      label.textContent = "";
+      box.title = "";
+    }
+  }
+}
+
 // ---------- PixPaymentModal: QR real + copia-e-cola + confirmação (OCR ou manual) ----------
 
 class PixPaymentModal {
@@ -252,6 +293,7 @@ class DashboardController {
 
     this.pixModal = new PixPaymentModal(PIX_MERCHANT);
     this.syncStatus = new SyncStatusIndicator();
+    this.mpStatus = new MercadoPagoStatusIndicator();
   }
 
   async init() {
@@ -284,6 +326,12 @@ class DashboardController {
     setInterval(() => this.syncStatus.render(), 5000);
     window.addEventListener("online", () => this.syncStatus.render());
     window.addEventListener("offline", () => this.syncStatus.render());
+
+    // Badge do Mercado Pago: mesmo ritmo do indicador de sincronização, já
+    // que quem atualiza os dados (mp_expenses.py/mp_reconcile.py) roda fora
+    // do navegador — o polling é o jeito de o painel perceber a mudança.
+    this.mpStatus.render();
+    setInterval(() => this.mpStatus.render(), 5000);
   }
 
   _renderShell() {
@@ -496,6 +544,11 @@ class DashboardController {
         </tr>`
       )
       .join("");
+
+    // Mantém o badge da sidebar (contagem/total via Mercado Pago) coerente
+    // com a tabela que acabou de ser recarregada — cobre init, adicionar e
+    // excluir despesa sem esperar o polling de 5s do MercadoPagoStatusIndicator.
+    if (this.mpStatus) this.mpStatus.render();
   }
 
   async removeExpense(id) {

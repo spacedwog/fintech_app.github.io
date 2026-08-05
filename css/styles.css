@@ -385,6 +385,26 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .sync-status.local .dot { background: #6b7280; }
 .sync-status.error .dot { background: #ef4444; }
 
+/* Badge/indicador global do Mercado Pago na sidebar (resumo do que
+   orcamento_agent/mp_expenses.py + mp_reconcile.py já geraram/confirmaram —
+   distinto do selo "Mercado Pago" por linha na tabela de despesas). */
+.mp-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin: -12px 0 20px;
+  color: #9ca3af;
+}
+
+.mp-status .badge.mp { flex-shrink: 0; transition: opacity 0.15s ease; }
+
+.mp-status.idle .badge.mp { opacity: 0.45; }
+
+.mp-status.connected .badge.mp { opacity: 1; }
+
+.mp-status.connected #mp-status-label { color: var(--success); }
+
 .plan-card {
   border: 1px solid var(--border);
   border-radius: 10px;

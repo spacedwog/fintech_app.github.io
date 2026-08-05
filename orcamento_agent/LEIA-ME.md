@@ -223,7 +223,12 @@ palavra-chave.
 
 **Idempotência:** cada despesa gerada guarda o id do pagamento no Mercado Pago
 (`mercadoPagoPaymentId`) — rodar de novo nunca duplica. No painel web, essas despesas
-aparecem na Página 2 com o selo "gerada via Mercado Pago" (ver README.md da raiz).
+aparecem na Página 2 com o selo "gerada via Mercado Pago" (ver README.md da raiz) e
+também entram na contagem do badge **Mercado Pago** que fica sempre visível na sidebar
+do painel (abaixo do indicador de sincronização, em qualquer tela) — resume quantas
+despesas foram geradas e quantos pagamentos foram confirmados via Mercado Pago
+(`mp_reconcile.py`), com a data da atualização mais recente. Ver `Api.getMercadoPagoStatus()`
+em `js/api.js` e `MercadoPagoStatusIndicator` em `js/dashboard.js`.
 
 **Limitações (por design):** não roda em tempo real (depende de executar o script);
 sem categorização manual pelo painel ainda (crie/edite `mapeamento` no config e rode

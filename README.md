@@ -61,8 +61,9 @@ Registra despesas com valor, data, categoria e descrição — igual a antes, co
 - Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).
 - Despesas com o selo **Mercado Pago** na tabela não foram digitadas por ninguém — foram geradas automaticamente a partir de um pagamento real (`orcamento_agent/mp_expenses.py`, fora do navegador) e não contam para o limite diário do plano Free (é importação de histórico, não uma ação em tempo real do usuário). Ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
+- Além do selo por linha, a **sidebar do painel** (todas as telas, não só esta) mostra um badge **Mercado Pago** único e sempre visível, logo abaixo do indicador de sincronização: resume quantas despesas foram geradas e quantos pagamentos foram confirmados via Mercado Pago, com a data da atualização mais recente (tudo por conta/tenant). Cinza/apagado quando nenhum dado do Mercado Pago chegou ainda; colorido quando há pelo menos uma despesa gerada ou um pagamento confirmado. Ver `MercadoPagoStatusIndicator`/`Api.getMercadoPagoStatus()` abaixo.
 
-Código: `js/dashboard.js` (`loadExpensesView`, `refreshExpenseCategoryBudgetInfo`, `refreshQuotaInfo`, `refreshExpenseTable`), lógica de negócio em `js/api.js` (`addExpense`).
+Código: `js/dashboard.js` (`loadExpensesView`, `refreshExpenseCategoryBudgetInfo`, `refreshQuotaInfo`, `refreshExpenseTable`, `MercadoPagoStatusIndicator`), lógica de negócio em `js/api.js` (`addExpense`, `getMercadoPagoStatus`).
 </details>
 
 <details>
@@ -174,7 +175,7 @@ O `mp_reconcile.py` acima confirma dinheiro **entrando** na conta (assinatura/de
    ```
 5. Depois de qualquer alteração no script: `python3 test_mp_expenses.py`.
 
-No painel web, despesas geradas assim aparecem na Página 2 com o selo **Mercado Pago** (ver acima). Cada uma guarda o id do pagamento de origem — rodar de novo nunca duplica.
+No painel web, despesas geradas assim aparecem na Página 2 com o selo **Mercado Pago** (ver acima) e também entram na contagem do badge **Mercado Pago** da sidebar (visível em qualquer tela do painel). Cada uma guarda o id do pagamento de origem — rodar de novo nunca duplica.
 </details>
 
 <details>
@@ -224,6 +225,9 @@ tests/
   budget-flow.test.js    -> teste de integração (Node) do fluxo Orçamento &
                             Despesas — Previsto importado x Realizado real,
                             categorias sem orçamento, reimportação idempotente
+  mercado-pago-badge.test.js -> teste de integração (Node) do badge Mercado
+                            Pago da sidebar (Api.getMercadoPagoStatus) —
+                            conectado/desconectado, isolamento por conta
 orcamento_agent/
   mp_reconcile.py        -> confirma automaticamente pagamentos do painel web
                             cruzando com o Mercado Pago (ver seção própria acima)
@@ -407,6 +411,18 @@ node tests/budget-flow.test.js
 ```
 
 Rode de novo sempre que alterar `Api.importCategoryBudgets`/`Api.getBudgetOverview` (`js/api.js`) ou a coleção `categoryBudgets` (`js/db.js`).
+</details>
+
+<details>
+<summary><strong>Badge Mercado Pago da sidebar — <code>tests/mercado-pago-badge.test.js</code></strong></summary>
+
+Executa `js/db.js`/`js/api.js` de verdade (sem Firebase, só `localStorage`) simulando o que `mp_expenses.py`/`mp_reconcile.py` gravam de fora do navegador, e cobrindo `Api.getMercadoPagoStatus()` (dados que alimentam `MercadoPagoStatusIndicator` em `js/dashboard.js`): sem nenhum dado do Mercado Pago o resumo fica desligado; uma despesa lançada manualmente não conta; depois que uma despesa é marcada como gerada via Mercado Pago e um pagamento como confirmado via Mercado Pago, o resumo liga, soma o valor certo e conta os dois; e o resumo é isolado por conta (tenant):
+
+```bash
+node tests/mercado-pago-badge.test.js
+```
+
+Rode de novo sempre que alterar `Api.getMercadoPagoStatus()` (`js/api.js`) ou `MercadoPagoStatusIndicator` (`js/dashboard.js`).
 </details>
 
 <details>
