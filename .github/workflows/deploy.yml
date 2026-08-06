@@ -9,6 +9,12 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # "actions: write" e usado so pelo job "deploy" para apagar, via gh api,
+  # qualquer artifact "github-pages" duplicado antes de subir um novo -- isso
+  # e o que causa o erro "Multiple artifacts named github-pages" (e a run
+  # travar em deployment_queued) quando alguem usa "Re-run failed jobs" nesse
+  # job em vez de "Re-run all jobs" ou um novo push.
+  actions: write
 
 concurrency:
   # cancel-in-progress: false (recomendado pelo template oficial do GitHub Pages).
@@ -86,6 +92,9 @@ jobs:
     name: Publicar GitHub Pages
     needs: python-pipeline
     runs-on: ubuntu-latest
+    # Limite de tempo total do job: se o deploy-pages ficar preso em
+    # deployment_queued, o job falha em vez de rodar para sempre.
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -96,6 +105,25 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Apagar artifacts "github-pages" duplicados desta run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          echo "Verificando artifacts existentes na run $RUN_ID..."
+          ids=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" --paginate \
+            --jq '.artifacts[] | select(.name == "github-pages") | .id')
+          if [ -z "$ids" ]; then
+            echo "Nenhum artifact github-pages duplicado encontrado."
+          else
+            for id in $ids; do
+              echo "Apagando artifact github-pages id=$id (sobra de re-run anterior)"
+              gh api -X DELETE "repos/$REPO/actions/artifacts/$id" || true
+            done
+          fi
+
       - name: Criar artifact do site
         uses: actions/upload-pages-artifact@v3
         with:
@@ -104,3 +132,8 @@ jobs:
       - name: Executar deploy do artifact
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Falha em 5 min em vez de ficar preso ate 10 min (padrao) em
+          # deployment_queued -- assim um problema real aparece mais rapido
+          # e o proximo push/re-run (via "Re-run all jobs") pode tentar de novo.
+          timeout: 300000
