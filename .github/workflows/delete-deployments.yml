@@ -1,0 +1,89 @@
+name: Delete deployments
+
+# Apaga registros antigos de Deployment do repositorio (aba "Deployments" /
+# github.com/OWNER/REPO/deployments), diferente do workflow "Delete workflow
+# runs" (que apaga execucoes do Actions). Cada push que passa pelo job
+# "Publicar GitHub Pages" (deploy.yml) cria um novo Deployment no ambiente
+# github-pages -- com o tempo isso acumula dezenas/centenas de registros.
+#
+# A API do GitHub so deixa apagar um deployment que esteja no estado
+# "inactive": por isso, para cada deployment antigo, primeiro criamos um
+# status "inactive" e so depois apagamos. Os deployments mais recentes de
+# cada ambiente sao sempre preservados (o mais novo == o que esta publicado
+# agora), entao isso nunca mexe no que esta no ar.
+#
+# Disparo manual (com opcoes) ou semanal automatico.
+on:
+  workflow_dispatch:
+    inputs:
+      keep_latest:
+        description: "Quantos deployments recentes manter por ambiente (nunca apague o ultimo -- mantenha pelo menos 1)"
+        required: false
+        default: "5"
+      days_old:
+        description: "Apagar apenas deployments com mais de N dias (0 = ignora)"
+        required: false
+        default: "30"
+  schedule:
+    - cron: "0 6 * * 1" # toda segunda-feira as 06:00 UTC
+
+permissions:
+  deployments: write
+  contents: read
+
+jobs:
+  delete-deployments:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apagar deployments antigos via gh api
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          KEEP_LATEST: ${{ github.event.inputs.keep_latest || '5' }}
+          DAYS_OLD: ${{ github.event.inputs.days_old || '30' }}
+        run: |
+          set -euo pipefail
+          echo "Repositorio: $REPO"
+          echo "Mantendo os $KEEP_LATEST deployments mais recentes por ambiente"
+          echo "Apagando apenas deployments com mais de $DAYS_OLD dia(s) (0 = sem filtro de data)"
+
+          cutoff_epoch=0
+          if [ "$DAYS_OLD" != "0" ]; then
+            cutoff_epoch=$(date -d "-$DAYS_OLD days" +%s)
+          fi
+
+          # Lista deployments (id|ambiente|data), do mais novo para o mais velho
+          mapfile -t deployments < <(
+            gh api "repos/$REPO/deployments" --paginate \
+              --jq 'sort_by(.created_at) | reverse | .[] | "\(.id)|\(.environment)|\(.created_at)"'
+          )
+
+          declare -A count_by_env
+
+          for line in "${deployments[@]}"; do
+            id="${line%%|*}"
+            rest="${line#*|}"
+            environment="${rest%%|*}"
+            created_at="${rest#*|}"
+
+            count_by_env[$environment]=$(( ${count_by_env[$environment]:-0} + 1 ))
+            idx=${count_by_env[$environment]}
+
+            if [ "$idx" -le "$KEEP_LATEST" ]; then
+              echo "Mantendo deployment $id ($environment, #$idx de $KEEP_LATEST, criado em $created_at)"
+              continue
+            fi
+
+            if [ "$cutoff_epoch" != "0" ]; then
+              created_epoch=$(date -d "$created_at" +%s)
+              if [ "$created_epoch" -gt "$cutoff_epoch" ]; then
+                echo "Mantendo deployment $id ($environment): mais recente que $DAYS_OLD dia(s)"
+                continue
+              fi
+            fi
+
+            echo "Apagando deployment $id ($environment, criado em $created_at)"
+            gh api -X POST "repos/$REPO/deployments/$id/statuses" \
+              -f state=inactive >/dev/null 2>&1 || true
+            gh api -X DELETE "repos/$REPO/deployments/$id" || true
+          done
