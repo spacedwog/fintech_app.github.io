@@ -239,6 +239,22 @@ button.secondary {
   font-size: 13px;
 }
 
+/* Botão em formato de link de texto, usado para ações secundárias dentro
+   de um card (ex.: "Informar número da transação manualmente" quando a
+   leitura automática do comprovante falha). */
+button.link-btn {
+  display: block;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 auto;
+  color: var(--primary);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+button.link-btn:hover { color: var(--primary-dark); }
+
 .switch-link {
   text-align: center;
   margin-top: 16px;

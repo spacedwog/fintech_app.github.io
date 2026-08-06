@@ -884,7 +884,7 @@ class PaymentService {
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
-  async addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification }) {
+  async addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber }) {
     const session = Auth.requireSession();
     const db = await loadDb();
     const payment = {
@@ -897,6 +897,11 @@ class PaymentService {
       txid,
       verifiedByAI: !!verifiedByAI,
       aiClassification: aiClassification || null,
+      // Nº da transação digitado pelo usuário (ManualTransactionModal, ver
+      // js/dashboard.js) quando a leitura automática do comprovante (OCR)
+      // não foi possível. Só serve como referência para conferência manual
+      // -- não é validado contra nenhum banco de verdade.
+      manualTxnNumber: manualTxnNumber || null,
       date: nowIso(),
     };
     db.payments.push(payment);

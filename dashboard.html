@@ -113,6 +113,9 @@
             class="w-100"
           />
           <p id="expense-receipt-status" class="small-muted mt-8 mb-0 min-h-1rem"></p>
+          <button type="button" id="expense-receipt-manual-btn" class="link-btn mt-4">
+            Não deu para enviar o comprovante? Informar número da transação manualmente
+          </button>
         </div>
 
         <!-- Página 1: Importar Orçamento -->
@@ -576,6 +579,9 @@
           class="w-100"
         />
         <p id="pix-receipt-status" class="small-muted mt-8 mb-0 min-h-1rem"></p>
+        <button type="button" id="pix-receipt-manual-btn" class="link-btn mt-4">
+          Não deu para enviar o comprovante? Informar número da transação manualmente
+        </button>
       </div>
 
       <div class="button-row">
@@ -587,6 +593,40 @@
     </div>
   </div>
   <!-- /MODAL PIX -->
+
+  <!-- ============================================================
+       MODAL — INFORMAR Nº DA TRANSAÇÃO MANUALMENTE
+       Abre quando a leitura automática (OCR local, js/receipt-ai.js) do
+       comprovante não é possível (formato não suportado, motor de OCR/PDF.js
+       indisponível, PDF corrompido etc.). Compartilhado entre a confirmação
+       de pagamento Pix e o upload de comprovante de despesa.
+  ============================================================ -->
+  <div id="manual-txn-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 class="m-0 fs-18">Confirmar manualmente</h2>
+        <button type="button" id="manual-txn-modal-close" class="modal-close-btn">&times;</button>
+      </div>
+
+      <p id="manual-txn-modal-desc" class="small-muted mt-0 mb-16">
+        Não foi possível ler o comprovante automaticamente. Informe o número (ou código de
+        autenticação) da transação que aparece no comprovante para confirmar manualmente.
+      </p>
+
+      <div class="field">
+        <label for="manual-txn-input">Número da transação</label>
+        <input type="text" id="manual-txn-input" placeholder="Ex: E00000000202508061200abcdef123" />
+      </div>
+
+      <div id="manual-txn-error" class="error-box hidden"></div>
+
+      <div class="button-row">
+        <button type="button" id="manual-txn-cancel" class="secondary flex-1">Cancelar</button>
+        <button type="button" id="manual-txn-confirm" class="primary flex-1 mt-0">Confirmar</button>
+      </div>
+    </div>
+  </div>
+  <!-- /MODAL Nº DA TRANSAÇÃO -->
 
   <!-- ============================================================
        MODAL — CONFIGURAR LAYOUT DE LEITURA (Importar Orçamento)

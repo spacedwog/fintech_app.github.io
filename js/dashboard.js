@@ -102,11 +102,107 @@ class MercadoPagoStatusIndicator {
   }
 }
 
+// ---------- ManualTransactionModal: quando a leitura automática (OCR) do
+// comprovante não é possível (formato não suportado, motor de OCR/PDF.js
+// indisponível, PDF corrompido etc.), abre este modal para o usuário
+// digitar o número/código de autenticação da transação que aparece no
+// comprovante bancário, permitindo confirmar manualmente mesmo assim.
+// Compartilhado entre a confirmação de pagamento Pix (PixPaymentModal) e o
+// upload de comprovante de despesa (DashboardController). ----------
+
+class ManualTransactionModal {
+  constructor() {
+    this.modalEl = null;
+    this.inputEl = null;
+    this.errorEl = null;
+    this.descEl = null;
+    this.confirmBtn = null;
+    this.onConfirm = null;
+    this.onCancel = null;
+  }
+
+  setup() {
+    this.modalEl = document.getElementById("manual-txn-modal");
+    if (!this.modalEl) return;
+
+    this.inputEl = document.getElementById("manual-txn-input");
+    this.errorEl = document.getElementById("manual-txn-error");
+    this.descEl = document.getElementById("manual-txn-modal-desc");
+    this.confirmBtn = document.getElementById("manual-txn-confirm");
+
+    const closeBtn = document.getElementById("manual-txn-modal-close");
+    const cancelBtn = document.getElementById("manual-txn-cancel");
+    if (closeBtn) closeBtn.addEventListener("click", () => this._cancel());
+    if (cancelBtn) cancelBtn.addEventListener("click", () => this._cancel());
+
+    if (this.confirmBtn) {
+      this.confirmBtn.addEventListener("click", () => this._submit());
+    }
+    if (this.inputEl) {
+      this.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this._submit();
+        }
+      });
+    }
+  }
+
+  _submit() {
+    const value = ((this.inputEl && this.inputEl.value) || "").trim();
+    if (!value) {
+      if (this.errorEl) {
+        this.errorEl.textContent = "Informe o número da transação.";
+        this.errorEl.classList.remove("hidden");
+      }
+      return;
+    }
+    const cb = this.onConfirm;
+    this._close();
+    if (cb) cb(value);
+  }
+
+  _cancel() {
+    const cb = this.onCancel;
+    this._close();
+    if (cb) cb();
+  }
+
+  // opts: { reason (string opcional, explica por que a leitura falhou),
+  //         onConfirm(txnNumber), onCancel() }
+  open(opts) {
+    opts = opts || {};
+    if (!this.modalEl) return;
+
+    this.onConfirm = typeof opts.onConfirm === "function" ? opts.onConfirm : null;
+    this.onCancel = typeof opts.onCancel === "function" ? opts.onCancel : null;
+
+    if (this.descEl) {
+      const intro = opts.reason ? `${opts.reason} ` : "Não foi possível ler o comprovante automaticamente. ";
+      this.descEl.textContent =
+        intro + "Informe o número (ou código de autenticação) da transação que aparece no comprovante para confirmar manualmente.";
+    }
+    if (this.inputEl) this.inputEl.value = "";
+    if (this.errorEl) this.errorEl.classList.add("hidden");
+
+    this.modalEl.classList.remove("hidden");
+    if (this.inputEl) setTimeout(() => this.inputEl.focus(), 0);
+  }
+
+  _close() {
+    if (!this.modalEl) return;
+    this.modalEl.classList.add("hidden");
+    this.onConfirm = null;
+    this.onCancel = null;
+  }
+}
+
 // ---------- PixPaymentModal: QR real + copia-e-cola + confirmação (OCR ou manual) ----------
 
 class PixPaymentModal {
-  constructor(merchant) {
+  constructor(merchant, manualTxnModal) {
     this.merchant = merchant; // { key, name, city }
+    this.manualTxnModal = manualTxnModal || null;
     this.modalEl = null;
     this.confirmCallback = null;
     this.currentTxid = null;
@@ -140,6 +236,11 @@ class PixPaymentModal {
       this.receiptInput.addEventListener("change", () => {
         this._handleReceiptUpload(this.receiptInput.files && this.receiptInput.files[0]);
       });
+    }
+
+    const manualBtn = document.getElementById("pix-receipt-manual-btn");
+    if (manualBtn) {
+      manualBtn.addEventListener("click", () => this._promptManualTxn(null));
     }
 
     if (this.confirmBtn) {
@@ -180,9 +281,11 @@ class PixPaymentModal {
     this.receiptStatus.style.color = "";
 
     if (!window.ReceiptAI) {
-      this.receiptStatus.textContent = "IA de leitura indisponível neste navegador. Você pode confirmar manualmente.";
+      const reason = "IA de leitura indisponível neste navegador.";
+      this.receiptStatus.textContent = `${reason} Informe o número da transação para confirmar manualmente.`;
       this.receiptStatus.style.color = "#b45309";
-      this._setConfirmState(true, "Confirmar manualmente", "warn");
+      this._setConfirmState(false, "Informe o número da transação");
+      this._promptManualTxn(reason);
       return;
     }
 
@@ -193,10 +296,30 @@ class PixPaymentModal {
       })
       .catch((err) => {
         const reason = (err && err.message) || "Não foi possível ler o comprovante automaticamente.";
-        this.receiptStatus.textContent = `${reason} Confira os dados e confirme manualmente.`;
+        this.receiptStatus.textContent = `${reason} Informe o número da transação para confirmar manualmente.`;
+        this.receiptStatus.style.color = "#b45309";
+        this._setConfirmState(false, "Informe o número da transação");
+        this._promptManualTxn(reason);
+      });
+  }
+
+  // Abre o ManualTransactionModal (leitura automática indisponível/falhou)
+  // e, se o usuário informar o número, guarda como receiptAnalysis "manual"
+  // (sem validação de IA) e libera a confirmação com um rótulo de alerta.
+  _promptManualTxn(reason) {
+    if (!this.manualTxnModal) return;
+    this.manualTxnModal.open({
+      reason,
+      onConfirm: (txnNumber) => {
+        this.receiptAnalysis = { ok: false, manualTxnNumber: txnNumber };
+        this.receiptStatus.textContent = `📝 Nº da transação informado manualmente: ${txnNumber}. Confira o comprovante antes de confirmar.`;
         this.receiptStatus.style.color = "#b45309";
         this._setConfirmState(true, "Confirmar manualmente", "warn");
-      });
+      },
+      onCancel: () => {
+        this._setConfirmState(false, "Informe o número da transação");
+      },
+    });
   }
 
   _renderReceiptResult(result) {
@@ -317,7 +440,8 @@ class DashboardController {
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
 
-    this.pixModal = new PixPaymentModal(PIX_MERCHANT);
+    this.manualTxnModal = new ManualTransactionModal();
+    this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
     this.syncStatus = new SyncStatusIndicator();
     this.mpStatus = new MercadoPagoStatusIndicator();
 
@@ -353,6 +477,7 @@ class DashboardController {
       return;
     }
 
+    this.manualTxnModal.setup();
     this.pixModal.setup();
     // Botão ⟳ ao lado do badge do Mercado Pago: só reconsulta o status
     // (Api.getMercadoPagoStatus), sem abrir nenhuma configuração.
@@ -500,10 +625,18 @@ class DashboardController {
   // o valor lido para pré-preencher o formulário de "Registrar Despesas".
   _bindExpenseReceiptUpload() {
     const input = document.getElementById("expense-receipt-input");
-    if (!input) return;
-    input.addEventListener("change", () => {
-      this._handleExpenseReceiptUpload(input.files && input.files[0]);
-    });
+    if (input) {
+      input.addEventListener("change", () => {
+        this._handleExpenseReceiptUpload(input.files && input.files[0]);
+      });
+    }
+
+    const manualBtn = document.getElementById("expense-receipt-manual-btn");
+    if (manualBtn) {
+      manualBtn.addEventListener("click", () => {
+        this._promptManualTxnForExpense(null, document.getElementById("expense-receipt-status"));
+      });
+    }
   }
 
   _handleExpenseReceiptUpload(file) {
@@ -519,8 +652,10 @@ class DashboardController {
     status.style.color = "";
 
     if (!window.ReceiptAI) {
-      status.textContent = "IA de leitura indisponível neste navegador. Preencha a despesa manualmente.";
+      const reason = "IA de leitura indisponível neste navegador.";
+      status.textContent = `${reason} Informe o número da transação para completar manualmente.`;
       status.style.color = "#b45309";
+      this._promptManualTxnForExpense(reason, status);
       return;
     }
 
@@ -538,9 +673,33 @@ class DashboardController {
       })
       .catch((err) => {
         const reason = (err && err.message) || "Não foi possível ler o comprovante automaticamente.";
-        status.textContent = `${reason} Preencha a despesa manualmente.`;
+        status.textContent = `${reason} Informe o número da transação para completar manualmente.`;
         status.style.color = "#b45309";
+        this._promptManualTxnForExpense(reason, status);
       });
+  }
+
+  // Abre o ManualTransactionModal quando a leitura do comprovante de
+  // despesa não é possível. Como o formulário de despesa não tem um campo
+  // dedicado a "número da transação", ele é anexado à descrição — assim o
+  // dado fica salvo junto com a despesa (Api.addExpense) sem precisar de
+  // mudança no schema.
+  _promptManualTxnForExpense(reason, status) {
+    if (!this.manualTxnModal) return;
+    this.manualTxnModal.open({
+      reason,
+      onConfirm: (txnNumber) => {
+        const descInput = document.getElementById("expense-description");
+        if (descInput) {
+          const tag = `Nº transação: ${txnNumber}`;
+          descInput.value = descInput.value.trim() ? `${descInput.value.trim()} — ${tag}` : tag;
+        }
+        if (status) {
+          status.textContent = `📝 Nº da transação informado: ${txnNumber}. Confira o valor e a categoria da despesa.`;
+          status.style.color = "#b45309";
+        }
+      },
+    });
   }
 
   _goToFlowPage(page) {
@@ -719,6 +878,7 @@ class DashboardController {
             txid,
             verifiedByAI: !!(analysis && analysis.amountMatches && analysis.merchantMatches),
             aiClassification: analysis ? analysis.classification : null,
+            manualTxnNumber: analysis ? analysis.manualTxnNumber : null,
           });
         }
         await this._refreshQuotaInfo();
@@ -1330,6 +1490,7 @@ class DashboardController {
           txid,
           verifiedByAI: !!(analysis && analysis.amountMatches && analysis.merchantMatches),
           aiClassification: analysis ? analysis.classification : null,
+          manualTxnNumber: analysis ? analysis.manualTxnNumber : null,
         });
         const me = await Api.me();
         this.currentTenant = me.tenant;
@@ -1347,8 +1508,8 @@ class DashboardController {
   // localStorage. Assim o histórico também sincroniza entre dispositivos
   // quando o Firebase está configurado.
 
-  async _recordPayment({ type, plan, amount, txid, verifiedByAI, aiClassification }) {
-    await Api.addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification });
+  async _recordPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber }) {
+    await Api.addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber });
   }
 
   // Status da Nota Fiscal de Serviço (NFS-e) real deste pagamento -- gerada
@@ -1415,12 +1576,20 @@ class DashboardController {
           badges.push(`<span style="color:#b45309;">⚠ confirmação manual (ainda não validado por IA nem pelo Mercado Pago)</span>`);
         }
         const badge = badges.join(" · ");
+        // Quando a leitura automática do comprovante não foi possível, o
+        // usuário informou o número da transação manualmente (ver
+        // ManualTransactionModal) — mostra isso aqui para dar transparência
+        // de que a validação, nesse caso, foi manual.
+        const manualTxnLine = p.manualTxnNumber
+          ? `<p class="small-muted" style="margin:2px 0 0;font-size:12px;">Nº da transação informado pelo usuário: ${p.manualTxnNumber}</p>`
+          : "";
         return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
           <div>
             <p style="margin:0;font-size:14px;">${label}</p>
             <p class="small-muted" style="margin:2px 0 0;">${dt.toLocaleDateString("pt-BR")} ${dt.toLocaleTimeString("pt-BR").slice(0, 5)} · txid ${p.txid || "-"}</p>
             <p style="margin:2px 0 0;font-size:12px;">${badge}</p>
+            ${manualTxnLine}
             <p style="margin:2px 0 0;font-size:12px;">${this._nfseStatusHtml(p)}</p>
           </div>
           <strong style="color:var(--success);">R$ ${p.amount.toFixed(2)}</strong>
@@ -1613,6 +1782,7 @@ class DashboardController {
       { data: "Senha (armazenada como hash, nunca em texto puro)", finalidade: "Autenticação.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Despesas, categorias e orçamentos", finalidade: "Fornecer o serviço de controle financeiro.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Comprovante de Pix (imagem ou PDF, lido localmente no navegador)", finalidade: "Confirmar pagamentos.", base: "Execução de contrato (art. 7º, V)" },
+      { data: "Número da transação informado manualmente (quando a leitura automática do comprovante falha)", finalidade: "Permitir a confirmação do pagamento sem depender da IA de OCR.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Cookies do Google Ads / Tag Manager", finalidade: "Medir audiência e conversões de anúncios.", base: "Consentimento (art. 7º, I) — desativado por padrão" },
     ];
   }
