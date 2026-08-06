@@ -102,10 +102,16 @@
              automaticamente o valor na Página 2 (Registrar Despesas). -->
         <div class="card" id="expense-receipt-upload-card">
           <label for="expense-receipt-input" class="small-muted d-block mb-6">
-            Comprovante de pagamento (opcional) — envie a foto ou print e a IA (OCR local, no seu
-            navegador) tenta identificar o valor e preencher a despesa automaticamente
+            Comprovante de pagamento (opcional) — envie a foto, print ou PDF (.png, .jpg/.jpeg ou
+            .pdf) e a IA (OCR local, no seu navegador) tenta identificar o valor e preencher a
+            despesa automaticamente
           </label>
-          <input type="file" id="expense-receipt-input" accept="image/*" class="w-100" />
+          <input
+            type="file"
+            id="expense-receipt-input"
+            accept="image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf"
+            class="w-100"
+          />
           <p id="expense-receipt-status" class="small-muted mt-8 mb-0 min-h-1rem"></p>
         </div>
 
@@ -561,9 +567,14 @@
 
       <div class="text-left mb-16">
         <label for="pix-receipt-input" class="small-muted d-block mb-6">
-          Comprovante da transferência
+          Comprovante da transferência (.png, .jpg/.jpeg ou .pdf)
         </label>
-        <input type="file" id="pix-receipt-input" accept="image/*" class="w-100" />
+        <input
+          type="file"
+          id="pix-receipt-input"
+          accept="image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf"
+          class="w-100"
+        />
         <p id="pix-receipt-status" class="small-muted mt-8 mb-0 min-h-1rem"></p>
       </div>
 

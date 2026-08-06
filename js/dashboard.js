@@ -191,9 +191,9 @@ class PixPaymentModal {
         this.receiptAnalysis = result;
         this._renderReceiptResult(result);
       })
-      .catch(() => {
-        this.receiptStatus.textContent =
-          "Não foi possível ler o comprovante automaticamente. Confira os dados e confirme manualmente.";
+      .catch((err) => {
+        const reason = (err && err.message) || "Não foi possível ler o comprovante automaticamente.";
+        this.receiptStatus.textContent = `${reason} Confira os dados e confirme manualmente.`;
         this.receiptStatus.style.color = "#b45309";
         this._setConfirmState(true, "Confirmar manualmente", "warn");
       });
@@ -536,8 +536,9 @@ class DashboardController {
           status.style.color = "#b45309";
         }
       })
-      .catch(() => {
-        status.textContent = "Não foi possível ler o comprovante automaticamente. Preencha a despesa manualmente.";
+      .catch((err) => {
+        const reason = (err && err.message) || "Não foi possível ler o comprovante automaticamente.";
+        status.textContent = `${reason} Preencha a despesa manualmente.`;
         status.style.color = "#b45309";
       });
   }
@@ -1611,7 +1612,7 @@ class DashboardController {
       { data: "Nome e e-mail", finalidade: "Criar sua conta, identificar você e permitir o login.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Senha (armazenada como hash, nunca em texto puro)", finalidade: "Autenticação.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Despesas, categorias e orçamentos", finalidade: "Fornecer o serviço de controle financeiro.", base: "Execução de contrato (art. 7º, V)" },
-      { data: "Comprovante de Pix (imagem, lida localmente no navegador)", finalidade: "Confirmar pagamentos.", base: "Execução de contrato (art. 7º, V)" },
+      { data: "Comprovante de Pix (imagem ou PDF, lido localmente no navegador)", finalidade: "Confirmar pagamentos.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Cookies do Google Ads / Tag Manager", finalidade: "Medir audiência e conversões de anúncios.", base: "Consentimento (art. 7º, I) — desativado por padrão" },
     ];
   }
