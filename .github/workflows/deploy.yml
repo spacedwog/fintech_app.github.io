@@ -11,8 +11,14 @@ permissions:
   id-token: write
 
 concurrency:
+  # cancel-in-progress: false (recomendado pelo template oficial do GitHub Pages).
+  # Com "true", um push novo mata o job no meio do deploy-pages sem avisar o
+  # ambiente "github-pages" -- a implantacao anterior fica presa como
+  # "in_progress"/"queued" e a proxima nunca sai de deployment_queued, pois o
+  # Pages so libera a fila quando a implantacao anterior termina (ou falha)
+  # normalmente, nao quando o job e cancelado a forca.
   group: pages-deploy
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   # Secret criado em: Settings > Secrets and variables > Actions > New repository secret
