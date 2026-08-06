@@ -405,6 +405,73 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 
 .mp-status.connected #mp-status-label { color: var(--success); }
 
+/* Botão de atualizar (refresh) ao lado do badge do Mercado Pago -- chama
+   MercadoPagoAgent.refresh() em js/dashboard.js, sem precisar abrir o
+   painel do agenteIA. */
+.mp-refresh-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.mp-refresh-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+
+.mp-refresh-btn.spinning { animation: mp-spin 0.7s linear infinite; }
+
+@keyframes mp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Painel do agenteIA do Mercado Pago (MercadoPagoAgent, js/dashboard.js) --
+   popover leve ancorado no badge da sidebar, SEM overlay escuro (não é um
+   .modal-overlay/.modal-box como os outros modais do painel). */
+.mp-agent-panel {
+  position: fixed;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  padding: 16px;
+  z-index: 150;
+  text-align: left;
+}
+
+.mp-agent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.mp-agent-header strong { font-size: 15px; }
+
+.mp-agent-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.mp-agent-diagnosis {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
 .plan-card {
   border: 1px solid var(--border);
   border-radius: 10px;
