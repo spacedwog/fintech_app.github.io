@@ -44,10 +44,16 @@ jobs:
           for workflow_id in $(gh api "repos/$REPO/actions/workflows" --paginate --jq '.workflows[].id'); do
             echo "== Workflow $workflow_id =="
 
+            # Inclui o "status" de cada run (queued/in_progress/waiting/completed/etc.)
+            # para nunca apagar uma execucao que ainda nao terminou -- apagar um run
+            # enquanto ele esta "in_progress" (ex.: preso em deployment_in_progress no
+            # Pages) deixa o deployment do ambiente github-pages orfao, marcado como
+            # "Active"/falho para sempre, pois o Pages nunca recebe o status final.
+            # Veja o comentario equivalente em deploy.yml sobre esse mesmo sintoma.
             mapfile -t run_ids < <(
               gh api "repos/$REPO/actions/workflows/$workflow_id/runs" \
                 --paginate \
-                --jq '.workflow_runs | sort_by(.created_at) | reverse | .[] | "\(.id) \(.created_at)"'
+                --jq '.workflow_runs | sort_by(.created_at) | reverse | .[] | "\(.id)|\(.status)|\(.created_at)"'
             )
 
             total=${#run_ids[@]}
@@ -58,8 +64,15 @@ jobs:
 
             for i in $(seq "$KEEP_LATEST" $((total - 1))); do
               line="${run_ids[$i]}"
-              run_id="${line%% *}"
-              created_at="${line#* }"
+              run_id="${line%%|*}"
+              rest="${line#*|}"
+              run_status="${rest%%|*}"
+              created_at="${rest#*|}"
+
+              if [ "$run_status" != "completed" ]; then
+                echo "Pulando run $run_id: ainda nao terminou (status=$run_status)"
+                continue
+              fi
 
               if [ "$cutoff_epoch" != "0" ]; then
                 run_epoch=$(date -d "$created_at" +%s)
