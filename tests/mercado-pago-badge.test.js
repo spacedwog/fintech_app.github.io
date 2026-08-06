@@ -165,9 +165,9 @@ function check(name, cond) {
     });
 
     // Simula também o que StatusTracker (orcamento_agent/mp_reconcile.py,
-    // reaproveitado por mp_expenses.py/mp_email_expenses.py) grava sobre a
-    // PRÓPRIA execução -- "global" para mp_reconcile.py (não é por tenant,
-    // ver comentário em mp_reconcile.py), por tenant_id para mp_expenses.py.
+    // reaproveitado por mp_expenses.py) grava sobre a PRÓPRIA execução --
+    // "global" para mp_reconcile.py (não é por tenant, ver comentário em
+    // mp_reconcile.py), por tenant_id para mp_expenses.py.
     db.mercado_pago_status = {
       global: { last_reconcile: { at: "2026-08-04T12:05:00.000Z", verificados: 1, ambiguos: 0 } },
       [session.tenant_id]: {

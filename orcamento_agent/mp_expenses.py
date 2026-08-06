@@ -164,12 +164,10 @@ class ExpenseGenerator:
     receita da conta (ver docstring do módulo).
 
     cross_source_window_days/cross_source_tolerance: mesma heurística
-    valor+data de mp_reconcile.PaymentReconciler, aplicada aqui para evitar
-    DUAS despesas para o mesmo pagamento real quando mp_expenses.py (API) e
-    mp_email_expenses.py (e-mail) rodam para o mesmo período -- os dois
-    caminhos geram ids de origem diferentes (numérico da API x Message-ID do
-    e-mail), então a dedup por mercadoPagoPaymentId sozinha não pega esse
-    caso (ver "Limitações" no LEIA-ME.md)."""
+    valor+data de mp_reconcile.PaymentReconciler, aplicada aqui como reforço
+    para evitar DUAS despesas para o mesmo pagamento real caso a dedup por
+    mercadoPagoPaymentId sozinha não pegue algum caso (ver "Limitações" no
+    LEIA-ME.md)."""
 
     def __init__(self, categorizer, cross_source_window_days=2, cross_source_tolerance=0.01):
         self.categorizer = categorizer
@@ -177,10 +175,10 @@ class ExpenseGenerator:
         self.cross_source_tolerance = cross_source_tolerance
 
     def _is_cross_source_duplicate(self, valor, data_iso, existentes_mp):
-        """True se já existe uma despesa gerada via Mercado Pago (API ou
-        e-mail, qualquer uma) com valor e data próximos -- best-effort, mesmo
-        espírito de mp_reconcile.PaymentReconciler (nunca lança exceção,
-        heurística, não vínculo exato)."""
+        """True se já existe uma despesa gerada via Mercado Pago com valor e
+        data próximos -- best-effort, mesmo espírito de
+        mp_reconcile.PaymentReconciler (nunca lança exceção, heurística, não
+        vínculo exato)."""
         alvo_date = mp_reconcile.DateParser.to_utc_date(data_iso) if data_iso else None
         if alvo_date is None:
             return False
@@ -216,11 +214,10 @@ class ExpenseGenerator:
             for e in db.get("expenses", [])
             if e.get("tenant_id") == tenant_id and e.get("mercadoPagoPaymentId") is not None
         }
-        # Despesas já geradas via Mercado Pago (API ou e-mail) para este tenant
-        # -- base da checagem cruzada por valor+data (ver _is_cross_source_duplicate).
-        # Recalculada a cada despesa nova criada nesta mesma chamada, para que
-        # duas linhas do MESMO lote (ex.: dois e-mails quase idênticos) também
-        # não dupliquem entre si.
+        # Despesas já geradas via Mercado Pago para este tenant -- base da
+        # checagem cruzada por valor+data (ver _is_cross_source_duplicate).
+        # Recalculada a cada despesa nova criada nesta mesma chamada, para
+        # que duas linhas do MESMO lote também não dupliquem entre si.
         existentes_mp = [
             e for e in db.get("expenses", [])
             if e.get("tenant_id") == tenant_id and e.get("generatedByMercadoPago")
@@ -280,8 +277,8 @@ class ExpenseGenerator:
                 # selo "gerada via Mercado Pago" no painel (ver js/dashboard.js).
                 "mercadoPagoPaymentId": mp_id,
                 "generatedByMercadoPago": True,
-                # Distingue de despesas geradas por orcamento_agent/mp_email_expenses.py
-                # (que usa "email" aqui) no selo do painel web -- ver js/dashboard.js.
+                # Origem da despesa, usada no selo do painel web -- ver
+                # js/dashboard.js.
                 "mercadoPagoSource": "api",
             }
             db.setdefault("expenses", []).append(expense)

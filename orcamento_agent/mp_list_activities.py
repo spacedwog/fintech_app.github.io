@@ -42,11 +42,11 @@ import mp_sync  # fetch_mp_payments -- mesma busca já usada pela suite inteira
 
 
 def find_default_config():
-    """Qualquer um dos três configs já usados na pasta serve (mesmo token/
+    """Qualquer um dos configs já usados na pasta serve (mesmo token/
     mesma conta) -- prioriza o mais simples (config.json, do mp_sync.py, que
     não exige conta_email nem fonte de dados do app) para reduzir o quanto
     precisa estar pronto só para listar atividades."""
-    candidatos = ["config.json", "mp_reconcile_config.json", "mp_expenses_config.json", "mp_email_expenses_config.json"]
+    candidatos = ["config.json", "mp_reconcile_config.json", "mp_expenses_config.json"]
     for nome in candidatos:
         if os.path.exists(nome):
             return nome
@@ -177,7 +177,7 @@ def main():
     ap = argparse.ArgumentParser(
         description="Lista as atividades (pagamentos) reais da conta do Mercado Pago -- só leitura, sem Firebase."
     )
-    ap.add_argument("--config", default=None, help="Caminho do config com o Access Token (padrão: primeiro entre config.json, mp_reconcile_config.json, mp_expenses_config.json, mp_email_expenses_config.json que existir)")
+    ap.add_argument("--config", default=None, help="Caminho do config com o Access Token (padrão: primeiro entre config.json, mp_reconcile_config.json, mp_expenses_config.json que existir)")
     ap.add_argument("--dias", type=int, default=30, help="Quantos dias para trás buscar (padrão: 30)")
     ap.add_argument("--status", default=None, help="Filtra por status (ex.: approved, pending, rejected, cancelled)")
     ap.add_argument("--limit", type=int, default=50, help="Quantas linhas mostrar no terminal (padrão: 50; use 0 para mostrar todas)")

@@ -1,8 +1,8 @@
 # Agente de Controle de Orçamento — Mercado Pago
 
 ## O que é
-Esta pasta reúne quatro agentes que usam a conta do Mercado Pago (via API ou via
-e-mail) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local):
+Esta pasta reúne três agentes que usam a conta do Mercado Pago via API (Access
+Token) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local):
 
 1. **`mp_sync.py`** — puxa pagamentos do Mercado Pago, categoriza automaticamente e
    compara com o orçamento previsto numa planilha de orçamento (ex.: o orçamento do
@@ -18,13 +18,8 @@ e-mail) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local)
    automaticamente e sem duplicar o que já é receita da conta (assinatura/despesa
    extra). Ver "Gerar despesas a partir do Mercado Pago (`mp_expenses.py`)" mais
    abaixo.
-4. **`mp_email_expenses.py`** — mesmo objetivo de `mp_expenses.py` (gerar despesas
-   reais na Página 2), mas a partir dos **e-mails de notificação** que o Mercado
-   Pago manda a cada pagamento, em vez da API — não precisa de Access Token, só de
-   acesso IMAP a uma caixa de entrada que receba esses e-mails. Ver "Gerar despesas
-   a partir dos e-mails do Mercado Pago (`mp_email_expenses.py`)" mais abaixo.
 
-Além dos quatro, **`mp_list_activities.py`** é um utilitário só de leitura: lista as
+Além dos três, **`mp_list_activities.py`** é um utilitário só de leitura: lista as
 atividades (pagamentos) reais da conta do Mercado Pago no terminal (e pode exportar
 para CSV/JSON), sem gerar nenhuma despesa e sem precisar de Firebase nem de nenhuma
 cópia do banco do painel — só o Access Token que já está em `config.json` (ou
@@ -45,25 +40,20 @@ Esta pasta vive dentro de `fintech_app.github.io`, que é um **repositório púb
 no GitHub. `config.json` (e, se você usar `mp_reconcile.py`/`mp_expenses.py`, também
 `mp_reconcile_config.json`/`mp_expenses_config.json`) vai conter o Access Token real
 da sua conta Mercado Pago — se isso for parar num commit público, qualquer pessoa
-consegue ler/movimentar sua conta. Se você usar `mp_email_expenses.py`, o
-`mp_email_expenses_config.json` vai conter a senha (idealmente uma "senha de app")
-de uma caixa de entrada de e-mail real — um segredo igualmente sensível. O mesmo
-vale para uma eventual chave de conta de serviço do Firebase (dá acesso de
-leitura/escrita total ao banco do app). Por isso:
+consegue ler/movimentar sua conta. O mesmo vale para uma eventual chave de conta de
+serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por isso:
 - Foi criado um `.gitignore` na raiz do repositório que ignora `orcamento_agent/config.json`,
   `orcamento_agent/mp_reconcile_config.json`, `orcamento_agent/mp_expenses_config.json`,
-  `orcamento_agent/mp_email_expenses_config.json`, qualquer
-  `*serviceAccount*.json`/`*service-account*.json`/`firebase-adminsdk*.json`
+  qualquer `*serviceAccount*.json`/`*service-account*.json`/`firebase-adminsdk*.json`
   dentro desta pasta, `orcamento_agent/logs/` e arquivos de teste. **Confira, antes do
   primeiro `git add`, que esses arquivos aparecem como ignorados** (`git status` não
   deve listá-los).
 - Nunca cole nenhum desses segredos diretamente numa página HTML, JS de frontend ou
   em qualquer arquivo que vá para o site publicado.
 - Se em algum momento algum deles vazar: revogue/renove o Access Token em
-  developers.mercadopago.com.br → Suas integrações → Credenciais; troque a senha de
-  app da caixa de entrada (Gmail/Outlook → Segurança) se for o caso de
-  `mp_email_expenses.py`; para a chave do Firebase, revogue em Console do Firebase →
-  Configurações do projeto → Contas de serviço.
+  developers.mercadopago.com.br → Suas integrações → Credenciais; para a chave do
+  Firebase, revogue em Console do Firebase → Configurações do projeto → Contas de
+  serviço.
 
 ## Arquivos
 - Planilha de orçamento (qualquer nome/local — informe via `--planilha` ou no
@@ -93,15 +83,6 @@ leitura/escrita total ao banco do app). Por isso:
   depois de qualquer alteração no script.
 - `mp_expenses_config.example.json` — modelo de configuração do `mp_expenses.py`
   (copie para `mp_expenses_config.json`, nunca versione o arquivo copiado).
-- `mp_email_expenses.py` — gera despesas de verdade no painel web a partir dos
-  E-MAILS de notificação do Mercado Pago (sem precisar de Access Token). Ver seção
-  própria abaixo.
-- `test_mp_email_expenses.py` — teste automatizado do `mp_email_expenses.py` com
-  e-mails simulados (não conecta em nenhuma caixa de entrada real nem chama a API).
-  Rode `python3 test_mp_email_expenses.py` depois de qualquer alteração no script.
-- `mp_email_expenses_config.example.json` — modelo de configuração do
-  `mp_email_expenses.py` (copie para `mp_email_expenses_config.json`, nunca versione
-  o arquivo copiado).
 - `mp_list_activities.py` — utilitário só de leitura: lista/exporta as atividades
   reais da conta do Mercado Pago sem gerar despesa nenhuma. Ver seção própria abaixo.
 - `test_mp_list_activities.py` — teste automatizado do `mp_list_activities.py` com
@@ -116,8 +97,8 @@ atividades (pagamentos) reais na API do Mercado Pago e mostra numa tabela no
 terminal, com um resumo por status e o total aprovado no período. **Não grava nada**
 em lugar nenhum (nem no painel web, nem no Mercado Pago) — só precisa do Access
 Token que já está em `config.json` (reaproveita automaticamente o primeiro entre
-`config.json`, `mp_reconcile_config.json`, `mp_expenses_config.json` ou
-`mp_email_expenses_config.json` que existir, já que todos usam a mesma conta).
+`config.json`, `mp_reconcile_config.json` ou `mp_expenses_config.json` que existir,
+já que todos usam a mesma conta).
 
 **Rodar:**
 ```bash
@@ -299,109 +280,28 @@ automaticamente); pagamentos que nunca aparecerem em `payments` nem baterem no
 filtro de descrição podem, em teoria, ser lançados como despesa mesmo sendo receita
 — por isso a recomendação de sempre rodar `mp_reconcile.py` antes.
 
-## Gerar despesas a partir dos e-mails do Mercado Pago (`mp_email_expenses.py`)
-Mesmo objetivo de `mp_expenses.py` (fechar o fluxo 🔄 Orçamento & Despesas gerando
-despesas reais na Página 2, sem digitar nada), mas por um caminho que **não precisa de
-Access Token nenhum**: o Mercado Pago manda um e-mail a cada pagamento aprovado (ex.:
-"Você fez um pagamento de R$ 35,50 para UBER"); este script lê esses e-mails direto
-numa caixa de entrada via IMAP, extrai valor/descrição/data e gera a despesa — reaproveitando
-a MESMA categorização por palavra-chave e a MESMA idempotência de `mp_expenses.py`
-(`mp_email_expenses.generate_expenses` é, na prática, `mp_expenses.generate_expenses`
-reutilizado sem alteração).
-
-**Quando usar este em vez de `mp_expenses.py`:** quando você não quer/não pode gerar um
-Access Token do Mercado Pago, ou só quer confirmar rápido a integração sem cadastro
-nenhum. `mp_expenses.py` continua sendo mais preciso (todos os pagamentos aprovados,
-direto da API); este aqui depende do e-mail ter chegado e do texto seguir um padrão
-reconhecível — mesmo espírito best-effort do cruzamento por valor+data de
-`mp_reconcile.py`. Os dois podem rodar lado a lado (não conflitam, mas também não se
-deduplicam entre si — ver "Limitações" abaixo).
-
-**Como decide o que é despesa, o que é receita e o que ignorar (por e-mail):**
-1. **Classificação por palavra-chave no assunto/corpo do e-mail** — três grupos,
-   verificados nesta ordem: `ignorar_sempre_contendo` (cancelado, estornado, recusado,
-   pendente — nunca vira despesa, independente do resto), `palavras_receita_contendo`
-   ("você recebeu", "recebeu um pagamento" etc. — a conta RECEBEU dinheiro, mesma
-   lógica de exclusão de receita do `mp_expenses.py`, nunca vira despesa) e
-   `palavras_despesa_contendo` ("pagamento aprovado", "compra aprovada" etc. — só esses
-   viram despesa). E-mails que não batem com nenhum grupo são ignorados por segurança
-   (mais seguro do que arriscar lançar algo que não é um pagamento de verdade).
-2. **Extração do valor**: procura um valor no formato `R$ 1.234,56` primeiro no assunto,
-   depois no corpo (preferindo uma linha que contenha a palavra "valor"). E-mails
-   classificados como despesa mas sem nenhum valor reconhecível são ignorados
-   (aparecem no resumo como "sem_valor" — revise manualmente esses casos).
-3. Igual a `mp_expenses.py`: o que sobra é categorizado por palavra-chave (`mapeamento`
-   do config, aplicada sobre o assunto do e-mail) — sem correspondência, cai em
-   `categoria_padrao`.
-
-**Configurar:**
-1. Copie `mp_email_expenses_config.example.json` → `mp_email_expenses_config.json`.
-2. Preencha os dados IMAP da caixa de entrada que recebe os avisos do Mercado Pago —
-   `imap_server`, `email_address`, `email_password` (gere uma "senha de app" se a conta
-   de e-mail tiver 2FA, o que é o normal em Gmail/Outlook) — e `mailbox` se não for a
-   caixa de entrada padrão.
-3. Preencha `"conta_email"` — o e-mail de login da conta do painel web que vai receber
-   as despesas (precisa já existir; pode ser diferente do `email_address` do IMAP).
-4. Escolha a fonte de dados do app (`firebase_service_account` ou `db_json`, mesmo
-   esquema de `mp_expenses_config.json`).
-5. Ajuste `mapeamento`/`categoria_padrao`/`ignorar_descricoes_contendo` como preferir
-   (mesmos campos de `mp_expenses.py`) e, se quiser, sobrescreva as listas de
-   classificação (`palavras_despesa_contendo`/`palavras_receita_contendo`/
-   `ignorar_sempre_contendo` — deixe `null` para usar o padrão embutido no script).
-6. Nenhuma dependência extra além do que a suíte já usa (`openpyxl`/`requests`, se for
-   usar Firestore junto com `firebase-admin`) — a leitura de e-mail usa só a biblioteca
-   padrão do Python (`imaplib`/`email`).
-7. Rode:
-   ```
-   python3 mp_email_expenses.py --dry-run      # mostra o que geraria, sem gravar nada
-   python3 mp_email_expenses.py                # gera as despesas de verdade
-   python3 mp_email_expenses.py --dias 90       # janela maior
-   ```
-8. Rode `python3 test_mp_email_expenses.py` depois de qualquer alteração no script
-   (e-mails simulados, sem IMAP nem API reais).
-
-**Idempotência:** cada despesa gerada guarda o Message-ID do e-mail de origem no mesmo
-campo `mercadoPagoPaymentId` que `mp_expenses.py` usa — rodar de novo nunca duplica. No
-painel web, essas despesas aparecem na Página 2 com o selo "Mercado Pago (e-mail)"
-(distinto do selo "Mercado Pago (API)" das despesas geradas por `mp_expenses.py` — ver
-README.md da raiz) e entram na mesma contagem do badge da sidebar.
-
-**Limitações (por design):** depende do e-mail ter chegado na caixa configurada (se o
-Mercado Pago mudar o texto/padrão dos e-mails, a extração pode parar de reconhecer
-algum caso — revise `logs/mp_email_expenses.log`); só reconhece um valor por e-mail
-(o primeiro "R$ ..." relevante); cruza com `mp_expenses.py` só por heurística de
-valor+data (mesmo espírito de `mp_reconcile.py`, tolerância de 2 dias/centavos) — na
-imensa maioria dos casos rodar os dois para o mesmo período não duplica mais, mas
-dois pagamentos reais diferentes com o mesmo valor na mesma janela de poucos dias
-ainda podem, em teoria, ser tratados como duplicata um do outro por engano (revise
-`ignoradas_duplicata_cruzada` no resumo se isso importar) — escolha um dos dois
-caminhos como principal quando possível.
-
 ## Agendamento (rodando sozinho)
 Foi configurada uma tarefa agendada que roda `mp_sync.py` automaticamente e te avisa
 por mensagem quando alguma categoria estourar o orçamento. Veja a periodicidade e
 altere quando quiser diretamente pedindo para ajustar o agendamento. O mesmo pode
-ser feito para `mp_reconcile.py`/`mp_expenses.py`/`mp_email_expenses.py` (ex.: rodar
-todo dia, sempre `mp_reconcile.py` antes de `mp_expenses.py`) — basta pedir para
-configurar o agendamento.
+ser feito para `mp_reconcile.py`/`mp_expenses.py` (ex.: rodar todo dia, sempre
+`mp_reconcile.py` antes de `mp_expenses.py`) — basta pedir para configurar o
+agendamento.
 
 Enquanto `config.json`/`mp_reconcile_config.json`/`mp_expenses_config.json` não
-tiverem um token válido (ou, no caso de `mp_email_expenses_config.json`, dados IMAP
-válidos), a execução agendada só vai avisar que falta configurar — não falha
-silenciosamente.
+tiverem um token válido, a execução agendada só vai avisar que falta configurar —
+não falha silenciosamente.
 
 ## Automação sem depender do seu computador (GitHub Actions)
 Além do agendamento local (acima), existe `.github/workflows/mercado-pago-sync.yml`
 no repositório: um workflow do GitHub Actions que roda `mp_reconcile.py` e
-`mp_expenses.py` (e, se configurado, `mp_email_expenses.py`) sozinho, todo dia, num
-runner do GitHub — sem precisar do seu computador ligado. Os segredos (Access Token,
-e-mail da conta, chave do Firebase) ficam em **Secrets** do repositório
-(Settings → Secrets and variables → Actions), nunca no código nem no navegador — o
-próprio arquivo do workflow documenta, nos comentários do topo, exatamente quais
-Secrets criar (`MERCADO_PAGO_ACCESS_TOKEN`, `MP_CONTA_EMAIL`,
-`FIREBASE_SERVICE_ACCOUNT_JSON`, e opcionalmente `MP_JANELA_DIAS`/
-`MP_EMAIL_IMAP_SERVER`/`MP_EMAIL_ADDRESS`/`MP_EMAIL_PASSWORD`/`MP_EMAIL_MAILBOX`
-para também rodar `mp_email_expenses.py`).
+`mp_expenses.py` sozinho, todo dia, num runner do GitHub — sem precisar do seu
+computador ligado. Os segredos (Access Token, e-mail da conta, chave do Firebase)
+ficam em **Secrets** do repositório (Settings → Secrets and variables → Actions),
+nunca no código nem no navegador — o próprio arquivo do workflow documenta, nos
+comentários do topo, exatamente quais Secrets criar (`MERCADO_PAGO_ACCESS_TOKEN`,
+`MP_CONTA_EMAIL`, `FIREBASE_SERVICE_ACCOUNT_JSON`, e opcionalmente
+`MP_JANELA_DIAS`).
 
 Pode rodar manualmente a qualquer momento em **Actions → Mercado Pago —
 sincronização automática → Run workflow**, além do agendamento diário (`cron`,
@@ -425,20 +325,20 @@ JSON do download. O mesmo modal também mostra o status real da última execuç�
 cada agente (`mercado_pago_status`, ver abaixo).
 
 ## Status da automação no painel web (`mercado_pago_status`)
-Depois de rodar (local, agendado, ou via GitHub Actions), `mp_reconcile.py`,
-`mp_expenses.py` e `mp_email_expenses.py` gravam um resumo leve da própria execução
-(horário + contagens) no mesmo banco do painel (Firestore ou `db.json`), no campo
+Depois de rodar (local, agendado, ou via GitHub Actions), `mp_reconcile.py` e
+`mp_expenses.py` gravam um resumo leve da própria execução (horário + contagens) no
+mesmo banco do painel (Firestore ou `db.json`), no campo
 `mercado_pago_status` — implementado por `StatusTracker` em `mp_reconcile.py`
-(reaproveitado pelos outros dois). Isso é só informativo: nenhum script decide nada
+(reaproveitado por `mp_expenses.py`). Isso é só informativo: nenhum script decide nada
 a partir desse campo, e o cálculo de despesas/pagamentos continua vindo de
 `expenses`/`payments` como sempre. Serve para o painel web mostrar "quando a
 automação rodou pela última vez" mesmo em execuções sem nenhuma despesa nova — ver
 `Api.getMercadoPagoStatus()` em `js/api.js` e o modal "Conectar Mercado Pago"
 (`MercadoPagoConnectModal` em `js/dashboard.js`).
 
-## mp_sync.py x mp_reconcile.py x mp_expenses.py x mp_email_expenses.py x Importar Orçamento — qual usar
-Os quatro primeiros usam a conta do Mercado Pago (API ou e-mail); o quinto é só
-leitura local — cada um resolve uma coisa diferente:
+## mp_sync.py x mp_reconcile.py x mp_expenses.py x Importar Orçamento — qual usar
+Os três primeiros usam a conta do Mercado Pago via API; o quarto é só leitura local
+— cada um resolve uma coisa diferente:
 - **`mp_sync.py`** (Python, agendado): automação recorrente para a planilha de
   orçamento (ex.: casamento) — puxa pagamentos reais do Mercado Pago, grava em
   MP_Transacoes e recalcula Previsto x Gasto via fórmulas da planilha. Exige
@@ -456,11 +356,6 @@ leitura local — cada um resolve uma coisa diferente:
   pagamentos do Mercado Pago que **não** são receita da conta. Exige
   `mp_expenses_config.json` com token, `conta_email` e fonte de dados. Ver seção
   própria acima.
-- **`mp_email_expenses.py`** (Python, agendado, sem Access Token): mesmo objetivo de
-  `mp_expenses.py` (gerar despesas reais na Página 2), mas lendo os e-mails de
-  notificação do Mercado Pago via IMAP em vez da API. Exige
-  `mp_email_expenses_config.json` com dados IMAP, `conta_email` e fonte de dados. Ver
-  seção própria acima.
 - **Painel web → Importar Orçamento** (`js/budget-ai.js`): leitura pontual, sem token
   nem agendamento, sem Mercado Pago — você sobe a planilha (ou um CSV simples de
   Categoria/Previsto/Realizado) e vê na hora quais categorias estouraram. Não grava
@@ -468,23 +363,15 @@ leitura local — cada um resolve uma coisa diferente:
 - `mp_sync.py` e o painel web aceitam um "layout de leitura" manual (modal no web,
   `--criar-layout`/`--ler-orcamento` no CLI) para quando a planilha de orçamento não
   segue o formato padrão — ver "Layout de leitura" acima (não se aplica a
-  `mp_reconcile.py`/`mp_expenses.py`/`mp_email_expenses.py`, que não lidam com
-  planilhas).
+  `mp_reconcile.py`/`mp_expenses.py`, que não lidam com planilhas).
 
 ## Próximos passos possíveis
 - ~~Cruzar os pagamentos reais do Mercado Pago com o histórico de pagamentos do
   painel web~~ — feito em `mp_reconcile.py` (ver seção acima).
 - ~~Usar os dados do Mercado Pago para gerar despesas no painel web~~ — feito em
   `mp_expenses.py` (ver seção acima).
-- ~~Gerar despesas a partir dos e-mails do Mercado Pago, sem precisar de Access
-  Token~~ — feito em `mp_email_expenses.py` (ver seção acima).
-- ~~Cruzar `mp_expenses.py` e `mp_email_expenses.py` entre si~~ — feito: os dois
-  caminhos agora checam, por valor+data (mesma heurística de `mp_reconcile.py`, ver
-  `ExpenseGenerator._is_cross_source_duplicate` em `mp_expenses.py`), se já existe uma
-  despesa gerada pelo OUTRO caminho antes de criar uma nova — rodar os dois para o
-  mesmo período não deveria mais duplicar na maioria dos casos (ainda é uma
-  heurística best-effort, não um vínculo exato — ver "Limitações" na seção do
-  `mp_email_expenses.py`).
+- ~~Ver as atividades da conta antes de gerar despesas de verdade~~ — feito em
+  `mp_list_activities.py` (ver seção acima).
 - ~~Rodar a automação sem depender do computador do usuário~~ — feito via
   `.github/workflows/mercado-pago-sync.yml` (GitHub Actions, ver seção própria acima).
 - Conectar outros bancos: hoje o escopo é só Mercado Pago. Para bancos sem API pública

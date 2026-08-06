@@ -299,15 +299,13 @@ class ExpenseService {
           is_extra: !!e.is_extra,
           extra_charge: e.extra_charge || 0,
           // Despesas geradas pelo orcamento_agent/mp_expenses.py (via API,
-          // fora do navegador) ou mp_email_expenses.py (via e-mail de
-          // notificação, também fora do navegador) trazem esses campos --
-          // despesas lançadas manualmente pelo painel nunca têm
-          // generatedByMercadoPago (fica undefined -> false aqui).
+          // fora do navegador) trazem esses campos -- despesas lançadas
+          // manualmente pelo painel nunca têm generatedByMercadoPago (fica
+          // undefined -> false aqui).
           generated_by_mercado_pago: !!e.generatedByMercadoPago,
           mercado_pago_payment_id: e.mercadoPagoPaymentId || null,
-          // "api" (mp_expenses.py, Access Token) ou "email" (mp_email_expenses.py,
-          // sem token -- lê os avisos do Mercado Pago na caixa de entrada);
-          // null em despesas geradas antes desse campo existir.
+          // "api" (mp_expenses.py, via Access Token); null em despesas
+          // geradas antes desse campo existir.
           generated_by_mercado_pago_source: e.mercadoPagoSource || null,
         };
       });
@@ -881,10 +879,9 @@ class ApiFacade {
     const automation = {
       last_reconcile: statusGlobal.last_reconcile || null,
       last_expenses_api: statusByTenant.last_expenses_api || null,
-      last_expenses_email: statusByTenant.last_expenses_email || null,
     };
     const lastRunAt =
-      [automation.last_reconcile, automation.last_expenses_api, automation.last_expenses_email]
+      [automation.last_reconcile, automation.last_expenses_api]
         .filter(Boolean)
         .map((s) => s.at)
         .filter(Boolean)

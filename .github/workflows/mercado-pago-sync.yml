@@ -6,8 +6,6 @@ name: Mercado Pago — sincronização automática
 #   2) mp_expenses.py   — gera despesas reais na Página 2 (Registrar Despesas)
 #      a partir dos mesmos pagamentos (rode SEMPRE depois do passo 1, ver
 #      orcamento_agent/LEIA-ME.md).
-#   3) mp_email_expenses.py — opcional, só roda se os secrets de IMAP abaixo
-#      estiverem configurados; caminho alternativo sem Access Token.
 #
 # Por que GitHub Actions e não o navegador: o site (fintech_app.github.io) é
 # 100% estático — o Access Token do Mercado Pago (e a chave do Firebase)
@@ -32,9 +30,6 @@ name: Mercado Pago — sincronização automática
 #                                 cada execução (padrão: 3 — a idempotência dos
 #                                 scripts garante que rodar de novo não duplica
 #                                 nada, então uma janela com folga é segura).
-#   MP_EMAIL_IMAP_SERVER, MP_EMAIL_ADDRESS, MP_EMAIL_PASSWORD, MP_EMAIL_MAILBOX
-#                                 (opcionais, só para o passo 3) — mesmos dados
-#                                 de mp_email_expenses_config.example.json.
 #
 # O modal "Conectar Mercado Pago" no painel (Página 2 → Registrar Despesas)
 # ajuda a gerar os valores de MERCADO_PAGO_ACCESS_TOKEN/MP_CONTA_EMAIL (baixa
@@ -59,7 +54,6 @@ jobs:
     # checam essas variáveis em vez de "secrets.*" diretamente.
     env:
       HAS_REQUIRED_SECRETS: ${{ secrets.MERCADO_PAGO_ACCESS_TOKEN != '' && secrets.MP_CONTA_EMAIL != '' && secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
-      HAS_EMAIL_SECRETS: ${{ secrets.MP_EMAIL_IMAP_SERVER != '' && secrets.MP_EMAIL_ADDRESS != '' && secrets.MP_EMAIL_PASSWORD != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -134,51 +128,8 @@ jobs:
         working-directory: orcamento_agent
         run: python3 mp_expenses.py
 
-      - name: Gravar config do mp_email_expenses.py (opcional, via e-mail)
-        if: env.HAS_REQUIRED_SECRETS == 'true' && env.HAS_EMAIL_SECRETS == 'true'
-        working-directory: orcamento_agent
-        env:
-          MP_EMAIL: ${{ secrets.MP_CONTA_EMAIL }}
-          IMAP_SERVER: ${{ secrets.MP_EMAIL_IMAP_SERVER }}
-          IMAP_ADDRESS: ${{ secrets.MP_EMAIL_ADDRESS }}
-          IMAP_PASSWORD: ${{ secrets.MP_EMAIL_PASSWORD }}
-          IMAP_MAILBOX: ${{ secrets.MP_EMAIL_MAILBOX }}
-          JANELA: ${{ secrets.MP_JANELA_DIAS }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PYEOF'
-          import json, os
-
-          cfg = {
-              "imap_server": os.environ["IMAP_SERVER"],
-              "email_address": os.environ["IMAP_ADDRESS"],
-              "email_password": os.environ["IMAP_PASSWORD"],
-              "mailbox": os.environ.get("IMAP_MAILBOX") or "INBOX",
-              "conta_email": os.environ["MP_EMAIL"],
-              "firebase_service_account": "firebase-serviceAccount.json",
-              "db_json": None,
-              "janela_dias": int(os.environ.get("JANELA") or 3),
-              "categoria_padrao": "Mercado Pago (não categorizado)",
-              "mapeamento": [
-                  {"palavra_chave": "uber", "categoria": "Transporte"},
-                  {"palavra_chave": "99", "categoria": "Transporte"},
-                  {"palavra_chave": "ifood", "categoria": "Alimentação"},
-                  {"palavra_chave": "supermercado", "categoria": "Alimentação"},
-                  {"palavra_chave": "farmacia", "categoria": "Saúde"},
-              ],
-              "ignorar_descricoes_contendo": ["despesa extra", "assinatura", "fintech spacecworp"],
-          }
-          with open("mp_email_expenses_config.json", "w", encoding="utf-8") as f:
-              json.dump(cfg, f)
-          PYEOF
-
-      - name: mp_email_expenses.py (gera despesas a partir de e-mails, opcional)
-        if: env.HAS_REQUIRED_SECRETS == 'true' && env.HAS_EMAIL_SECRETS == 'true'
-        working-directory: orcamento_agent
-        run: python3 mp_email_expenses.py
-
       - name: Limpar arquivos com segredos
         if: always()
         working-directory: orcamento_agent
         run: |
-          rm -f firebase-serviceAccount.json mp_reconcile_config.json mp_expenses_config.json mp_email_expenses_config.json
+          rm -f firebase-serviceAccount.json mp_reconcile_config.json mp_expenses_config.json

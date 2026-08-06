@@ -121,8 +121,8 @@ def day_range(dias):
 
 class StatusTracker:
     """Grava um resumo leve (contagens + horário) da última execução de cada
-    agente Mercado Pago (mp_reconcile.py / mp_expenses.py / mp_email_expenses.py)
-    no mesmo banco do painel web (Firestore ou db.json), por tenant -- só
+    agente Mercado Pago (mp_reconcile.py / mp_expenses.py) no mesmo banco do
+    painel web (Firestore ou db.json), por tenant -- só
     para o painel (js/api.js Api.getMercadoPagoStatus / MercadoPagoStatusIndicator
     em js/dashboard.js) poder mostrar quando a automação rodou pela última
     vez de verdade, mesmo sem nenhum Access Token no navegador. Puramente
@@ -446,7 +446,7 @@ class MercadoPagoReconciliationAgent:
                 # "global": mp_reconcile.py cruza TODOS os pagamentos do app (a
                 # chave Pix cobrada no modal é única para toda a instância --
                 # ver PIX_MERCHANT em js/dashboard.js), não faz sentido por
-                # tenant como em mp_expenses.py/mp_email_expenses.py.
+                # tenant como em mp_expenses.py.
                 status = StatusTracker.update(
                     db, "global", "last_reconcile",
                     verificados=n_verificados, ambiguos=n_ambiguos, sem_correspondencia=n_sem,

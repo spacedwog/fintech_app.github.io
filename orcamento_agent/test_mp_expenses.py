@@ -137,31 +137,31 @@ with open(TEST_DB_PATH, encoding="utf-8") as f:
 assert antes == depois_dry, "--dry-run não deveria gravar nada"
 print("OK --dry-run não grava nada")
 
-# ---------- dedup cruzado (API x e-mail) ----------
-# Simula uma despesa já gerada por mp_email_expenses.py (mesmo valor+data de
-# um pagamento que agora "chega" via API) -- mp_expenses.py deve reconhecer
+# ---------- dedup cruzado (mesma origem, mesmo valor+data) ----------
+# Simula uma despesa já gerada via Mercado Pago (mesmo valor+data de um
+# pagamento que agora "chega" de novo) -- mp_expenses.py deve reconhecer
 # como provável duplicata e não criar uma segunda despesa (ver
 # ExpenseGenerator._is_cross_source_duplicate).
 
 db_cruzado = json.loads(json.dumps(fixture_db))
 db_cruzado["expenses"] = [{
-    "id": "exp_email_1",
+    "id": "exp_prev_1",
     "tenant_id": "t1",
     "user_id": "u1",
     "category_id": "c1",
     "amount": 35.50,
     "date": "2026-08-03",
     "description": "Pagamento aprovado - UBER *TRIP 123",
-    "mercadoPagoPaymentId": "<algum-message-id@mp>",
+    "mercadoPagoPaymentId": "outro-id-qualquer",
     "generatedByMercadoPago": True,
-    "mercadoPagoSource": "email",
+    "mercadoPagoSource": "api",
 }]
 resultado_cruzado = mp_expenses.generate_expenses(
     db_cruzado, [fake_mp_payments[1]], "t1", "u1", cfg  # id 5002, mesmo UBER, mesmo valor/data
 )
 assert len(resultado_cruzado["criadas"]) == 0, resultado_cruzado["criadas"]
 assert resultado_cruzado["ignoradas_duplicata_cruzada"] == 1, resultado_cruzado
-print("OK dedup cruzado: pagamento da API com mesmo valor+data de uma despesa já gerada via e-mail não duplica")
+print("OK dedup cruzado: pagamento com mesmo valor+data de uma despesa já gerada via Mercado Pago não duplica")
 
 # ---------- StatusTracker: status de sincronização gravado após run() ----------
 

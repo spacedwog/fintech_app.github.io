@@ -454,11 +454,15 @@
        Pago NUNCA pode ir para o navegador de verdade (não há CORS/backend
        para chamar a API daqui com segurança). Este modal não chama o
        Mercado Pago -- ele mostra o status real já gravado pelos agentes
-       (orcamento_agent/mp_reconcile.py, mp_expenses.py,
-       mp_email_expenses.py, rodando localmente ou via GitHub Actions) e
-       ajuda a gerar os arquivos de configuração deles: o token digitado
-       aqui só é usado para montar um JSON para download, nunca sai do
-       navegador nem é salvo em lugar nenhum (nem localStorage).
+       (orcamento_agent/mp_reconcile.py, mp_expenses.py, rodando localmente
+       ou via GitHub Actions) e ajuda a gerar os arquivos de configuração
+       deles: o token digitado aqui só é usado para montar um JSON para
+       download, nunca sai do navegador nem é salvo em lugar nenhum (nem
+       localStorage).
+
+       Paginado em 2 páginas:
+         Página 1 -- Status da automação + Access Token
+         Página 2 -- E-mail da conta + Busca por pagamentos dos últimos dias
   ============================================================ -->
   <div id="mp-connect-modal" class="modal-overlay hidden">
     <div class="modal-box">
@@ -475,38 +479,67 @@
         via GitHub Actions). Este modal só ajuda a gerar a configuração e mostra o status real da última execução.
       </p>
 
-      <div class="card" style="margin:0 0 14px;padding:12px;">
-        <h3 style="margin:0 0 8px;font-size:14px;">Status da automação</h3>
-        <div id="mp-connect-status" class="small-muted">Carregando…</div>
-      </div>
+      <p class="small-muted" id="mp-connect-page-indicator" style="text-align:center;margin:0 0 12px;font-weight:600;">
+        Página 1 de 2
+      </p>
 
       <div id="mp-connect-error" class="error-box hidden"></div>
       <div id="mp-connect-success" class="success-box hidden"></div>
 
       <form id="mp-connect-form">
-        <div class="field">
-          <label>Access Token do Mercado Pago</label>
-          <input type="password" id="mp-connect-token" placeholder="APP_USR-..." autocomplete="off" />
-          <p class="small-muted" style="margin:6px 0 0;">
-            Gere em developers.mercadopago.com.br → Suas integrações → Credenciais. Usado só neste navegador, agora,
-            para montar o arquivo de configuração — não é enviado a lugar nenhum nem fica salvo depois de gerar o
-            download.
-          </p>
-        </div>
-        <div class="field">
-          <label>E-mail da conta (login neste painel)</label>
-          <input type="email" id="mp-connect-email" required />
-        </div>
-        <div class="field">
-          <label>Buscar pagamentos dos últimos (dias)</label>
-          <input type="number" id="mp-connect-dias" min="1" value="30" />
+        <!-- Página 1: Status da automação + Access Token -->
+        <div id="mp-connect-page-1">
+          <div class="card" style="margin:0 0 14px;padding:12px;">
+            <h3 style="margin:0 0 8px;font-size:14px;">Status da automação</h3>
+            <div id="mp-connect-status" class="small-muted">Carregando…</div>
+          </div>
+
+          <div class="field">
+            <label>Access Token do Mercado Pago</label>
+            <input type="password" id="mp-connect-token" placeholder="APP_USR-..." autocomplete="off" />
+            <p class="small-muted" style="margin:6px 0 0;">
+              Gere em developers.mercadopago.com.br → Suas integrações → Credenciais. Usado só neste navegador, agora,
+              para montar o arquivo de configuração — não é enviado a lugar nenhum nem fica salvo depois de gerar o
+              download. É também o mesmo token usado por <code>orcamento_agent/mp_list_activities.py</code> para
+              consultar as atividades (pagamentos) reais da conta, só leitura.
+            </p>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" id="mp-connect-next-btn" class="primary" style="flex:1;min-width:200px;">
+              Próxima →
+            </button>
+            <button type="button" id="mp-connect-cancel" class="secondary" style="flex:1;min-width:120px;">Fechar</button>
+          </div>
         </div>
 
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button type="submit" class="primary" style="flex:1;min-width:200px;">
-            Gerar e baixar configuração (.json)
-          </button>
-          <button type="button" id="mp-connect-cancel" class="secondary" style="flex:1;min-width:120px;">Fechar</button>
+        <!-- Página 2: E-mail da conta + Busca por pagamentos dos últimos dias -->
+        <div id="mp-connect-page-2" class="hidden">
+          <div class="field">
+            <label>E-mail da conta (login neste painel)</label>
+            <input type="email" id="mp-connect-email" required />
+          </div>
+          <div class="field">
+            <label>Busca por pagamentos dos últimos (dias)</label>
+            <input type="number" id="mp-connect-dias" min="1" value="30" />
+          </div>
+
+          <p class="small-muted" style="margin:0 0 14px;">
+            Quer só ver as atividades (pagamentos) da conta antes de gerar despesas de verdade? Depois de colocar o
+            arquivo de configuração em <code>orcamento_agent/</code>, rode
+            <code>python3 mp_list_activities.py --dias 30</code> (ajuste <code>--dias</code> conforme o valor acima)
+            — lista os pagamentos do período direto do Mercado Pago usando o mesmo Access Token, só leitura, sem
+            precisar do Firebase.
+          </p>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" id="mp-connect-back-btn" class="secondary" style="flex:1;min-width:120px;">
+              ← Voltar
+            </button>
+            <button type="submit" class="primary" style="flex:1;min-width:200px;">
+              Gerar e baixar configuração (.json)
+            </button>
+          </div>
         </div>
       </form>
 

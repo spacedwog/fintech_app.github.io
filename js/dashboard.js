@@ -92,8 +92,7 @@ class MercadoPagoStatusIndicator {
           : "data desconhecida";
         box.title =
           `Última atualização: ${lastSync}. ${status.payments_verified_count} pagamento(s) confirmado(s) ` +
-          `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py (via API) ` +
-          `e/ou mp_email_expenses.py (via e-mail de notificação, sem token).` +
+          `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py (via API).` +
           (agoAutomacao ? ` Última execução dos agentes: ${agoAutomacao}.` : "") +
           " Clique para ver/configurar a integração.";
       } else if (status.automation_configured) {
@@ -131,6 +130,7 @@ class MercadoPagoConnectModal {
   constructor() {
     this.modalEl = null;
     this.defaultEmail = "";
+    this.page = 1; // 1: Status da automação + Access Token | 2: E-mail da conta + Busca por pagamentos dos últimos dias
   }
 
   setup() {
@@ -140,6 +140,20 @@ class MercadoPagoConnectModal {
     document.getElementById("mp-connect-modal-close").addEventListener("click", () => this.close());
     document.getElementById("mp-connect-cancel").addEventListener("click", () => this.close());
     document.getElementById("mp-connect-form").addEventListener("submit", (e) => this._handleSubmit(e));
+    document.getElementById("mp-connect-next-btn").addEventListener("click", () => this._goToPage(2));
+    document.getElementById("mp-connect-back-btn").addEventListener("click", () => this._goToPage(1));
+  }
+
+  _goToPage(page) {
+    this.page = page;
+    const page1 = document.getElementById("mp-connect-page-1");
+    const page2 = document.getElementById("mp-connect-page-2");
+    const indicator = document.getElementById("mp-connect-page-indicator");
+    if (page1) page1.classList.toggle("hidden", page !== 1);
+    if (page2) page2.classList.toggle("hidden", page !== 2);
+    if (indicator) indicator.textContent = `Página ${page} de 2`;
+    document.getElementById("mp-connect-error").classList.add("hidden");
+    document.getElementById("mp-connect-success").classList.add("hidden");
   }
 
   async open(defaultEmail) {
@@ -152,6 +166,7 @@ class MercadoPagoConnectModal {
     const emailInput = document.getElementById("mp-connect-email");
     if (emailInput && !emailInput.value) emailInput.value = this.defaultEmail;
 
+    this._goToPage(1);
     this.modalEl.classList.remove("hidden");
     await this._renderStatus();
   }
@@ -180,9 +195,8 @@ class MercadoPagoConnectModal {
 
       const reconcile = status.automation.last_reconcile;
       const expensesApi = status.automation.last_expenses_api;
-      const expensesEmail = status.automation.last_expenses_email;
 
-      if (!reconcile && !expensesApi && !expensesEmail) {
+      if (!reconcile && !expensesApi) {
         linhas.push(
           "Nenhum agente rodou ainda. Gere a configuração abaixo, rode mp_reconcile.py + mp_expenses.py " +
             "(manual, ou via GitHub Actions) e volte aqui para ver o status."
@@ -196,14 +210,8 @@ class MercadoPagoConnectModal {
         }
         if (expensesApi) {
           linhas.push(
-            `mp_expenses.py (API): última execução ${this._formatWhen(expensesApi) || "?"} — ` +
+            `mp_expenses.py: última execução ${this._formatWhen(expensesApi) || "?"} — ` +
               `${expensesApi.criadas || 0} despesa(s) gerada(s).`
-          );
-        }
-        if (expensesEmail) {
-          linhas.push(
-            `mp_email_expenses.py (e-mail): última execução ${this._formatWhen(expensesEmail) || "?"} — ` +
-              `${expensesEmail.criadas || 0} despesa(s) gerada(s).`
           );
         }
         linhas.push(
@@ -242,11 +250,13 @@ class MercadoPagoConnectModal {
     const dias = parseInt(document.getElementById("mp-connect-dias").value, 10) || 30;
 
     if (!token) {
+      this._goToPage(1);
       errorBox.textContent = "Cole o Access Token do Mercado Pago (developers.mercadopago.com.br → Credenciais).";
       errorBox.classList.remove("hidden");
       return;
     }
     if (!email) {
+      this._goToPage(2);
       errorBox.textContent = "Informe o e-mail da conta (login neste painel) que vai receber as despesas.";
       errorBox.classList.remove("hidden");
       return;
@@ -746,20 +756,15 @@ class DashboardController {
 
   // Selo "Mercado Pago" de uma linha da tabela de despesas -- a origem
   // (generated_by_mercado_pago_source, ver ExpenseService.listExpenses em
-  // js/api.js) distingue as duas formas de integração: "api"
-  // (orcamento_agent/mp_expenses.py, via Access Token) ou "email"
-  // (orcamento_agent/mp_email_expenses.py, lendo os avisos do Mercado Pago
-  // na caixa de entrada, sem precisar de token). Despesas antigas, geradas
-  // antes desse campo existir, não têm origem conhecida e mostram o selo
-  // genérico de sempre.
+  // js/api.js) indica que veio de orcamento_agent/mp_expenses.py, via
+  // Access Token. Despesas antigas, geradas antes desse campo existir (ou
+  // com origem desconhecida), mostram o selo genérico de sempre.
   _mercadoPagoRowBadgeHtml(e) {
     if (!e.generated_by_mercado_pago) return "";
     const origem =
-      e.generated_by_mercado_pago_source === "email"
-        ? { label: "Mercado Pago (e-mail)", title: "Gerada automaticamente a partir de um e-mail de notificação do Mercado Pago (orcamento_agent/mp_email_expenses.py) -- sem Access Token." }
-        : e.generated_by_mercado_pago_source === "api"
+      e.generated_by_mercado_pago_source === "api"
         ? { label: "Mercado Pago (API)", title: "Gerada automaticamente a partir de um pagamento real no Mercado Pago via API (orcamento_agent/mp_expenses.py)." }
-        : { label: "Mercado Pago", title: "Gerada automaticamente a partir de um pagamento real no Mercado Pago (orcamento_agent/mp_expenses.py ou mp_email_expenses.py)." };
+        : { label: "Mercado Pago", title: "Gerada automaticamente a partir de um pagamento real no Mercado Pago (orcamento_agent/mp_expenses.py)." };
     return ` <span class="badge mp" title="${origem.title}">${origem.label}</span>`;
   }
 

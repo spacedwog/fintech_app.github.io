@@ -57,7 +57,6 @@ jobs:
           python3 test_mp_expenses.py
           python3 test_mp_reconcile.py
           python3 test_mp_sync.py
-          python3 test_mp_email_expenses.py
           python3 test_mp_list_activities.py
 
       - name: Rodar pipeline ETL (Fibonacci + Laplace) de exemplo
