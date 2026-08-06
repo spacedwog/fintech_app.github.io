@@ -43,38 +43,251 @@ class SyncStatusIndicator {
 // no topo da sidebar. ----------
 
 class MercadoPagoStatusIndicator {
+  // onClick: callback opcional (ex.: abrir o MercadoPagoConnectModal) --
+  // o badge inteiro vira clicável quando informado (ver DashboardController).
+  constructor(onClick) {
+    this.onClick = onClick || null;
+    this._bound = false;
+  }
+
+  _formatAgo(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.round(diffMs / 60000);
+    if (diffMin < 1) return "agora mesmo";
+    if (diffMin < 60) return `há ${diffMin} min`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `há ${diffH}h`;
+    const diffD = Math.round(diffH / 24);
+    return `há ${diffD}d (${d.toLocaleDateString("pt-BR")})`;
+  }
+
   async render() {
     const box = document.getElementById("mp-status");
     const label = document.getElementById("mp-status-label");
     if (!box || !label || typeof Api === "undefined") return;
+
+    if (this.onClick && !this._bound) {
+      box.style.cursor = "pointer";
+      box.addEventListener("click", () => this.onClick());
+      this._bound = true;
+    }
 
     try {
       const status = await Api.getMercadoPagoStatus();
       box.classList.toggle("connected", status.connected);
       box.classList.toggle("idle", !status.connected);
 
+      const agoAutomacao = this._formatAgo(status.last_run_at);
+
       if (status.connected) {
         const plural = status.expenses_count === 1 ? "" : "s";
         label.textContent =
-          `${status.expenses_count} despesa${plural} via Mercado Pago (R$ ${status.expenses_total.toFixed(2)})`;
+          `${status.expenses_count} despesa${plural} via Mercado Pago (R$ ${status.expenses_total.toFixed(2)})` +
+          (agoAutomacao ? ` · sync ${agoAutomacao}` : "");
         const lastSync = status.last_sync_date
           ? new Date(status.last_sync_date).toLocaleDateString("pt-BR")
           : "data desconhecida";
         box.title =
           `Última atualização: ${lastSync}. ${status.payments_verified_count} pagamento(s) confirmado(s) ` +
           `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py (via API) ` +
-          `e/ou mp_email_expenses.py (via e-mail de notificação, sem token).`;
+          `e/ou mp_email_expenses.py (via e-mail de notificação, sem token).` +
+          (agoAutomacao ? ` Última execução dos agentes: ${agoAutomacao}.` : "") +
+          " Clique para ver/configurar a integração.";
+      } else if (status.automation_configured) {
+        // Agente já rodou (ex.: via GitHub Actions) mas ainda não gerou
+        // nenhuma despesa/confirmação nesta janela -- diferente de "nunca
+        // configurado", vale deixar isso claro no rótulo.
+        label.textContent = `Integração ativa, sem novidades (sync ${agoAutomacao || "recente"})`;
+        box.title =
+          "A automação do Mercado Pago já rodou, mas não encontrou pagamento novo para importar/confirmar. " +
+          "Clique para ver detalhes ou reconfigurar.";
       } else {
         label.textContent = "Nenhuma despesa sincronizada ainda";
         box.title =
-          "Nenhum pagamento do Mercado Pago foi importado ainda. Rode orcamento_agent/mp_reconcile.py e depois " +
-          "mp_expenses.py (com Access Token) OU mp_email_expenses.py (lendo os avisos do Mercado Pago por " +
-          "e-mail, sem token) -- fora do navegador -- para gerar despesas reais a partir da sua conta.";
+          "Nenhum pagamento do Mercado Pago foi importado ainda. Clique para gerar a configuração (Access Token + " +
+          "e-mail da conta) e ver como automatizar com orcamento_agent/mp_reconcile.py + mp_expenses.py -- fora " +
+          "do navegador, ou agendado via GitHub Actions.";
       }
     } catch (e) {
       label.textContent = "";
       box.title = "";
     }
+  }
+}
+
+// ---------- MercadoPagoConnectModal: status real da automação + gerador de
+// config para orcamento_agent/mp_expenses.py e mp_reconcile.py -----------
+// Importante: este modal NUNCA chama a API do Mercado Pago (o navegador não
+// consegue -- api.mercadopago.com não libera CORS para o Access Token, nem
+// seria seguro se liberasse). O Access Token digitado aqui só é usado, na
+// hora, para montar dois arquivos .json (mesmo formato de
+// mp_expenses_config.example.json/mp_reconcile_config.example.json) e
+// oferecer para download -- nunca é enviado a lugar nenhum, nunca é salvo em
+// localStorage/Firestore, e o campo é limpo assim que o download é gerado.
+class MercadoPagoConnectModal {
+  constructor() {
+    this.modalEl = null;
+    this.defaultEmail = "";
+  }
+
+  setup() {
+    this.modalEl = document.getElementById("mp-connect-modal");
+    if (!this.modalEl) return;
+
+    document.getElementById("mp-connect-modal-close").addEventListener("click", () => this.close());
+    document.getElementById("mp-connect-cancel").addEventListener("click", () => this.close());
+    document.getElementById("mp-connect-form").addEventListener("submit", (e) => this._handleSubmit(e));
+  }
+
+  async open(defaultEmail) {
+    if (!this.modalEl) return;
+    this.defaultEmail = defaultEmail || "";
+
+    document.getElementById("mp-connect-error").classList.add("hidden");
+    document.getElementById("mp-connect-success").classList.add("hidden");
+    document.getElementById("mp-connect-token").value = "";
+    const emailInput = document.getElementById("mp-connect-email");
+    if (emailInput && !emailInput.value) emailInput.value = this.defaultEmail;
+
+    this.modalEl.classList.remove("hidden");
+    await this._renderStatus();
+  }
+
+  close() {
+    if (!this.modalEl) return;
+    // Higiene: nunca deixa o token digitado na tela depois de fechar.
+    const tokenInput = document.getElementById("mp-connect-token");
+    if (tokenInput) tokenInput.value = "";
+    this.modalEl.classList.add("hidden");
+  }
+
+  _formatWhen(entry) {
+    if (!entry || !entry.at) return null;
+    const d = new Date(entry.at);
+    return isNaN(d.getTime()) ? null : d.toLocaleString("pt-BR");
+  }
+
+  async _renderStatus() {
+    const box = document.getElementById("mp-connect-status");
+    if (!box) return;
+    box.textContent = "Carregando…";
+    try {
+      const status = await Api.getMercadoPagoStatus();
+      const linhas = [];
+
+      const reconcile = status.automation.last_reconcile;
+      const expensesApi = status.automation.last_expenses_api;
+      const expensesEmail = status.automation.last_expenses_email;
+
+      if (!reconcile && !expensesApi && !expensesEmail) {
+        linhas.push(
+          "Nenhum agente rodou ainda. Gere a configuração abaixo, rode mp_reconcile.py + mp_expenses.py " +
+            "(manual, ou via GitHub Actions) e volte aqui para ver o status."
+        );
+      } else {
+        if (reconcile) {
+          linhas.push(
+            `mp_reconcile.py: última execução ${this._formatWhen(reconcile) || "?"} — ` +
+              `${reconcile.verificados || 0} confirmado(s), ${reconcile.ambiguos || 0} ambíguo(s).`
+          );
+        }
+        if (expensesApi) {
+          linhas.push(
+            `mp_expenses.py (API): última execução ${this._formatWhen(expensesApi) || "?"} — ` +
+              `${expensesApi.criadas || 0} despesa(s) gerada(s).`
+          );
+        }
+        if (expensesEmail) {
+          linhas.push(
+            `mp_email_expenses.py (e-mail): última execução ${this._formatWhen(expensesEmail) || "?"} — ` +
+              `${expensesEmail.criadas || 0} despesa(s) gerada(s).`
+          );
+        }
+        linhas.push(
+          `Total hoje: ${status.expenses_count} despesa(s) via Mercado Pago (R$ ${status.expenses_total.toFixed(2)}), ` +
+            `${status.payments_verified_count} pagamento(s) confirmado(s).`
+        );
+      }
+
+      box.innerHTML = linhas.map((l) => `<p style="margin:0 0 6px;">${l}</p>`).join("");
+    } catch (e) {
+      box.textContent = "Não foi possível carregar o status agora.";
+    }
+  }
+
+  _downloadJson(filename, obj) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  _handleSubmit(e) {
+    e.preventDefault();
+    const errorBox = document.getElementById("mp-connect-error");
+    const successBox = document.getElementById("mp-connect-success");
+    errorBox.classList.add("hidden");
+    successBox.classList.add("hidden");
+
+    const token = document.getElementById("mp-connect-token").value.trim();
+    const email = document.getElementById("mp-connect-email").value.trim();
+    const dias = parseInt(document.getElementById("mp-connect-dias").value, 10) || 30;
+
+    if (!token) {
+      errorBox.textContent = "Cole o Access Token do Mercado Pago (developers.mercadopago.com.br → Credenciais).";
+      errorBox.classList.remove("hidden");
+      return;
+    }
+    if (!email) {
+      errorBox.textContent = "Informe o e-mail da conta (login neste painel) que vai receber as despesas.";
+      errorBox.classList.remove("hidden");
+      return;
+    }
+
+    const expensesConfig = {
+      mercado_pago_access_token: token,
+      firebase_service_account: "COLE_AQUI_O_CAMINHO_DA_CHAVE.json",
+      db_json: null,
+      conta_email: email,
+      janela_dias: dias,
+      categoria_padrao: "Mercado Pago (não categorizado)",
+      mapeamento: [
+        { palavra_chave: "uber", categoria: "Transporte" },
+        { palavra_chave: "99", categoria: "Transporte" },
+        { palavra_chave: "ifood", categoria: "Alimentação" },
+        { palavra_chave: "supermercado", categoria: "Alimentação" },
+        { palavra_chave: "farmacia", categoria: "Saúde" },
+      ],
+      ignorar_descricoes_contendo: ["despesa extra", "assinatura", "fintech spacecworp"],
+    };
+
+    const reconcileConfig = {
+      mercado_pago_access_token: token,
+      firebase_service_account: "COLE_AQUI_O_CAMINHO_DA_CHAVE.json",
+      db_json: null,
+      janela_dias: dias,
+    };
+
+    this._downloadJson("mp_expenses_config.json", expensesConfig);
+    this._downloadJson("mp_reconcile_config.json", reconcileConfig);
+
+    // Higiene: some com o token da tela assim que os arquivos são gerados --
+    // já foi usado, não precisa continuar visível/em memória no formulário.
+    document.getElementById("mp-connect-token").value = "";
+
+    successBox.textContent =
+      "2 arquivos baixados (mp_expenses_config.json e mp_reconcile_config.json). Troque " +
+      '"COLE_AQUI_O_CAMINHO_DA_CHAVE.json" pelo caminho da sua chave do Firebase (ou pelo campo "db_json") ' +
+      "e coloque os dois dentro de orcamento_agent/ -- veja orcamento_agent/LEIA-ME.md.";
+    successBox.classList.remove("hidden");
   }
 }
 
@@ -295,7 +508,8 @@ class DashboardController {
 
     this.pixModal = new PixPaymentModal(PIX_MERCHANT);
     this.syncStatus = new SyncStatusIndicator();
-    this.mpStatus = new MercadoPagoStatusIndicator();
+    this.mpConnectModal = new MercadoPagoConnectModal();
+    this.mpStatus = new MercadoPagoStatusIndicator(() => this.mpConnectModal.open(this.currentUser && this.currentUser.email));
   }
 
   async init() {
@@ -315,6 +529,9 @@ class DashboardController {
     }
 
     this.pixModal.setup();
+    this.mpConnectModal.setup();
+    const mpOpenBtn = document.getElementById("mp-connect-open-btn");
+    if (mpOpenBtn) mpOpenBtn.addEventListener("click", () => this.mpConnectModal.open(this.currentUser && this.currentUser.email));
     this._setupBudgetLayoutModal();
     this._renderShell();
     this._bindNav();

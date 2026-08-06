@@ -291,12 +291,13 @@ despesas foram geradas e quantos pagamentos foram confirmados via Mercado Pago
 (`mp_reconcile.py`), com a data da atualização mais recente. Ver `Api.getMercadoPagoStatus()`
 em `js/api.js` e `MercadoPagoStatusIndicator` em `js/dashboard.js`.
 
-**Limitações (por design):** não roda em tempo real (depende de executar o script);
-sem categorização manual pelo painel ainda (crie/edite `mapeamento` no config e rode
-de novo — despesas já geradas não são recategorizadas automaticamente); pagamentos
-que nunca aparecerem em `payments` nem baterem no filtro de descrição podem, em teoria,
-ser lançados como despesa mesmo sendo receita — por isso a recomendação de sempre
-rodar `mp_reconcile.py` antes.
+**Limitações (por design):** não roda em tempo real (depende de executar o script, ou
+do agendamento/GitHub Actions — ver "Automação sem depender do seu computador"
+acima); sem categorização manual pelo painel ainda (crie/edite `mapeamento` no
+config e rode de novo — despesas já geradas não são recategorizadas
+automaticamente); pagamentos que nunca aparecerem em `payments` nem baterem no
+filtro de descrição podem, em teoria, ser lançados como despesa mesmo sendo receita
+— por isso a recomendação de sempre rodar `mp_reconcile.py` antes.
 
 ## Gerar despesas a partir dos e-mails do Mercado Pago (`mp_email_expenses.py`)
 Mesmo objetivo de `mp_expenses.py` (fechar o fluxo 🔄 Orçamento & Despesas gerando
@@ -368,10 +369,13 @@ README.md da raiz) e entram na mesma contagem do badge da sidebar.
 **Limitações (por design):** depende do e-mail ter chegado na caixa configurada (se o
 Mercado Pago mudar o texto/padrão dos e-mails, a extração pode parar de reconhecer
 algum caso — revise `logs/mp_email_expenses.log`); só reconhece um valor por e-mail
-(o primeiro "R$ ..." relevante); não cruza com `mp_expenses.py` — rodar os dois para o
-mesmo período pode gerar duas despesas para o mesmo pagamento real (um por
-`mercadoPagoPaymentId` numérico da API, outro pelo Message-ID do e-mail) — escolha um
-dos dois caminhos como principal, ou revise manualmente se usar os dois.
+(o primeiro "R$ ..." relevante); cruza com `mp_expenses.py` só por heurística de
+valor+data (mesmo espírito de `mp_reconcile.py`, tolerância de 2 dias/centavos) — na
+imensa maioria dos casos rodar os dois para o mesmo período não duplica mais, mas
+dois pagamentos reais diferentes com o mesmo valor na mesma janela de poucos dias
+ainda podem, em teoria, ser tratados como duplicata um do outro por engano (revise
+`ignoradas_duplicata_cruzada` no resumo se isso importar) — escolha um dos dois
+caminhos como principal quando possível.
 
 ## Agendamento (rodando sozinho)
 Foi configurada uma tarefa agendada que roda `mp_sync.py` automaticamente e te avisa
@@ -385,6 +389,52 @@ Enquanto `config.json`/`mp_reconcile_config.json`/`mp_expenses_config.json` não
 tiverem um token válido (ou, no caso de `mp_email_expenses_config.json`, dados IMAP
 válidos), a execução agendada só vai avisar que falta configurar — não falha
 silenciosamente.
+
+## Automação sem depender do seu computador (GitHub Actions)
+Além do agendamento local (acima), existe `.github/workflows/mercado-pago-sync.yml`
+no repositório: um workflow do GitHub Actions que roda `mp_reconcile.py` e
+`mp_expenses.py` (e, se configurado, `mp_email_expenses.py`) sozinho, todo dia, num
+runner do GitHub — sem precisar do seu computador ligado. Os segredos (Access Token,
+e-mail da conta, chave do Firebase) ficam em **Secrets** do repositório
+(Settings → Secrets and variables → Actions), nunca no código nem no navegador — o
+próprio arquivo do workflow documenta, nos comentários do topo, exatamente quais
+Secrets criar (`MERCADO_PAGO_ACCESS_TOKEN`, `MP_CONTA_EMAIL`,
+`FIREBASE_SERVICE_ACCOUNT_JSON`, e opcionalmente `MP_JANELA_DIAS`/
+`MP_EMAIL_IMAP_SERVER`/`MP_EMAIL_ADDRESS`/`MP_EMAIL_PASSWORD`/`MP_EMAIL_MAILBOX`
+para também rodar `mp_email_expenses.py`).
+
+Pode rodar manualmente a qualquer momento em **Actions → Mercado Pago —
+sincronização automática → Run workflow**, além do agendamento diário (`cron`,
+ajustável no próprio arquivo). Enquanto os Secrets obrigatórios não estiverem
+configurados, o workflow roda e avisa (não falha) que falta configurar.
+
+**Por que não direto do navegador:** o site é 100% estático e a API do Mercado Pago
+não libera CORS para chamadas com Access Token vindas do front-end — nem seria
+seguro se liberasse (o token ficaria visível a qualquer um com acesso ao
+navegador). GitHub Actions resolve isso rodando fora do navegador, com os mesmos
+scripts desta pasta, sem expor nada no site publicado.
+
+**Gerando a configuração pelo painel web:** o botão **"🔗 Conectar Mercado Pago"**
+na Página 2 (Registrar Despesas) do fluxo 🔄 Orçamento & Despesas abre um modal que
+gera `mp_expenses_config.json`/`mp_reconcile_config.json` prontos para download
+(preenchidos com o Access Token e e-mail digitados ali) — útil para configurar
+rápido tanto a execução local quanto para copiar os valores para os Secrets do
+GitHub Actions. O token digitado nesse modal nunca é enviado a lugar nenhum nem
+fica salvo no navegador (nem localStorage) — só é usado, na hora, para montar o
+JSON do download. O mesmo modal também mostra o status real da última execução de
+cada agente (`mercado_pago_status`, ver abaixo).
+
+## Status da automação no painel web (`mercado_pago_status`)
+Depois de rodar (local, agendado, ou via GitHub Actions), `mp_reconcile.py`,
+`mp_expenses.py` e `mp_email_expenses.py` gravam um resumo leve da própria execução
+(horário + contagens) no mesmo banco do painel (Firestore ou `db.json`), no campo
+`mercado_pago_status` — implementado por `StatusTracker` em `mp_reconcile.py`
+(reaproveitado pelos outros dois). Isso é só informativo: nenhum script decide nada
+a partir desse campo, e o cálculo de despesas/pagamentos continua vindo de
+`expenses`/`payments` como sempre. Serve para o painel web mostrar "quando a
+automação rodou pela última vez" mesmo em execuções sem nenhuma despesa nova — ver
+`Api.getMercadoPagoStatus()` em `js/api.js` e o modal "Conectar Mercado Pago"
+(`MercadoPagoConnectModal` em `js/dashboard.js`).
 
 ## mp_sync.py x mp_reconcile.py x mp_expenses.py x mp_email_expenses.py x Importar Orçamento — qual usar
 Os quatro primeiros usam a conta do Mercado Pago (API ou e-mail); o quinto é só
@@ -428,9 +478,15 @@ leitura local — cada um resolve uma coisa diferente:
   `mp_expenses.py` (ver seção acima).
 - ~~Gerar despesas a partir dos e-mails do Mercado Pago, sem precisar de Access
   Token~~ — feito em `mp_email_expenses.py` (ver seção acima).
-- Cruzar `mp_expenses.py` e `mp_email_expenses.py` entre si (hoje, rodar os dois para
-  o mesmo período pode gerar duas despesas para o mesmo pagamento real, uma por API e
-  outra por e-mail — ver "Limitações" na seção do `mp_email_expenses.py`).
+- ~~Cruzar `mp_expenses.py` e `mp_email_expenses.py` entre si~~ — feito: os dois
+  caminhos agora checam, por valor+data (mesma heurística de `mp_reconcile.py`, ver
+  `ExpenseGenerator._is_cross_source_duplicate` em `mp_expenses.py`), se já existe uma
+  despesa gerada pelo OUTRO caminho antes de criar uma nova — rodar os dois para o
+  mesmo período não deveria mais duplicar na maioria dos casos (ainda é uma
+  heurística best-effort, não um vínculo exato — ver "Limitações" na seção do
+  `mp_email_expenses.py`).
+- ~~Rodar a automação sem depender do computador do usuário~~ — feito via
+  `.github/workflows/mercado-pago-sync.yml` (GitHub Actions, ver seção própria acima).
 - Conectar outros bancos: hoje o escopo é só Mercado Pago. Para bancos sem API pública
   para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX) — posso
   adicionar um `bank_import.py` que lê esses arquivos e joga na mesma aba MP_Transacoes

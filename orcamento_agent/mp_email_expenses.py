@@ -474,7 +474,20 @@ class MercadoPagoEmailExpenseAgent:
             print("\n[dry-run] Nada foi gravado. Resumo do que seria feito:")
         elif n_criadas or resultado["categorias_novas"]:
             try:
-                source.write_fields({"categories": db.get("categories", []), "expenses": db.get("expenses", [])})
+                status = mp_reconcile.StatusTracker.update(
+                    db, tenant_id, "last_expenses_email",
+                    criadas=n_criadas,
+                    categorias_novas=resultado["categorias_novas"],
+                    ignoradas_receita=resultado["ignoradas_receita"],
+                    ignoradas_duplicata_cruzada=resultado.get("ignoradas_duplicata_cruzada", 0),
+                    emails_no_periodo=len(mensagens),
+                    sem_valor=contagem_classes["sem_valor"],
+                )
+                source.write_fields({
+                    "categories": db.get("categories", []),
+                    "expenses": db.get("expenses", []),
+                    "mercado_pago_status": status,
+                })
             except Exception as e:
                 return "erro", f"Falha ao gravar os dados de volta ({source.describe()}): {e}"
 
@@ -498,6 +511,11 @@ class MercadoPagoEmailExpenseAgent:
             )
         if resultado["ignoradas_duplicadas"]:
             linhas.append(f"{resultado['ignoradas_duplicadas']} e-mail(is) ignorado(s) por já terem sido importados antes.")
+        if resultado.get("ignoradas_duplicata_cruzada"):
+            linhas.append(
+                f"{resultado['ignoradas_duplicata_cruzada']} e-mail(is) ignorado(s) por provável duplicata cruzada "
+                "com uma despesa já gerada pelo outro caminho (API x e-mail, mesmo valor+data)."
+            )
         if resultado["ignoradas_filtro"]:
             linhas.append(
                 f"{resultado['ignoradas_filtro']} e-mail(is) ignorado(s) pelo filtro \"ignorar_descricoes_contendo\"."

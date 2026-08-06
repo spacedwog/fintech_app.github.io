@@ -188,4 +188,37 @@ with open(TEST_DB_PATH, encoding="utf-8") as f:
 assert antes == depois_dry, "--dry-run não deveria gravar nada"
 print("OK --dry-run não grava nada")
 
+# ---------- dedup cruzado (e-mail x API já importada antes) ----------
+# Simula uma despesa já gerada por mp_expenses.py (API) com o mesmo
+# valor+data do e-mail "UBER" -- mp_email_expenses.py deve reconhecer como
+# provável duplicata (mesmo pagamento real, ids de origem diferentes) e não
+# gerar uma segunda despesa.
+
+TEST_DB_PATH_2 = "TEST_db_email_expenses_cruzado.json"
+fixture_com_api = json.loads(json.dumps(fixture_db))
+fixture_com_api["expenses"] = [{
+    "id": "exp_api_1",
+    "tenant_id": "t1",
+    "user_id": "u1",
+    "category_id": "c1",
+    "amount": 35.50,
+    "date": "2026-08-05",  # mesma data usada em make_email(..., date="Wed, 05 Aug 2026 ...") por padrão
+    "description": "UBER *TRIP 123",
+    "mercadoPagoPaymentId": 9001,
+    "generatedByMercadoPago": True,
+    "mercadoPagoSource": "api",
+}]
+with open(TEST_DB_PATH_2, "w", encoding="utf-8") as f:
+    json.dump(fixture_com_api, f, ensure_ascii=False)
+with open(TEST_CONFIG_PATH, "w", encoding="utf-8") as f:
+    json.dump({**cfg, "db_json": TEST_DB_PATH_2}, f)
+
+mpe.fetch_mp_emails = lambda cfg, dias: [emails_fake[0]]  # só o e-mail do Uber (mesmo valor/data da despesa "api" acima)
+resultado_cruzado, _ = mpe.run(Args)
+assert resultado_cruzado == "sem_novidades", resultado_cruzado
+with open(TEST_DB_PATH_2, encoding="utf-8") as f:
+    depois_cruzado = json.load(f)
+assert len([e for e in depois_cruzado["expenses"] if e.get("generatedByMercadoPago")]) == 1, depois_cruzado["expenses"]
+print("OK dedup cruzado: e-mail com mesmo valor+data de uma despesa já gerada via API não duplica")
+
 print("\nTODOS OS TESTES PASSARAM ✅")

@@ -182,7 +182,12 @@
           </div>
 
           <div class="card">
-            <h3 style="margin-top:0;">Minhas despesas</h3>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <h3 style="margin:0;">Minhas despesas</h3>
+              <button type="button" id="mp-connect-open-btn" class="secondary" style="margin:0;">
+                🔗 Conectar Mercado Pago
+              </button>
+            </div>
             <table>
               <thead>
                 <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th></th></tr>
@@ -442,6 +447,80 @@
     </div>
   </div>
   <!-- /MODAL LAYOUT DE LEITURA -->
+
+  <!-- ============================================================
+       MODAL — CONECTAR MERCADO PAGO (Página 2: Registrar Despesas)
+       O site é 100% estático (GitHub Pages): o Access Token do Mercado
+       Pago NUNCA pode ir para o navegador de verdade (não há CORS/backend
+       para chamar a API daqui com segurança). Este modal não chama o
+       Mercado Pago -- ele mostra o status real já gravado pelos agentes
+       (orcamento_agent/mp_reconcile.py, mp_expenses.py,
+       mp_email_expenses.py, rodando localmente ou via GitHub Actions) e
+       ajuda a gerar os arquivos de configuração deles: o token digitado
+       aqui só é usado para montar um JSON para download, nunca sai do
+       navegador nem é salvo em lugar nenhum (nem localStorage).
+  ============================================================ -->
+  <div id="mp-connect-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;font-size:18px;">Conectar Mercado Pago</h2>
+        <button type="button" id="mp-connect-modal-close"
+                style="background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted);">&times;</button>
+      </div>
+
+      <p class="small-muted" style="margin:0 0 12px;text-align:left;">
+        Este painel é 100% estático — por segurança, o Access Token do Mercado Pago nunca é enviado nem chamado
+        direto do navegador. A integração de verdade roda fora daqui, por
+        <code>orcamento_agent/mp_expenses.py</code> + <code>mp_reconcile.py</code> (manual, agendado, ou automático
+        via GitHub Actions). Este modal só ajuda a gerar a configuração e mostra o status real da última execução.
+      </p>
+
+      <div class="card" style="margin:0 0 14px;padding:12px;">
+        <h3 style="margin:0 0 8px;font-size:14px;">Status da automação</h3>
+        <div id="mp-connect-status" class="small-muted">Carregando…</div>
+      </div>
+
+      <div id="mp-connect-error" class="error-box hidden"></div>
+      <div id="mp-connect-success" class="success-box hidden"></div>
+
+      <form id="mp-connect-form">
+        <div class="field">
+          <label>Access Token do Mercado Pago</label>
+          <input type="password" id="mp-connect-token" placeholder="APP_USR-..." autocomplete="off" />
+          <p class="small-muted" style="margin:6px 0 0;">
+            Gere em developers.mercadopago.com.br → Suas integrações → Credenciais. Usado só neste navegador, agora,
+            para montar o arquivo de configuração — não é enviado a lugar nenhum nem fica salvo depois de gerar o
+            download.
+          </p>
+        </div>
+        <div class="field">
+          <label>E-mail da conta (login neste painel)</label>
+          <input type="email" id="mp-connect-email" required />
+        </div>
+        <div class="field">
+          <label>Buscar pagamentos dos últimos (dias)</label>
+          <input type="number" id="mp-connect-dias" min="1" value="30" />
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="submit" class="primary" style="flex:1;min-width:200px;">
+            Gerar e baixar configuração (.json)
+          </button>
+          <button type="button" id="mp-connect-cancel" class="secondary" style="flex:1;min-width:120px;">Fechar</button>
+        </div>
+      </form>
+
+      <p class="small-muted" style="text-align:left;margin:16px 0 4px;">
+        Depois de baixar: coloque os dois arquivos em <code>orcamento_agent/</code> (substituindo
+        <code>mp_expenses_config.json</code> e <code>mp_reconcile_config.json</code>) e rode
+        <code>python3 mp_reconcile.py && python3 mp_expenses.py</code>. Para automatizar sem depender do seu
+        computador, configure os mesmos valores como <strong>Secrets</strong> do repositório no GitHub (Settings →
+        Secrets and variables → Actions) — veja <code>orcamento_agent/LEIA-ME.md</code> e
+        <code>.github/workflows/mercado-pago-sync.yml</code>.
+      </p>
+    </div>
+  </div>
+  <!-- /MODAL CONECTAR MERCADO PAGO -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>

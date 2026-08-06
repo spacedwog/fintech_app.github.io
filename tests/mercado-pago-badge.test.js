@@ -163,6 +163,17 @@ function check(name, cond) {
       mercadoPagoPaymentId: "MP-PAYMENT-999",
       date: "2026-08-04T12:00:00.000Z",
     });
+
+    // Simula também o que StatusTracker (orcamento_agent/mp_reconcile.py,
+    // reaproveitado por mp_expenses.py/mp_email_expenses.py) grava sobre a
+    // PRÓPRIA execução -- "global" para mp_reconcile.py (não é por tenant,
+    // ver comentário em mp_reconcile.py), por tenant_id para mp_expenses.py.
+    db.mercado_pago_status = {
+      global: { last_reconcile: { at: "2026-08-04T12:05:00.000Z", verificados: 1, ambiguos: 0 } },
+      [session.tenant_id]: {
+        last_expenses_api: { at: "2026-08-03T09:00:00.000Z", criadas: 1, categorias_novas: 0 },
+      },
+    };
     await saveDb(db);
 
     return await Api.getMercadoPagoStatus();
@@ -176,6 +187,10 @@ function check(name, cond) {
     "last_sync_date é a data mais recente entre a despesa e o pagamento (2026-08-04, do pagamento)",
     String(statusConectado.last_sync_date).slice(0, 10) === "2026-08-04"
   );
+  check("automation.last_reconcile vem de mercado_pago_status.global", statusConectado.automation.last_reconcile && statusConectado.automation.last_reconcile.verificados === 1);
+  check("automation.last_expenses_api vem de mercado_pago_status[tenant_id]", statusConectado.automation.last_expenses_api && statusConectado.automation.last_expenses_api.criadas === 1);
+  check("automation_configured=true quando algum agente já rodou", statusConectado.automation_configured === true);
+  check("last_run_at é o horário mais recente entre os agentes (2026-08-04T12:05, do reconcile)", statusConectado.last_run_at === "2026-08-04T12:05:00.000Z");
 
   // ---------- 4) Isolado por conta: outra conta não vê nada disso ----------
   const statusOutraConta = await run(
@@ -193,6 +208,14 @@ function check(name, cond) {
   `
   );
   check("outra conta (tenant diferente) não vê os dados do Mercado Pago da primeira", statusOutraConta.connected === false && statusOutraConta.expenses_count === 0);
+  check(
+    "automation.last_expenses_api é isolado por tenant -- outra conta não vê o da primeira",
+    statusOutraConta.automation.last_expenses_api === null
+  );
+  check(
+    "automation.last_reconcile é 'global' por design (mp_reconcile.py cruza a conta inteira, não por tenant -- ver StatusTracker) -- outra conta enxerga o mesmo resumo agregado",
+    statusOutraConta.automation.last_reconcile && statusOutraConta.automation.last_reconcile.verificados === 1
+  );
 
   console.log("\n=== RESUMO ===");
   const total = results.length;

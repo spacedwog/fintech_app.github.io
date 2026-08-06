@@ -215,8 +215,22 @@ No painel web, despesas geradas assim aparecem na Página 2 com o selo **Mercado
 
 - A senha IMAP (idealmente uma "senha de app") é um segredo tão sensível quanto o Access Token do Mercado Pago — `mp_email_expenses_config.json` já está no `.gitignore`, confirme com `git status` antes do primeiro commit.
 - Classificação (despesa/receita/ignorar) e extração de valor são por palavra-chave/regex sobre o texto do e-mail — best-effort, mesmo espírito do cruzamento por valor+data do `mp_reconcile.py`. E-mails sem classificação reconhecida são ignorados por segurança (melhor deixar de fora do que arriscar um falso positivo).
-- **Não cruza com `mp_expenses.py`** — rodar os dois scripts para o mesmo período pode gerar duas despesas para o mesmo pagamento real (um pelo id numérico da API, outro pelo Message-ID do e-mail). Escolha um caminho como principal ou revise manualmente se usar os dois.
+- Cruza com `mp_expenses.py` só por heurística de valor+data (mesma tolerância do `mp_reconcile.py`) — na maioria dos casos rodar os dois para o mesmo período não duplica mais, mas ainda é best-effort, não um vínculo exato.
 - Não roda em tempo real: só gera despesas quando alguém executa o script (manual ou agendado).
+</details>
+
+### Automatizando de verdade: GitHub Actions + modal "Conectar Mercado Pago"
+
+Os três agentes acima (`mp_reconcile.py`, `mp_expenses.py`, `mp_email_expenses.py`) podem rodar **sozinhos, sem depender do seu computador ligado**, via `.github/workflows/mercado-pago-sync.yml` — um workflow do GitHub Actions agendado (diário, ajustável) que roda num runner temporário do GitHub, lendo os segredos (Access Token, e-mail da conta, chave do Firebase) de **Secrets** do repositório (Settings → Secrets and variables → Actions) — nunca do código, nunca do navegador. Pode também ser disparado manualmente em Actions → "Mercado Pago — sincronização automática" → Run workflow. Os nomes dos Secrets esperados estão documentados nos comentários do próprio arquivo do workflow.
+
+No painel web, o botão **🔗 Conectar Mercado Pago** (Página 2 → Registrar Despesas) abre um modal que: (1) mostra o status real da última execução de cada agente — horário e contagens, gravados por eles mesmos (`mercado_pago_status`, via `Api.getMercadoPagoStatus()`); e (2) ajuda a gerar `mp_expenses_config.json`/`mp_reconcile_config.json` prontos para download a partir do Access Token e e-mail digitados ali. Por segurança — e porque a API do Mercado Pago não libera CORS para chamadas com Access Token vindas do navegador de qualquer forma — **o modal nunca chama a API do Mercado Pago nem salva o token em lugar nenhum** (nem localStorage): o token só existe na memória do formulário até o download ser gerado, e é limpo da tela logo em seguida.
+
+<details>
+<summary>⚠️ Segurança — leia antes de usar</summary>
+
+- Os Secrets do GitHub Actions são visíveis/editáveis só por quem tem acesso de administração ao repositório — mesmo cuidado de qualquer outro segredo do projeto (revogue e gere um novo Access Token em developers.mercadopago.com.br se desconfiar de vazamento).
+- O workflow apaga os arquivos de configuração temporários (com o token/chave) ao final de cada execução (`if: always()`), mesmo se algum passo anterior falhar.
+- Continua valendo tudo o que já foi dito sobre cada script individualmente (idempotência, best-effort da correspondência valor+data, etc.) — o GitHub Actions só troca "quem aperta o botão" por um agendamento, a lógica é exatamente a mesma.
 </details>
 
 ---
@@ -270,6 +284,11 @@ orcamento_agent/
                             (ver seção própria acima)
   mp_sync.py, ...        -> agente separado para planilha de orçamento pessoal,
                             sem relação com este app (ver orcamento_agent/LEIA-ME.md)
+.github/workflows/
+  mercado-pago-sync.yml  -> roda mp_reconcile.py/mp_expenses.py/mp_email_expenses.py
+                            sozinho (agendado ou manual), com os segredos vindos de
+                            Secrets do repositório -- ver seção "Automatizando de
+                            verdade" acima
 ```
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o painel web em si é só front-end estático (o `orcamento_agent/` é uma automação local opcional, fora do site publicado).

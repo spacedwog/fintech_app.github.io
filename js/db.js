@@ -76,6 +76,16 @@ class Schema {
       // da conta, não de uma pessoa só. O Realizado NÃO é guardado aqui: é
       // calculado na hora a partir de "expenses" (ver Api.getBudgetOverview).
       categoryBudgets: [], // { id, tenant_id, category_id, month, previsto }
+      // Resumo (contagens + horário) da última execução de cada agente
+      // Mercado Pago (orcamento_agent/mp_reconcile.py, mp_expenses.py,
+      // mp_email_expenses.py), gravado por eles mesmos via StatusTracker
+      // (Python) direto no Firestore/db.json -- nunca editado pelo
+      // navegador. Formato: { [tenant_id ou "global"]: { last_reconcile,
+      // last_expenses_api, last_expenses_email } }, cada um { ...contagens,
+      // at: isoString }. Usado só para exibir "última sincronização" no
+      // painel (ver Api.getMercadoPagoStatus em js/api.js) -- puramente
+      // informativo. `null` até a primeira execução de algum dos agentes.
+      mercado_pago_status: null,
       _seq: {
         tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, budgetLayouts: 0, categoryBudgets: 0,
       },
@@ -228,6 +238,17 @@ class ThreeWayMerger {
         (remote && remote._seq && remote._seq[k]) || 0
       );
     });
+
+    // mercado_pago_status: campo escrito só pelos agentes Python
+    // (orcamento_agent/mp_reconcile.py etc., via Firestore .update() -- ver
+    // StatusTracker), nunca pelo navegador. Não é uma coleção por id, então
+    // fica fora do merge por DB_COLLECTIONS acima -- sem isto, _writeFirestore
+    // (que faz ref.set(db), sobrescrevendo o documento inteiro) apagaria o
+    // status na próxima sincronização pendente. "remote" é a fonte mais
+    // fresca (o agente grava direto lá, o navegador nunca vê isso em
+    // "local" a não ser que já tenha sincronizado antes).
+    merged.mercado_pago_status =
+      (remote && remote.mercado_pago_status) || (local && local.mercado_pago_status) || (base && base.mercado_pago_status) || null;
 
     return merged;
   }

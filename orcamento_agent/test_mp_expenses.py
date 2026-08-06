@@ -137,4 +137,47 @@ with open(TEST_DB_PATH, encoding="utf-8") as f:
 assert antes == depois_dry, "--dry-run não deveria gravar nada"
 print("OK --dry-run não grava nada")
 
+# ---------- dedup cruzado (API x e-mail) ----------
+# Simula uma despesa já gerada por mp_email_expenses.py (mesmo valor+data de
+# um pagamento que agora "chega" via API) -- mp_expenses.py deve reconhecer
+# como provável duplicata e não criar uma segunda despesa (ver
+# ExpenseGenerator._is_cross_source_duplicate).
+
+db_cruzado = json.loads(json.dumps(fixture_db))
+db_cruzado["expenses"] = [{
+    "id": "exp_email_1",
+    "tenant_id": "t1",
+    "user_id": "u1",
+    "category_id": "c1",
+    "amount": 35.50,
+    "date": "2026-08-03",
+    "description": "Pagamento aprovado - UBER *TRIP 123",
+    "mercadoPagoPaymentId": "<algum-message-id@mp>",
+    "generatedByMercadoPago": True,
+    "mercadoPagoSource": "email",
+}]
+resultado_cruzado = mp_expenses.generate_expenses(
+    db_cruzado, [fake_mp_payments[1]], "t1", "u1", cfg  # id 5002, mesmo UBER, mesmo valor/data
+)
+assert len(resultado_cruzado["criadas"]) == 0, resultado_cruzado["criadas"]
+assert resultado_cruzado["ignoradas_duplicata_cruzada"] == 1, resultado_cruzado
+print("OK dedup cruzado: pagamento da API com mesmo valor+data de uma despesa já gerada via e-mail não duplica")
+
+# ---------- StatusTracker: status de sincronização gravado após run() ----------
+
+with open(TEST_DB_PATH, "w", encoding="utf-8") as f:
+    json.dump(fixture_db, f, ensure_ascii=False)
+with open(TEST_CONFIG_PATH, "w", encoding="utf-8") as f:
+    json.dump({**cfg, "db_json": TEST_DB_PATH}, f)
+
+resultado_status, _ = mp_expenses.run(Args)
+assert resultado_status == "ok"
+with open(TEST_DB_PATH, encoding="utf-8") as f:
+    depois_status = json.load(f)
+status_tenant = depois_status.get("mercado_pago_status", {}).get("t1", {})
+assert "last_expenses_api" in status_tenant, depois_status.get("mercado_pago_status")
+assert status_tenant["last_expenses_api"]["criadas"] == 2, status_tenant
+assert "at" in status_tenant["last_expenses_api"]
+print("OK StatusTracker: run() grava mercado_pago_status.t1.last_expenses_api (contagem + horário) para o painel web ler")
+
 print("\nTODOS OS TESTES PASSARAM ✅")

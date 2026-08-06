@@ -117,6 +117,34 @@ def day_range(dias):
     return DateParser.day_range(dias)
 
 
+# ---------- StatusTracker: "última sincronização" visível no painel web ----------
+
+class StatusTracker:
+    """Grava um resumo leve (contagens + horário) da última execução de cada
+    agente Mercado Pago (mp_reconcile.py / mp_expenses.py / mp_email_expenses.py)
+    no mesmo banco do painel web (Firestore ou db.json), por tenant -- só
+    para o painel (js/api.js Api.getMercadoPagoStatus / MercadoPagoStatusIndicator
+    em js/dashboard.js) poder mostrar quando a automação rodou pela última
+    vez de verdade, mesmo sem nenhum Access Token no navegador. Puramente
+    informativo: nenhum script decide nada a partir daqui, só registra."""
+
+    FIELD = "mercado_pago_status"
+
+    @classmethod
+    def update(cls, db, tenant_id, key, **campos):
+        """Atualiza (sem apagar as outras chaves já gravadas) o status de
+        `tenant_id` em db[FIELD][tenant_id][key] = {**campos, "at": agora}.
+        Devolve db[FIELD] inteiro (todos os tenants) -- pronto para passar
+        direto a source.write_fields({"mercado_pago_status": ...})."""
+        agora = datetime.now(timezone.utc).isoformat()
+        status = dict(db.get(cls.FIELD) or {})
+        tenant_status = dict(status.get(tenant_id) or {})
+        tenant_status[key] = {**campos, "at": agora}
+        status[tenant_id] = tenant_status
+        db[cls.FIELD] = status
+        return status
+
+
 # ---------- log (best-effort, nunca derruba o script) ----------
 
 def log(linha):
@@ -415,7 +443,15 @@ class MercadoPagoReconciliationAgent:
             print("\n[dry-run] Nada foi gravado. Resumo do que seria feito:")
         else:
             try:
-                source.write_payments(updated)
+                # "global": mp_reconcile.py cruza TODOS os pagamentos do app (a
+                # chave Pix cobrada no modal é única para toda a instância --
+                # ver PIX_MERCHANT em js/dashboard.js), não faz sentido por
+                # tenant como em mp_expenses.py/mp_email_expenses.py.
+                status = StatusTracker.update(
+                    db, "global", "last_reconcile",
+                    verificados=n_verificados, ambiguos=n_ambiguos, sem_correspondencia=n_sem,
+                )
+                source.write_fields({"payments": updated, "mercado_pago_status": status})
             except Exception as e:
                 return "erro", f"Falha ao gravar os dados de volta ({source.describe()}): {e}"
 

@@ -109,6 +109,13 @@ with open(TEST_DB_PATH, encoding="utf-8") as f:
 assert depois_do_run["payments"][0]["verifiedByMercadoPago"] is True
 print("OK run() end-to-end (fonte db.json local):", resultado)
 
+# ---------- StatusTracker: status de sincronização gravado após run() ----------
+status_global = depois_do_run.get("mercado_pago_status", {}).get("global", {})
+assert "last_reconcile" in status_global, depois_do_run.get("mercado_pago_status")
+assert status_global["last_reconcile"]["verificados"] == 2, status_global
+assert "at" in status_global["last_reconcile"]
+print("OK StatusTracker: run() grava mercado_pago_status.global.last_reconcile (contagem + horário) para o painel web ler")
+
 # config inexistente -> erro claro, sem traceback cru
 Args_sem_config = argparse.Namespace(
     config="TEST_config_que_nao_existe.json", dias=30, janela_correspondencia=1,

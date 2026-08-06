@@ -161,10 +161,41 @@ def find_or_create_category(db, tenant_id, name):
 class ExpenseGenerator:
     """Gera despesas reais (no formato do painel web) a partir de pagamentos
     aprovados no Mercado Pago, evitando duplicatas e excluindo o que já é
-    receita da conta (ver docstring do módulo)."""
+    receita da conta (ver docstring do módulo).
 
-    def __init__(self, categorizer):
+    cross_source_window_days/cross_source_tolerance: mesma heurística
+    valor+data de mp_reconcile.PaymentReconciler, aplicada aqui para evitar
+    DUAS despesas para o mesmo pagamento real quando mp_expenses.py (API) e
+    mp_email_expenses.py (e-mail) rodam para o mesmo período -- os dois
+    caminhos geram ids de origem diferentes (numérico da API x Message-ID do
+    e-mail), então a dedup por mercadoPagoPaymentId sozinha não pega esse
+    caso (ver "Limitações" no LEIA-ME.md)."""
+
+    def __init__(self, categorizer, cross_source_window_days=2, cross_source_tolerance=0.01):
         self.categorizer = categorizer
+        self.cross_source_window_days = cross_source_window_days
+        self.cross_source_tolerance = cross_source_tolerance
+
+    def _is_cross_source_duplicate(self, valor, data_iso, existentes_mp):
+        """True se já existe uma despesa gerada via Mercado Pago (API ou
+        e-mail, qualquer uma) com valor e data próximos -- best-effort, mesmo
+        espírito de mp_reconcile.PaymentReconciler (nunca lança exceção,
+        heurística, não vínculo exato)."""
+        alvo_date = mp_reconcile.DateParser.to_utc_date(data_iso) if data_iso else None
+        if alvo_date is None:
+            return False
+        for e in existentes_mp:
+            try:
+                if abs(float(e.get("amount", 0)) - float(valor)) > self.cross_source_tolerance:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            e_date = mp_reconcile.DateParser.to_utc_date(e.get("date"))
+            if e_date is None:
+                continue
+            if abs((e_date - alvo_date).days) <= self.cross_source_window_days:
+                return True
+        return False
 
     def generate(self, db, mp_payments, tenant_id, user_id):
         """Gera despesas em `db` (mutado in-place) a partir de `mp_payments`.
@@ -185,9 +216,19 @@ class ExpenseGenerator:
             for e in db.get("expenses", [])
             if e.get("tenant_id") == tenant_id and e.get("mercadoPagoPaymentId") is not None
         }
+        # Despesas já geradas via Mercado Pago (API ou e-mail) para este tenant
+        # -- base da checagem cruzada por valor+data (ver _is_cross_source_duplicate).
+        # Recalculada a cada despesa nova criada nesta mesma chamada, para que
+        # duas linhas do MESMO lote (ex.: dois e-mails quase idênticos) também
+        # não dupliquem entre si.
+        existentes_mp = [
+            e for e in db.get("expenses", [])
+            if e.get("tenant_id") == tenant_id and e.get("generatedByMercadoPago")
+        ]
 
         criadas = []
         ignoradas_duplicadas = 0
+        ignoradas_duplicata_cruzada = 0
         ignoradas_receita = 0
         ignoradas_filtro = 0
         categorias_novas = 0
@@ -209,13 +250,18 @@ class ExpenseGenerator:
                 ignoradas_filtro += 1
                 continue
 
+            valor = p.get("transaction_amount", 0) or 0
+            data_iso = p.get("date_approved") or p.get("date_created") or ""
+
+            if self._is_cross_source_duplicate(valor, data_iso, existentes_mp):
+                ignoradas_duplicata_cruzada += 1
+                continue
+
             categoria_nome = self.categorizer.categorize(desc)
             category, created = find_or_create_category(db, tenant_id, categoria_nome)
             if created:
                 categorias_novas += 1
 
-            valor = p.get("transaction_amount", 0) or 0
-            data_iso = p.get("date_approved") or p.get("date_created") or ""
             data = data_iso[:10] if data_iso else datetime.now().strftime("%Y-%m-%d")
 
             expense = {
@@ -239,12 +285,14 @@ class ExpenseGenerator:
                 "mercadoPagoSource": "api",
             }
             db.setdefault("expenses", []).append(expense)
+            existentes_mp.append(expense)
             criadas.append(expense)
 
         return {
             "criadas": criadas,
             "categorias_novas": categorias_novas,
             "ignoradas_duplicadas": ignoradas_duplicadas,
+            "ignoradas_duplicata_cruzada": ignoradas_duplicata_cruzada,
             "ignoradas_receita": ignoradas_receita,
             "ignoradas_filtro": ignoradas_filtro,
         }
@@ -315,6 +363,7 @@ class MercadoPagoExpenseAgent:
             f"fonte={source.describe()} conta={conta_email} dias={dias} mp_encontrados={len(mp_payments)} "
             f"despesas_criadas={n_criadas} categorias_novas={resultado['categorias_novas']} "
             f"ignoradas_receita={resultado['ignoradas_receita']} ignoradas_duplicadas={resultado['ignoradas_duplicadas']} "
+            f"ignoradas_duplicata_cruzada={resultado['ignoradas_duplicata_cruzada']} "
             f"ignoradas_filtro={resultado['ignoradas_filtro']}"
         )
 
@@ -322,7 +371,18 @@ class MercadoPagoExpenseAgent:
             print("\n[dry-run] Nada foi gravado. Resumo do que seria feito:")
         elif n_criadas or resultado["categorias_novas"]:
             try:
-                source.write_fields({"categories": db.get("categories", []), "expenses": db.get("expenses", [])})
+                status = mp_reconcile.StatusTracker.update(
+                    db, tenant_id, "last_expenses_api",
+                    criadas=n_criadas,
+                    categorias_novas=resultado["categorias_novas"],
+                    ignoradas_receita=resultado["ignoradas_receita"],
+                    ignoradas_duplicata_cruzada=resultado.get("ignoradas_duplicata_cruzada", 0),
+                )
+                source.write_fields({
+                    "categories": db.get("categories", []),
+                    "expenses": db.get("expenses", []),
+                    "mercado_pago_status": status,
+                })
             except Exception as e:
                 return "erro", f"Falha ao gravar os dados de volta ({source.describe()}): {e}"
 
@@ -341,6 +401,11 @@ class MercadoPagoExpenseAgent:
             )
         if resultado["ignoradas_duplicadas"]:
             linhas.append(f"{resultado['ignoradas_duplicadas']} pagamento(s) ignorado(s) por já terem sido importados antes.")
+        if resultado.get("ignoradas_duplicata_cruzada"):
+            linhas.append(
+                f"{resultado['ignoradas_duplicata_cruzada']} pagamento(s) ignorado(s) por provável duplicata cruzada "
+                "com uma despesa já gerada pelo outro caminho (API x e-mail, mesmo valor+data)."
+            )
         if resultado["ignoradas_filtro"]:
             linhas.append(
                 f"{resultado['ignoradas_filtro']} pagamento(s) ignorado(s) pelo filtro \"ignorar_descricoes_contendo\"."

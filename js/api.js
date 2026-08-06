@@ -857,13 +857,36 @@ class ApiFacade {
   // ambos scripts rodam fora do navegador e só chegam aqui via Firestore/
   // localStorage (ver js/db.js). Não chama a API do Mercado Pago diretamente
   // (nenhum Access Token existe no front-end, de propósito).
+  //
+  // "automation": além do resumo derivado de expenses/payments acima, expõe
+  // o que os agentes gravaram sobre a PRÓPRIA execução deles (StatusTracker,
+  // em orcamento_agent/mp_reconcile.py) -- horário e contagens da última vez
+  // que cada script rodou de verdade (manual, agendado ou via GitHub
+  // Actions), mesmo em janelas sem nenhuma despesa/pagamento novo. `null`
+  // enquanto nenhum agente rodou ainda (db.mercado_pago_status inexistente).
   async getMercadoPagoStatus() {
-    const [expenses, payments] = await Promise.all([this.listExpenses(), this.listPayments()]);
+    const session = Auth.requireSession();
+    const [db, expenses, payments] = await Promise.all([loadDb(), this.listExpenses(), this.listPayments()]);
     const mpExpenses = expenses.filter((e) => e.generated_by_mercado_pago);
     const mpPayments = payments.filter((p) => p.verifiedByMercadoPago);
     const expensesTotal = mpExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     const lastSyncDate =
       [...mpExpenses.map((e) => e.date), ...mpPayments.map((p) => p.date)]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+
+    const statusByTenant = (db.mercado_pago_status && db.mercado_pago_status[session.tenant_id]) || {};
+    const statusGlobal = (db.mercado_pago_status && db.mercado_pago_status.global) || {};
+    const automation = {
+      last_reconcile: statusGlobal.last_reconcile || null,
+      last_expenses_api: statusByTenant.last_expenses_api || null,
+      last_expenses_email: statusByTenant.last_expenses_email || null,
+    };
+    const lastRunAt =
+      [automation.last_reconcile, automation.last_expenses_api, automation.last_expenses_email]
+        .filter(Boolean)
+        .map((s) => s.at)
         .filter(Boolean)
         .sort()
         .pop() || null;
@@ -874,6 +897,9 @@ class ApiFacade {
       expenses_total: expensesTotal,
       payments_verified_count: mpPayments.length,
       last_sync_date: lastSyncDate,
+      automation,
+      automation_configured: lastRunAt !== null,
+      last_run_at: lastRunAt,
     };
   }
 }
