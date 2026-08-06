@@ -487,6 +487,59 @@ class DashboardController {
     const nextBtn = document.getElementById("flow-next-btn");
     if (prevBtn) prevBtn.addEventListener("click", () => this._goToFlowPage(this.currentFlowPage - 1));
     if (nextBtn) nextBtn.addEventListener("click", () => this._goToFlowPage(this.currentFlowPage + 1));
+
+    this._bindExpenseReceiptUpload();
+  }
+
+  // Upload de comprovante de pagamento, visível no topo das 3 páginas do
+  // fluxo Orçamento & Despesas (entre o indicador de página e os cards).
+  // Reaproveita a IA de OCR local (js/receipt-ai.js) só para extrair o
+  // valor do comprovante — sem expectedAmount/expectedType, não há
+  // validação de recebedor (isto não é um comprovante de pagamento ao
+  // SPACECWORP, e sim um comprovante qualquer do gasto do usuário) — e usa
+  // o valor lido para pré-preencher o formulário de "Registrar Despesas".
+  _bindExpenseReceiptUpload() {
+    const input = document.getElementById("expense-receipt-input");
+    if (!input) return;
+    input.addEventListener("change", () => {
+      this._handleExpenseReceiptUpload(input.files && input.files[0]);
+    });
+  }
+
+  _handleExpenseReceiptUpload(file) {
+    const status = document.getElementById("expense-receipt-status");
+    if (!status) return;
+
+    if (!file) {
+      status.textContent = "";
+      return;
+    }
+
+    status.textContent = "Lendo comprovante com IA (OCR local no navegador)...";
+    status.style.color = "";
+
+    if (!window.ReceiptAI) {
+      status.textContent = "IA de leitura indisponível neste navegador. Preencha a despesa manualmente.";
+      status.style.color = "#b45309";
+      return;
+    }
+
+    ReceiptAI.analyze(file, {})
+      .then((result) => {
+        if (result.detectedAmount != null) {
+          const amountInput = document.getElementById("expense-amount");
+          if (amountInput) amountInput.value = result.detectedAmount.toFixed(2);
+          status.textContent = `✅ Valor identificado: R$ ${result.detectedAmount.toFixed(2)} — confira e complete a despesa na Página 2.`;
+          status.style.color = "var(--success)";
+        } else {
+          status.textContent = "Não foi possível identificar o valor no comprovante. Preencha a despesa manualmente.";
+          status.style.color = "#b45309";
+        }
+      })
+      .catch(() => {
+        status.textContent = "Não foi possível ler o comprovante automaticamente. Preencha a despesa manualmente.";
+        status.style.color = "#b45309";
+      });
   }
 
   _goToFlowPage(page) {
