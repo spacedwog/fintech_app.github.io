@@ -5,11 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fintech Spacecworp - Painel</title>
 
+  <!-- Segurança (ver tela "Segurança" no painel): restringe de quais domínios o
+       navegador pode carregar script/estilo/fonte/imagem/conexão. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.google.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.googletagmanager.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+
   <!-- Google tag (gtag.js) - Google Ads -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    // Privacidade/LGPD (Google Consent Mode v2): ver mesmo bloco em login.html —
+    // a tela "Privacidade" sincroniza a preferência real assim que a sessão carrega.
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+    });
     gtag('js', new Date());
     gtag('config', 'AW-10926256695');
   </script>
@@ -27,7 +40,7 @@
 <body>
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MCN6MLH5"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  height="0" width="0" class="hidden-frame"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
 
   <div class="app-shell">
@@ -50,9 +63,15 @@
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
       <button class="nav-item" data-view="plan">Plano</button>
 
+      <div class="sidebar-section-label">Conta</div>
+      <button class="nav-item" data-view="security">Segurança</button>
+      <button class="nav-item" data-view="privacy">Privacidade</button>
+      <button class="nav-item" data-view="certification">Certificação</button>
+      <button class="nav-item" data-view="settings">Configurações</button>
+
       <div class="sidebar-footer">
         Logado como <strong id="user-name"></strong><br />
-        <button class="secondary" id="logout-btn" style="margin-top:10px;">Sair</button>
+        <button class="secondary mt-10" id="logout-btn">Sair</button>
       </div>
     </aside>
 
@@ -74,12 +93,12 @@
           </div>
           <button type="button" class="secondary" id="flow-next-btn">Próxima ›</button>
         </div>
-        <p class="small-muted" id="flow-page-indicator" style="text-align:center;margin:4px 0 18px;">Página 1 de 3</p>
+        <p class="small-muted text-center mt-4 mb-18" id="flow-page-indicator">Página 1 de 3</p>
 
         <!-- Página 1: Importar Orçamento -->
         <div class="flow-page" id="flow-page-1">
           <div class="card">
-            <p class="small-muted" style="margin-top:0;">
+            <p class="small-muted mt-0">
               Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita 100% no
               navegador (IA local, sem servidor, sem depender de um arquivo fixo). Funciona com uma
               coluna <strong>Categoria</strong> e colunas <strong>Previsto</strong>/<strong>Realizado</strong>
@@ -91,7 +110,7 @@
                 <option value="">Detecção automática</option>
               </select>
             </div>
-            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+            <div class="d-flex gap-10 flex-wrap mb-16">
               <button type="button" class="secondary" id="budget-layout-new-btn">+ Criar layout de leitura</button>
               <button type="button" class="secondary hidden" id="budget-layout-edit-btn">Editar layout</button>
               <button type="button" class="secondary hidden" id="budget-layout-delete-btn">Excluir layout</button>
@@ -100,7 +119,7 @@
             <div class="field">
               <input type="file" id="budget-file-input" accept=".xlsx,.xls,.csv" />
             </div>
-            <p id="budget-import-status" class="small-muted" style="min-height:1rem;"></p>
+            <p id="budget-import-status" class="small-muted min-h-1rem"></p>
           </div>
 
           <div class="card hidden" id="budget-summary-card">
@@ -108,7 +127,7 @@
           </div>
 
           <div class="card hidden" id="budget-table-card">
-            <h3 style="margin-top:0;">Detalhamento por categoria (dados da planilha)</h3>
+            <h3 class="mt-0">Detalhamento por categoria (dados da planilha)</h3>
             <table>
               <thead>
                 <tr><th>Categoria</th><th>Mês</th><th>Previsto</th><th>Realizado</th><th>Saldo</th><th>Status</th></tr>
@@ -122,8 +141,8 @@
                o Realizado passa a vir das despesas reais (Página 2), não mais
                do Realizado da própria planilha. -->
           <div class="card hidden" id="budget-adopt-card">
-            <h3 style="margin-top:0;">Usar este orçamento no app</h3>
-            <p class="small-muted" style="margin-top:0;">
+            <h3 class="mt-0">Usar este orçamento no app</h3>
+            <p class="small-muted mt-0">
               Grava o <strong>Previsto</strong> de cada categoria acima no app (cria categorias que não existirem)
               para o mês escolhido. A partir daqui, o <strong>Realizado</strong> passa a ser calculado com despesas
               reais — registre-as na <strong>Página 2</strong> e confira o resultado na <strong>Página 3</strong>.
@@ -135,11 +154,11 @@
               </div>
               <div class="field">
                 <label>Aplicar como orçamento deste mês (no app)</label>
-                <input type="month" id="budget-adopt-target-month" />
+                <input type="text" id="budget-adopt-target-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
               </div>
             </div>
             <button type="button" class="primary" id="budget-adopt-btn">Usar como orçamento deste mês</button>
-            <p id="budget-adopt-status" class="small-muted" style="min-height:1rem;margin-top:10px;"></p>
+            <p id="budget-adopt-status" class="small-muted min-h-1rem mt-10"></p>
           </div>
         </div>
 
@@ -147,7 +166,7 @@
         <div class="flow-page hidden" id="flow-page-2">
           <div class="grid-2">
             <div class="card">
-              <p id="expense-quota-info" class="small-muted" style="margin-top:0;"></p>
+              <p id="expense-quota-info" class="small-muted mt-0"></p>
               <div id="expense-error" class="error-box hidden"></div>
               <div id="expense-success" class="success-box hidden"></div>
               <form id="expense-form">
@@ -162,7 +181,7 @@
                 <div class="field">
                   <label>Categoria</label>
                   <select id="expense-category"></select>
-                  <p id="expense-category-budget-info" class="small-muted" style="margin:6px 0 0;"></p>
+                  <p id="expense-category-budget-info" class="small-muted mt-6 mb-0"></p>
                 </div>
                 <div class="field">
                   <label>Descrição</label>
@@ -173,7 +192,7 @@
             </div>
 
             <div class="card">
-              <h3 style="margin-top:0;">Nova categoria</h3>
+              <h3 class="mt-0">Nova categoria</h3>
               <form id="category-form">
                 <div class="field">
                   <input type="text" id="new-category-name" placeholder="Nome da categoria" />
@@ -184,8 +203,8 @@
           </div>
 
           <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-              <h3 style="margin:0;">Minhas despesas</h3>
+            <div class="row-between">
+              <h3 class="m-0">Minhas despesas</h3>
             </div>
             <table>
               <thead>
@@ -199,16 +218,16 @@
         <!-- Página 3: Alertas / Orçamento -->
         <div class="flow-page hidden" id="flow-page-3">
           <div class="card">
-            <h3 style="margin-top:0;">Limite geral do mês (opcional)</h3>
-            <p class="small-muted" style="margin-top:0;">Um único valor total por mês, independente de categoria — mais simples, mas menos detalhado que a comparação por categoria abaixo.</p>
+            <h3 class="mt-0">Limite geral do mês (opcional)</h3>
+            <p class="small-muted mt-0">Um único valor total por mês, independente de categoria — mais simples, mas menos detalhado que a comparação por categoria abaixo.</p>
             <div id="alerts-box" class="alert-ok">Carregando...</div>
           </div>
           <div class="card">
-            <h3 style="margin-top:0;">Definir limite geral mensal</h3>
+            <h3 class="mt-0">Definir limite geral mensal</h3>
             <form id="budget-form">
               <div class="field">
                 <label>Mês (AAAA-MM)</label>
-                <input type="month" id="budget-month" required />
+                <input type="text" id="budget-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
               </div>
               <div class="field">
                 <label>Limite (R$)</label>
@@ -219,10 +238,10 @@
           </div>
 
           <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-              <h3 style="margin:0;">Previsto x Realizado por categoria</h3>
-              <div class="field" style="margin:0;min-width:160px;">
-                <input type="month" id="budget-overview-month" />
+            <div class="row-between">
+              <h3 class="m-0">Previsto x Realizado por categoria</h3>
+              <div class="field m-0 min-w-160">
+                <input type="text" id="budget-overview-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
               </div>
             </div>
             <p class="small-muted">
@@ -233,7 +252,7 @@
               Nenhum orçamento importado para este mês ainda — vá à <strong>Página 1</strong> e use "Usar este
               orçamento no app".
             </p>
-            <div id="budget-overview-summary" class="alert-ok" style="margin-bottom:14px;"></div>
+            <div id="budget-overview-summary" class="alert-ok mb-14"></div>
             <table>
               <thead>
                 <tr><th>Categoria</th><th>Previsto</th><th>Realizado</th><th>Saldo</th><th>Status</th></tr>
@@ -257,7 +276,7 @@
       <section class="view hidden" id="view-team">
         <div class="top-bar"><h1>Equipe</h1></div>
         <div class="card">
-          <h3 style="margin-top:0;">Convidar usuário</h3>
+          <h3 class="mt-0">Convidar usuário</h3>
           <div id="invite-error" class="error-box hidden"></div>
           <form id="invite-form">
             <div class="field"><label>Nome</label><input type="text" id="invite-name" required /></div>
@@ -274,7 +293,7 @@
           </form>
         </div>
         <div class="card">
-          <h3 style="margin-top:0;">Usuários da conta</h3>
+          <h3 class="mt-0">Usuários da conta</h3>
           <table>
             <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th></tr></thead>
             <tbody id="users-tbody"></tbody>
@@ -285,11 +304,214 @@
       <!-- Plano -->
       <section class="view hidden" id="view-plan">
         <div class="top-bar"><h1>Meu plano</h1></div>
-        <div class="grid-2" id="plans-container" style="grid-template-columns: repeat(2, 1fr);"></div>
+        <div class="grid-2 grid-cols-2" id="plans-container"></div>
 
         <div class="card">
-          <h3 style="margin-top:0;">Histórico de pagamentos</h3>
+          <h3 class="mt-0">Histórico de pagamentos</h3>
+          <p class="small-muted mt-0">
+            Cada pagamento confirmado gera uma Nota Fiscal de Serviço (NFS-e) real, emitida de forma assíncrona por um
+            processo externo (fora do navegador, por segurança — ver <code>orcamento_agent/nfse_issuer.py</code>).
+            Cadastre seu CPF/CNPJ em <strong>Configurações</strong> para que a emissão não fique pendente.
+          </p>
           <div id="payments-history"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SEGURANÇA — controles de cybersecurity implementados no app
+           (baseado no material de referência do W3Schools Cyber Security
+           Tutorial: https://www.w3schools.com/cybersecurity/) + normas
+           ISO usadas como referência de boas práticas para o sistema.
+      ============================================================ -->
+      <section class="view hidden" id="view-security">
+        <div class="top-bar"><h1>Segurança</h1></div>
+
+        <div class="card">
+          <h3 class="mt-0">Sua sessão</h3>
+          <p class="small-muted mt-0">
+            Login com OAuth 2.0 próprio (Authorization Code + PKCE, tokens JWT assinados — ver
+            <code>js/oauth.js</code>), rodando 100% neste navegador (o app não tem servidor).
+          </p>
+          <div id="security-session-box" class="alert-ok mb-14">Carregando…</div>
+          <button type="button" class="secondary" id="security-revoke-btn">Encerrar esta sessão em todos os campos (logout)</button>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Controles de segurança implementados</h3>
+          <p class="small-muted mt-0">
+            Práticas baseadas no <a href="https://www.w3schools.com/cybersecurity/" target="_blank" rel="noopener">W3Schools Cyber
+            Security Tutorial</a> (CIA Triad, senhas, aplicações web, defesa) adaptadas a um app 100% client-side.
+          </p>
+          <ul class="security-control-list" id="security-controls-list"></ul>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">CIA Triad (Confidentiality, Integrity, Availability)</h3>
+          <p class="small-muted mt-0">
+            Modelo clássico de segurança da informação (W3Schools Cyber Security) usado para organizar os controles acima.
+          </p>
+          <div class="grid-2 grid-cols-3" id="cia-triad-grid"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Principais ameaças (referência W3Schools Cyber Security)</h3>
+          <table>
+            <thead><tr><th>Ameaça</th><th>O que é</th><th>Mitigação neste app</th></tr></thead>
+            <tbody id="security-threats-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Conformidade com normas ISO</h3>
+          <p class="small-muted mt-0">
+            Normas internacionais usadas como <strong>referência de boas práticas</strong> no desenho deste sistema — isto não é
+            uma declaração de certificação formal (que exige auditoria por organismo credenciado).
+          </p>
+          <div class="iso-grid" id="iso-grid"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           PRIVACIDADE — LGPD (Lei 13.709/2018)
+      ============================================================ -->
+      <section class="view hidden" id="view-privacy">
+        <div class="top-bar"><h1>Privacidade</h1></div>
+
+        <div class="card">
+          <h3 class="mt-0">Controlador dos dados</h3>
+          <p class="small-muted mt-0" id="privacy-controller-box"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Quais dados coletamos e por quê</h3>
+          <table>
+            <thead><tr><th>Dado</th><th>Finalidade</th><th>Base legal (LGPD)</th></tr></thead>
+            <tbody id="privacy-data-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Cookies e rastreamento</h3>
+          <p class="small-muted mt-0">
+            Usamos Google Tag Manager/Google Ads (gtag) para medir visitas e conversões. Por padrão, esses cookies começam
+            <strong>bloqueados</strong> (Google Consent Mode, "denied") até você autorizar abaixo.
+          </p>
+          <label class="consent-toggle">
+            <input type="checkbox" id="privacy-marketing-consent" />
+            Permitir cookies de analytics/anúncios (Google Ads/Tag Manager)
+          </label>
+          <p id="privacy-consent-status" class="small-muted mt-8 min-h-1rem"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Seus direitos (LGPD, art. 18)</h3>
+          <ul class="security-control-list" id="privacy-rights-list"></ul>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Baixar meus dados</h3>
+          <p class="small-muted mt-0">Exporta, em JSON, tudo que este sistema guarda sobre sua conta e suas despesas.</p>
+          <button type="button" class="secondary" id="privacy-export-btn">Baixar meus dados (.json)</button>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0 fs-18 text-danger">Excluir minha conta</h3>
+          <p class="small-muted mt-0">
+            Remove permanentemente seu usuário (e a conta inteira, se você for o único membro) — categorias, despesas,
+            orçamentos e pagamentos associados. Esta ação não pode ser desfeita.
+          </p>
+          <div id="privacy-delete-error" class="error-box hidden"></div>
+          <button type="button" class="secondary btn-outline-danger" id="privacy-delete-btn">
+            Excluir minha conta permanentemente
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           CERTIFICAÇÃO — autoavaliação de prontidão + roteiro real até a
+           certificação ISO (certificação de verdade exige auditoria por um
+           organismo certificador acreditado — isto NÃO é um certificado).
+      ============================================================ -->
+      <section class="view hidden" id="view-certification">
+        <div class="top-bar"><h1>Certificação</h1></div>
+
+        <div class="card">
+          <p class="small-muted mt-0 mb-0">
+            <strong>Nenhuma norma abaixo está certificada hoje.</strong> Certificação ISO só é emitida por um organismo
+            certificador acreditado, após auditoria paga (Estágio 1 + Estágio 2) e manutenção anual — não é algo que um
+            sistema de software "obtém" sozinho. O que segue é uma <strong>autoavaliação honesta</strong> de quanto os
+            controles já implementados neste app cobrem cada norma, e o roteiro real para buscar a certificação.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Prontidão por norma (autoavaliação)</h3>
+          <div id="certification-readiness-list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Roteiro até a certificação real</h3>
+          <ol class="security-control-list" id="certification-roadmap-list"></ol>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Onde contratar uma auditoria de verdade</h3>
+          <ul class="security-control-list">
+            <li><strong>ABNT</strong> — publica a versão brasileira das normas (ex.: ABNT NBR ISO/IEC 27001) — <a href="https://www.abnt.org.br" target="_blank" rel="noopener">abnt.org.br</a>.</li>
+            <li><strong>Cgcre/INMETRO</strong> — Coordenação Geral de Acreditação: lista oficial de organismos de certificação acreditados no Brasil — <a href="https://www.gov.br/inmetro/pt-br/acesso-a-informacao/acreditacao" target="_blank" rel="noopener">gov.br/inmetro</a>.</li>
+            <li><strong>IAF</strong> (International Accreditation Forum) — referência internacional de acreditação, para certificadoras fora do Brasil — <a href="https://iaf.nu" target="_blank" rel="noopener">iaf.nu</a>.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           CONFIGURAÇÕES — perfil da conta + dados institucionais
+           (extraídos do CNPJ, CMC e Alvará de Funcionamento)
+      ============================================================ -->
+      <section class="view hidden" id="view-settings">
+        <div class="top-bar"><h1>Configurações</h1></div>
+
+        <div class="card">
+          <h3 class="mt-0">Meu perfil</h3>
+          <div id="settings-profile-error" class="error-box hidden"></div>
+          <div id="settings-profile-success" class="success-box hidden"></div>
+          <form id="settings-profile-form">
+            <div class="grid-2">
+              <div class="field"><label>Nome</label><input type="text" id="settings-profile-name" required /></div>
+              <div class="field"><label>E-mail</label><input type="email" id="settings-profile-email" disabled /></div>
+            </div>
+            <div class="field">
+              <label>CPF ou CNPJ (necessário para emissão de nota fiscal)</label>
+              <input type="text" id="settings-profile-document" placeholder="Só números ou com pontuação" inputmode="numeric" />
+              <p class="small-muted mt-6 mb-0">
+                Usado como dado do tomador ao emitir a Nota Fiscal de Serviço (NFS-e) dos seus pagamentos — ver tela Privacidade.
+                Sem isso, a emissão fica pendente.
+              </p>
+            </div>
+            <button type="submit" class="primary">Salvar perfil</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Alterar senha</h3>
+          <div id="settings-password-error" class="error-box hidden"></div>
+          <div id="settings-password-success" class="success-box hidden"></div>
+          <form id="settings-password-form">
+            <div class="grid-2">
+              <div class="field"><label>Senha atual</label><input type="password" id="settings-current-password" required /></div>
+              <div class="field"><label>Nova senha</label><input type="password" id="settings-new-password" required minlength="6" /></div>
+            </div>
+            <button type="submit" class="primary">Alterar senha</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3 class="mt-0">Dados da empresa (Prefeitura de Osasco/SP)</h3>
+          <p class="small-muted mt-0">
+            Cadastro Mobiliário de Contribuintes (CMC) e Alvará de Funcionamento — mantidos disponíveis para consulta,
+            conforme LC 404/2022, art. 92.
+          </p>
+          <div id="settings-company-box" class="company-profile-grid"></div>
         </div>
       </section>
 
@@ -302,39 +524,38 @@
   ============================================================ -->
   <div id="pix-modal" class="modal-overlay hidden">
     <div class="modal-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h2 style="margin:0;font-size:18px;">Pagamento via Pix</h2>
-        <button type="button" id="pix-modal-close"
-                style="background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted);">&times;</button>
+      <div class="modal-header">
+        <h2 class="m-0 fs-18">Pagamento via Pix</h2>
+        <button type="button" id="pix-modal-close" class="modal-close-btn">&times;</button>
       </div>
 
-      <p id="pix-modal-desc" class="small-muted" style="margin:0 0 2px;"></p>
-      <p id="pix-modal-amount" style="font-size:26px;font-weight:700;margin:6px 0 16px;"></p>
+      <p id="pix-modal-desc" class="small-muted mt-0 mb-2"></p>
+      <p id="pix-modal-amount" class="fs-26 fw-700 mt-6 mb-16"></p>
 
       <div id="pix-qrcode" class="qr-wrap"></div>
 
-      <p class="small-muted" style="text-align:left;margin-bottom:4px;">Pix Copia e Cola</p>
+      <p class="small-muted text-left mb-4">Pix Copia e Cola</p>
       <div id="pix-modal-code" class="pix-code-box"></div>
-      <button type="button" id="pix-modal-copy" class="secondary" style="width:100%;margin-bottom:14px;">Copiar código</button>
+      <button type="button" id="pix-modal-copy" class="secondary w-100 mb-14">Copiar código</button>
 
-      <p class="small-muted" style="text-align:left;margin-bottom:18px;">
+      <p class="small-muted text-left mb-18">
         Chave Pix real (CNPJ 62.904.267/0001-60 · SPACECWORP · Osasco/SP). Escaneie o QR ou cole o código no
         app do seu banco para pagar de verdade. Depois de pagar, envie o comprovante abaixo: uma IA (leitura
         OCR local, no seu navegador) confere o valor e o recebedor automaticamente — não há integração
         bancária para confirmar o recebimento de outra forma.
       </p>
 
-      <div style="text-align:left;margin-bottom:16px;">
-        <label for="pix-receipt-input" class="small-muted" style="display:block;margin-bottom:6px;">
+      <div class="text-left mb-16">
+        <label for="pix-receipt-input" class="small-muted d-block mb-6">
           Comprovante da transferência
         </label>
-        <input type="file" id="pix-receipt-input" accept="image/*" capture="environment" style="width:100%;" />
-        <p id="pix-receipt-status" class="small-muted" style="margin:8px 0 0;min-height:1rem;"></p>
+        <input type="file" id="pix-receipt-input" accept="image/*" class="w-100" />
+        <p id="pix-receipt-status" class="small-muted mt-8 mb-0 min-h-1rem"></p>
       </div>
 
-      <div style="display:flex;gap:10px;">
-        <button type="button" id="pix-modal-cancel" class="secondary" style="flex:1;">Cancelar</button>
-        <button type="button" id="pix-modal-confirm" class="primary" style="flex:1;margin-top:0;" disabled>
+      <div class="button-row">
+        <button type="button" id="pix-modal-cancel" class="secondary flex-1">Cancelar</button>
+        <button type="button" id="pix-modal-confirm" class="primary flex-1 mt-0" disabled>
           Envie o comprovante
         </button>
       </div>
@@ -350,17 +571,16 @@
   ============================================================ -->
   <div id="budget-layout-modal" class="modal-overlay hidden">
     <div class="modal-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h2 style="margin:0;font-size:18px;">Configurar layout de leitura</h2>
-        <button type="button" id="budget-layout-modal-close"
-                style="background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted);">&times;</button>
+      <div class="modal-header">
+        <h2 class="m-0 fs-18">Configurar layout de leitura</h2>
+        <button type="button" id="budget-layout-modal-close" class="modal-close-btn">&times;</button>
       </div>
 
-      <p class="small-muted" style="margin:0 0 4px;">
+      <p class="small-muted mt-0 mb-4">
         Diga onde ficam a categoria e os valores na sua planilha. Selecione o arquivo na tela anterior antes de
         abrir aqui para listar as abas disponíveis.
       </p>
-      <p class="small-muted" id="layout-page-indicator" style="margin:0 0 12px;font-weight:600;">Página 1 de 2</p>
+      <p class="small-muted mt-0 mb-12 fw-600" id="layout-page-indicator">Página 1 de 2</p>
 
       <div id="budget-layout-error" class="error-box hidden"></div>
 
@@ -380,21 +600,21 @@
 
           <div class="field">
             <label>Formato</label>
-            <div style="display:flex;gap:16px;flex-wrap:wrap;">
-              <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+            <div class="d-flex gap-16 flex-wrap">
+              <label class="radio-inline">
                 <input type="radio" name="layout-format" value="largo" checked />
                 Largo (Previsto/Realizado por mês, lado a lado)
               </label>
-              <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+              <label class="radio-inline">
                 <input type="radio" name="layout-format" value="longo" />
                 Longo (uma linha por categoria)
               </label>
             </div>
           </div>
 
-          <div style="display:flex;gap:10px;margin-top:6px;">
-            <button type="button" id="budget-layout-cancel" class="secondary" style="flex:1;">Cancelar</button>
-            <button type="button" id="budget-layout-next-btn" class="primary" style="flex:1;margin-top:0;">Próximo</button>
+          <div class="button-row-wrap">
+            <button type="button" id="budget-layout-cancel" class="secondary flex-1">Cancelar</button>
+            <button type="button" id="budget-layout-next-btn" class="primary flex-1 mt-0">Próximo</button>
           </div>
         </div>
 
@@ -437,9 +657,9 @@
             </div>
           </div>
 
-          <div style="display:flex;gap:10px;margin-top:6px;">
-            <button type="button" id="budget-layout-back-btn" class="secondary" style="flex:1;">Voltar</button>
-            <button type="submit" class="primary" style="flex:1;margin-top:0;">Salvar e usar</button>
+          <div class="button-row-wrap">
+            <button type="button" id="budget-layout-back-btn" class="secondary flex-1">Voltar</button>
+            <button type="submit" class="primary flex-1 mt-0">Salvar e usar</button>
           </div>
         </div>
       </form>
@@ -457,6 +677,7 @@
   <script src="js/plans.js"></script>
   <script src="js/db.js"></script>
   <script src="js/crypto-utils.js"></script>
+  <script src="js/oauth.js"></script>
   <script src="js/pix.js"></script>
   <script src="js/receipt-ai.js"></script>
   <script src="js/budget-ai.js"></script>

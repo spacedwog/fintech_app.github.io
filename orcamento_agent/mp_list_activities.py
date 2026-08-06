@@ -18,17 +18,26 @@ Uso:
   python3 mp_list_activities.py                          (últimos 30 dias, config.json)
   python3 mp_list_activities.py --dias 90
   python3 mp_list_activities.py --status approved         (só um status)
+  python3 mp_list_activities.py --categoria Transporte    (só uma categoria)
   python3 mp_list_activities.py --config mp_expenses_config.json
   python3 mp_list_activities.py --export atividades.csv   (também salva um CSV)
   python3 mp_list_activities.py --export atividades.json  (ou um JSON, pela extensão)
 
+Categorização: cada pagamento é categorizado pela mesma regra de
+palavra-chave usada por mp_expenses.py (`mp_expenses.ExpenseCategorizer`),
+lendo "mapeamento"/"categoria_padrao" do config carregado (ex.:
+mp_expenses_config.json, que já costuma ter essas chaves -- ver
+mp_expenses_config.example.json). Se o config não tiver "mapeamento" (caso de
+um config.json simples, só com o token), todo pagamento cai na categoria
+padrão ("Não categorizado" ou o que estiver em "categoria_padrao").
+
 Nunca grava nada no painel web nem no Mercado Pago -- é só leitura.
 
-Reescrito em POO: ActivityFormatter (linha de tabela + resumo por status) e
-ActivityExporter (CSV/JSON) compõem MercadoPagoActivityLister, que orquestra
-list_activities() de ponta a ponta. A função de módulo `list_activities` é a
-costura que o teste usa (monkeypatcha mp_sync.fetch_mp_payments, mesmo
-espírito dos outros testes desta pasta).
+Reescrito em POO: ActivityFormatter (linha de tabela + resumo por status/
+categoria) e ActivityExporter (CSV/JSON) compõem MercadoPagoActivityLister,
+que orquestra list_activities() de ponta a ponta. A função de módulo
+`list_activities` é a costura que o teste usa (monkeypatcha
+mp_sync.fetch_mp_payments, mesmo espírito dos outros testes desta pasta).
 """
 import argparse
 import csv
@@ -37,6 +46,7 @@ import os
 import sys
 import traceback
 
+import mp_expenses  # ExpenseCategorizer -- mesma categorização por palavra-chave do mp_expenses.py
 import mp_reconcile  # DateParser.day_range -- mesma janela [hoje - dias, hoje] dos outros scripts
 import mp_sync  # fetch_mp_payments -- mesma busca já usada pela suite inteira
 
@@ -73,28 +83,35 @@ class ActivityFormatter:
         desc = p.get("description") or p.get("statement_descriptor") or "(sem descrição)"
         metodo = p.get("payment_method_id") or "-"
         payer = ((p.get("payer") or {}).get("email")) or "-"
-        return f"{icon} {data} | R$ {valor:>10.2f} | {status:<12} | {metodo:<14} | {payer:<28} | {desc[:40]} | #{p.get('id')}"
+        categoria = p.get("categoria") or "-"
+        return f"{icon} {data} | R$ {valor:>10.2f} | {status:<12} | {categoria:<24} | {metodo:<14} | {payer:<28} | {desc[:40]} | #{p.get('id')}"
 
     @staticmethod
     def cabecalho():
         return (
-            "   Data       |     Valor      | Status       | Método         | Pagador                      | Descrição                                | ID\n"
-            + "-" * 150
+            "   Data       |     Valor      | Status       | Categoria                | Método         | Pagador                      | Descrição                                | ID\n"
+            + "-" * 175
         )
 
     @staticmethod
     def resumo(payments):
         por_status = {}
+        por_categoria = {}
         total_aprovado = 0.0
         for p in payments:
             status = p.get("status", "?")
             por_status[status] = por_status.get(status, 0) + 1
+            categoria = p.get("categoria") or "-"
+            por_categoria[categoria] = por_categoria.get(categoria, 0) + 1
             if status == "approved":
                 total_aprovado += float(p.get("transaction_amount", 0) or 0)
         linhas = [f"{len(payments)} atividade(s) encontrada(s) no período."]
         if por_status:
             partes = ", ".join(f"{qtd} {status}" for status, qtd in sorted(por_status.items(), key=lambda kv: -kv[1]))
             linhas.append(f"Por status: {partes}.")
+        if por_categoria:
+            partes_cat = ", ".join(f"{qtd} {categoria}" for categoria, qtd in sorted(por_categoria.items(), key=lambda kv: -kv[1]))
+            linhas.append(f"Por categoria: {partes_cat}.")
         linhas.append(f"Total aprovado no período: R$ {total_aprovado:.2f}.")
         return "\n".join(linhas)
 
@@ -109,7 +126,7 @@ class ActivityExporter:
             return
         # Qualquer outra extensão (inclusive .csv) cai no CSV -- formato mais
         # fácil de abrir numa planilha para conferir manualmente.
-        campos = ["id", "status", "date_created", "date_approved", "transaction_amount", "description", "statement_descriptor", "payment_method_id", "payer_email"]
+        campos = ["id", "status", "categoria", "date_created", "date_approved", "transaction_amount", "description", "statement_descriptor", "payment_method_id", "payer_email"]
         with open(path, "w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=campos, extrasaction="ignore")
             writer.writeheader()
@@ -146,8 +163,22 @@ class MercadoPagoActivityLister:
         except Exception as e:
             return "erro", f"Falha ao consultar o Mercado Pago: {e}"
 
+        # Categoriza cada pagamento pela mesma regra de palavra-chave do
+        # mp_expenses.py, lendo "mapeamento"/"categoria_padrao" do config
+        # carregado (vazio = tudo cai na categoria padrão).
+        categorizer = mp_expenses.ExpenseCategorizer(
+            mapeamento=cfg.get("mapeamento") or [],
+            categoria_padrao=cfg.get("categoria_padrao") or "Não categorizado",
+        )
+        for p in payments:
+            desc = p.get("description") or p.get("statement_descriptor") or "(sem descrição)"
+            p["categoria"] = categorizer.categorize(desc)
+
         if args.status:
             payments = [p for p in payments if p.get("status") == args.status]
+
+        if args.categoria:
+            payments = [p for p in payments if p.get("categoria") == args.categoria]
 
         payments.sort(key=lambda p: p.get("date_created") or "", reverse=True)
 
@@ -180,6 +211,7 @@ def main():
     ap.add_argument("--config", default=None, help="Caminho do config com o Access Token (padrão: primeiro entre config.json, mp_reconcile_config.json, mp_expenses_config.json que existir)")
     ap.add_argument("--dias", type=int, default=30, help="Quantos dias para trás buscar (padrão: 30)")
     ap.add_argument("--status", default=None, help="Filtra por status (ex.: approved, pending, rejected, cancelled)")
+    ap.add_argument("--categoria", default=None, help="Filtra por categoria (mesma categorização por palavra-chave do mp_expenses.py, via \"mapeamento\" do config)")
     ap.add_argument("--limit", type=int, default=50, help="Quantas linhas mostrar no terminal (padrão: 50; use 0 para mostrar todas)")
     ap.add_argument("--export", default=None, help="Também salva tudo num arquivo (.csv ou .json, pela extensão)")
     args = ap.parse_args()

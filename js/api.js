@@ -20,28 +20,77 @@
 
 const SESSION_KEY = "fintech_saas_session_v1";
 
+// SessionManager guarda, sob SESSION_KEY, o PAR DE TOKENS OAuth emitido por
+// OAuth.issueSessionTokens (js/oauth.js) — não mais um JSON "cru" com o
+// papel do usuário: { access_token, refresh_token, token_type, expires_in,
+// scope }, ambos JWT (HS256) assinados. "token" (no sentido usado por
+// Api.login/signup/Auth.setToken, e nos testes) é esse par serializado em
+// uma única string JSON.
 class SessionManager {
+  constructor() {
+    this._claimsCache = null; // cache em memória das claims já decodificadas (evita re-decodificar a cada chamada síncrona)
+  }
+
   getToken() {
     return localStorage.getItem(SESSION_KEY);
   }
 
   setToken(token) {
     localStorage.setItem(SESSION_KEY, token);
+    this._claimsCache = null;
   }
 
+  // Revoga (best-effort) os tokens OAuth atuais antes de apagá-los — mesmo
+  // não havendo um servidor central que os "invalide" globalmente, isso
+  // marca os jti como revogados nesta instalação (ver RevocationList em
+  // js/oauth.js), então um refresh_token vazado antes do logout não pode
+  // mais ser trocado por um access_token novo a partir deste navegador.
   clearToken() {
+    const raw = this.getToken();
+    if (raw && typeof OAuth !== "undefined") {
+      try {
+        const tokens = JSON.parse(raw);
+        if (tokens.refresh_token) OAuth.revoke(tokens.refresh_token);
+        if (tokens.access_token) OAuth.revoke(tokens.access_token);
+      } catch (e) {
+        // token já corrompido/ilegível — nada a revogar, segue com a limpeza
+      }
+    }
     localStorage.removeItem(SESSION_KEY);
+    this._claimsCache = null;
   }
 
   isLoggedIn() {
     return !!this.getToken();
   }
 
+  // Leitura SÍNCRONA da sessão — usada por Auth.requireSession()/
+  // requireAdmin() em praticamente todo método de ApiFacade. Decodifica
+  // (sem reverificar assinatura/expiração a cada chamada, por custo — isso
+  // é assíncrono, ver verifySession() abaixo) as claims do access_token já
+  // emitido por OAuth nesta sessão do navegador.
   getSession() {
+    if (this._claimsCache) return this._claimsCache;
     const raw = this.getToken();
     if (!raw) return null;
     try {
-      return JSON.parse(raw);
+      const tokens = JSON.parse(raw);
+      // Caminho normal: tokens.access_token é um JWT emitido por OAuth
+      // (js/oauth.js). Caminho de degradação (tokens.legacy, ver
+      // AuthService._issueOAuthTokens): usa os campos já decodificados,
+      // sem exigir js/oauth.js.
+      const claims = tokens.legacy
+        ? { sub: tokens.user_id, tenant_id: tokens.tenant_id, name: tokens.name, role: tokens.role, email: tokens.email, scope: [] }
+        : OAuth.decodeUnsafe(tokens.access_token);
+      this._claimsCache = {
+        user_id: claims.sub,
+        tenant_id: claims.tenant_id,
+        name: claims.name,
+        role: claims.role,
+        email: claims.email,
+        scope: claims.scope || [],
+      };
+      return this._claimsCache;
     } catch (e) {
       return null;
     }
@@ -66,9 +115,90 @@ class SessionManager {
     }
     return session;
   }
+
+  // Verificação criptográfica de verdade (assinatura HMAC + expiração) do
+  // access_token atual — e renovação automática via refresh_token (RFC 6749
+  // §6, "Refreshing an Access Token") quando o access_token expirou mas o
+  // refresh_token ainda é válido. Chamada uma vez ao entrar no painel (ver
+  // DashboardController.init em js/dashboard.js); se falhar dos dois jeitos,
+  // a sessão é encerrada. requireSession()/requireAdmin() continuam
+  // síncronos e não chamam isto a cada ação — é a verificação "de entrada".
+  async verifySession() {
+    if (typeof OAuth === "undefined") return this.isLoggedIn(); // ambiente sem js/oauth.js carregado (não deveria acontecer)
+    const raw = this.getToken();
+    if (!raw) return false;
+
+    let tokens;
+    try {
+      tokens = JSON.parse(raw);
+    } catch (e) {
+      this.clearToken();
+      return false;
+    }
+
+    try {
+      await OAuth.verifyAccessToken(tokens.access_token);
+      return true;
+    } catch (e) {
+      // access_token expirado/inválido — tenta renovar com o refresh_token.
+    }
+
+    try {
+      const fresh = await OAuth.refreshSessionTokens(tokens.refresh_token);
+      this.setToken(JSON.stringify(fresh));
+      return true;
+    } catch (e) {
+      this.clearToken();
+      return false;
+    }
+  }
 }
 
 const Auth = new SessionManager();
+
+// ---------- COMPANY_PROFILE: dados institucionais do operador da plataforma ----------
+// Dados oficiais da empresa que opera este app (não é dado por tenant/
+// usuário — é sempre o mesmo, exibido na tela "Configurações"), extraídos
+// dos documentos legais da empresa (CNPJ, CMC/Alvará de Funcionamento da
+// Prefeitura de Osasco/SP e Declaração de Atividade), como pede a
+// legislação municipal (LC 404/2022, art. 92: manter o cadastro/Alvará
+// disponível para consulta/fiscalização).
+const COMPANY_PROFILE = {
+  razao_social: "FELIPE RODRIGUES DOS SANTOS DESENVOLVIMENTO DE SOFTWARE LTDA",
+  nome_fantasia: "SPACECWORP",
+  produto: "Fintech Spacecworp",
+  cnpj: "62.904.267/0001-60",
+  porte: "ME (Microempresa)",
+  inscricao_municipal_ccm: "0000251624",
+  inscricao_estadual_jucesp: "35268056161",
+  cnae_principal: "6201-5/01 — Desenvolvimento de programas de computador sob encomenda",
+  atividades: [
+    "Desenvolvimento de programas de computador sob encomenda",
+    "Web design",
+    "Desenvolvimento e licenciamento de programas de computador customizáveis",
+    "Consultoria em tecnologia da informação",
+    "Suporte técnico, manutenção e outros serviços em tecnologia da informação",
+    "Tratamento de dados, provedores de serviços de aplicação e serviços de hospedagem na internet",
+    "Portais, provedores de conteúdo e outros serviços de informação na internet",
+  ],
+  endereco: {
+    logradouro: "Rua Zina, 118",
+    bairro: "Jardim das Flores",
+    cidade: "Osasco",
+    uf: "SP",
+    cep: "06112-090",
+  },
+  telefone: "(11) 99171-9629",
+  inicio_atividade: "25/09/2025",
+  alvara: {
+    numero_processo: "202502026736",
+    emitido_em: "08/10/2025",
+    valido_ate: "31/03/2026",
+    orgao: "Prefeitura do Município de Osasco — Secretaria de Tecnologia, Inovação e Desenvolvimento Econômico",
+  },
+  chave_pix: "62904267000160",
+  contato_privacidade: "felipersantos1988@gmail.com",
+};
 
 // ---------- TenantRepository: leitura/serialização de tenants ----------
 
@@ -135,17 +265,40 @@ class AuthService {
     seedDefaultCategories(db, tenant.id);
     await saveDb(db);
 
-    const session = { user_id: user.id, tenant_id: tenant.id, name: user.name, role: user.role };
-    return { token: JSON.stringify(session) };
+    const tokens = await this._issueOAuthTokens({
+      user_id: user.id,
+      tenant_id: tenant.id,
+      name: user.name,
+      role: user.role,
+      email: user.email,
+    });
+    return { token: JSON.stringify(tokens) };
   }
 
   async login({ email, password }) {
+    // Mitigação de força bruta (RFC 6749 não trata disso — é uma prática de
+    // segurança de aplicação, ver W3Schools Cyber Security > Passwords):
+    // trava temporariamente o e-mail depois de várias senhas erradas
+    // seguidas, ANTES de sequer consultar o banco. Ver LoginRateLimiter em
+    // js/oauth.js.
+    if (typeof OAuth !== "undefined") {
+      const limiter = OAuth.loginRateLimiter.check(email);
+      if (limiter.locked) {
+        const seconds = Math.max(1, Math.ceil(limiter.retryAfterMs / 1000));
+        const err = new Error(`Muitas tentativas de login para este e-mail. Tente novamente em ${seconds}s.`);
+        err.status = 429;
+        throw err;
+      }
+    }
+
     const db = await loadDb();
     const user = db.users.find((u) => u.email === email);
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
+      if (typeof OAuth !== "undefined") OAuth.loginRateLimiter.recordFailure(email);
       throw new Error("E-mail ou senha inválidos");
     }
+    if (typeof OAuth !== "undefined") OAuth.loginRateLimiter.reset(email);
 
     // Auto-cura: garante que e-mails da lista de override sempre estejam
     // no plano Premium, mesmo que o tenant tenha sido criado antes dessa
@@ -158,8 +311,27 @@ class AuthService {
       }
     }
 
-    const session = { user_id: user.id, tenant_id: user.tenant_id, name: user.name, role: user.role };
-    return { token: JSON.stringify(session) };
+    const tokens = await this._issueOAuthTokens({
+      user_id: user.id,
+      tenant_id: user.tenant_id,
+      name: user.name,
+      role: user.role,
+      email: user.email,
+    });
+    return { token: JSON.stringify(tokens) };
+  }
+
+  // Emite o par access_token/refresh_token através do fluxo OAuth 2.0
+  // próprio (Authorization Code + PKCE — ver js/oauth.js) para uma
+  // identidade que ACABOU de ser autenticada por e-mail/senha aqui. Se
+  // js/oauth.js não estiver carregado por algum motivo, cai para um
+  // "token" simples (mesmo formato de antes desta versão) em vez de
+  // quebrar login/signup — degradação graciosa, nunca bloqueia o usuário.
+  async _issueOAuthTokens(identity) {
+    if (typeof OAuth === "undefined") {
+      return { access_token: null, refresh_token: null, ...identity, legacy: true };
+    }
+    return OAuth.issueSessionTokens(identity);
   }
 
   async me() {
@@ -178,7 +350,7 @@ class AuthService {
 
     return {
       user: user
-        ? { id: user.id, name: user.name, email: user.email, role: user.role }
+        ? { id: user.id, name: user.name, email: user.email, role: user.role, tax_document: user.tax_document || null }
         : { id: session.user_id, name: session.name, role: session.role },
       tenant: TenantRepository.serialize(tenant),
     };
@@ -733,6 +905,165 @@ class PaymentService {
   }
 }
 
+// ---------- ProfileService: conta do usuário, privacidade (LGPD) e dados
+// institucionais — usado pelas telas "Configurações" e "Privacidade" ----------
+
+class ProfileService {
+  // ---- Configurações: perfil da conta ----
+
+  // "document" (CPF ou CNPJ) é opcional, mas é exigido pela Receita/prefeitura
+  // como dado do TOMADOR para emitir uma Nota Fiscal de Serviço (NFS-e) de
+  // verdade — ver orcamento_agent/nfse_issuer.py. Sem ele, pagamentos deste
+  // usuário ficam com nfseStatus "aguardando_documento_tomador" em vez de
+  // uma nota emitida. Aceita CPF (11 dígitos) ou CNPJ (14 dígitos); qualquer
+  // outra formatação (pontos/traço/barra) é aceita na digitação e normalizada
+  // aqui, guardando só os dígitos.
+  async updateProfile({ name, document }) {
+    const session = Auth.requireSession();
+    const cleanName = String(name || "").trim();
+    if (!cleanName) throw new Error("Informe um nome.");
+
+    const digits = String(document || "").replace(/\D/g, "");
+    if (digits && digits.length !== 11 && digits.length !== 14) {
+      throw new Error("CPF deve ter 11 dígitos ou CNPJ 14 dígitos.");
+    }
+
+    const db = await loadDb();
+    const user = db.users.find((u) => u.id === session.user_id);
+    if (!user) throw new Error("Usuário não encontrado.");
+    user.name = cleanName;
+    // Só mexe no documento fiscal se o chamador realmente passou o campo
+    // (mesmo vazio, para permitir limpar) — evita apagar um documento já
+    // salvo quando algum outro chamador futuro atualizar só o nome.
+    if (document !== undefined) user.tax_document = digits || null;
+    await saveDb(db);
+
+    // Reemitir os tokens OAuth com o nome novo já nas claims, para a UI
+    // (sidebar, saudação, etc.) refletir a mudança sem precisar deslogar —
+    // ver OAuth.issueSessionTokens em js/oauth.js.
+    if (typeof OAuth !== "undefined") {
+      const tokens = await OAuth.issueSessionTokens({
+        user_id: user.id,
+        tenant_id: user.tenant_id,
+        name: user.name,
+        role: user.role,
+        email: user.email,
+      });
+      Auth.setToken(JSON.stringify(tokens));
+    }
+    return { id: user.id, name: user.name, email: user.email, role: user.role, tax_document: user.tax_document || null };
+  }
+
+  async changePassword({ currentPassword, newPassword }) {
+    const session = Auth.requireSession();
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
+    }
+
+    const db = await loadDb();
+    const user = db.users.find((u) => u.id === session.user_id);
+    if (!user) throw new Error("Usuário não encontrado.");
+
+    if (!(await verifyPassword(currentPassword, user.password_hash))) {
+      throw new Error("Senha atual incorreta.");
+    }
+
+    user.password_hash = await hashPassword(newPassword);
+    await saveDb(db);
+    return { ok: true };
+  }
+
+  // Dados institucionais fixos da empresa que opera a plataforma (não
+  // depende de sessão — é informação pública/legal, igual em qualquer
+  // conta), extraídos do CNPJ/CMC/Alvará (ver COMPANY_PROFILE acima).
+  async getCompanyProfile() {
+    return COMPANY_PROFILE;
+  }
+
+  // ---- Privacidade (LGPD, Lei 13.709/2018) ----
+
+  async getPrivacyConsent() {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const user = db.users.find((u) => u.id === session.user_id);
+    return {
+      marketing: !!(user && user.consent_marketing),
+      updated_at: (user && user.consent_updated_at) || null,
+    };
+  }
+
+  async setPrivacyConsent({ marketing }) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const user = db.users.find((u) => u.id === session.user_id);
+    if (!user) throw new Error("Usuário não encontrado.");
+    user.consent_marketing = !!marketing;
+    user.consent_updated_at = nowIso();
+    await saveDb(db);
+    return { ok: true, marketing: user.consent_marketing };
+  }
+
+  // Portabilidade de dados (LGPD, art. 18, V) — reúne tudo que este usuário/
+  // conta tem no sistema (sem o password_hash) para download em JSON.
+  async exportMyData() {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+
+    const tenant = TenantRepository.find(db, session.tenant_id);
+    const user = db.users.find((u) => u.id === session.user_id);
+    const categories = db.categories.filter((c) => c.tenant_id === session.tenant_id);
+    const expenses = db.expenses.filter((e) => e.tenant_id === session.tenant_id && e.user_id === session.user_id);
+    const budgets = db.budgets.filter((b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id);
+    const categoryBudgets = db.categoryBudgets.filter((b) => b.tenant_id === session.tenant_id);
+    const payments = db.payments.filter((p) => p.tenant_id === session.tenant_id && p.user_id === session.user_id);
+
+    return {
+      exported_at: nowIso(),
+      titular: user
+        ? { id: user.id, name: user.name, email: user.email, role: user.role, tax_document: user.tax_document || null, created_at: user.created_at }
+        : null,
+      conta: tenant ? TenantRepository.serialize(tenant) : null,
+      categorias: categories,
+      despesas: expenses,
+      orcamentos_mensais: budgets,
+      orcamentos_por_categoria: categoryBudgets,
+      pagamentos: payments,
+      controlador_dos_dados: COMPANY_PROFILE,
+    };
+  }
+
+  // Exclusão de conta (LGPD, art. 18, VI — eliminação dos dados). Remove o
+  // usuário e, se ele for o único desta conta (tenant), remove também a
+  // conta inteira e tudo o que pertence a ela. Se restarem outros usuários
+  // no tenant, remove só o usuário (suas despesas/orçamentos próprios
+  // continuam existindo para fins de histórico da conta, como pagamentos já
+  // registrados — comportamento equivalente a "sair da equipe").
+  async deleteAccount() {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+
+    const remainingUsers = db.users.filter((u) => u.tenant_id === session.tenant_id && u.id !== session.user_id);
+    const tenantRemoved = remainingUsers.length === 0;
+
+    if (tenantRemoved) {
+      db.tenants = db.tenants.filter((t) => t.id !== session.tenant_id);
+      db.users = db.users.filter((u) => u.tenant_id !== session.tenant_id);
+      db.categories = db.categories.filter((c) => c.tenant_id !== session.tenant_id);
+      db.expenses = db.expenses.filter((e) => e.tenant_id !== session.tenant_id);
+      db.budgets = db.budgets.filter((b) => b.tenant_id !== session.tenant_id);
+      db.payments = db.payments.filter((p) => p.tenant_id !== session.tenant_id);
+      db.budgetLayouts = db.budgetLayouts.filter((l) => l.tenant_id !== session.tenant_id);
+      db.categoryBudgets = db.categoryBudgets.filter((b) => b.tenant_id !== session.tenant_id);
+    } else {
+      db.users = db.users.filter((u) => u.id !== session.user_id);
+    }
+
+    await saveDb(db);
+    Auth.clearToken();
+    return { ok: true, tenant_removed: tenantRemoved };
+  }
+}
+
 // ---------- ApiFacade: compõe os serviços acima com a interface pública
 // que o resto do sistema já usa (Api.signup, Api.addExpense, ...) ----------
 
@@ -748,6 +1079,7 @@ class ApiFacade {
     this.reportService = new ReportService();
     this.budgetLayoutService = new BudgetLayoutService();
     this.paymentService = new PaymentService();
+    this.profileService = new ProfileService();
   }
 
   // ---------- Auth ----------
@@ -846,6 +1178,31 @@ class ApiFacade {
   }
   addPayment(payload) {
     return this.paymentService.addPayment(payload);
+  }
+
+  // ---------- Perfil / Configurações ----------
+  updateProfile(payload) {
+    return this.profileService.updateProfile(payload);
+  }
+  changePassword(payload) {
+    return this.profileService.changePassword(payload);
+  }
+  getCompanyProfile() {
+    return this.profileService.getCompanyProfile();
+  }
+
+  // ---------- Privacidade (LGPD) ----------
+  getPrivacyConsent() {
+    return this.profileService.getPrivacyConsent();
+  }
+  setPrivacyConsent(payload) {
+    return this.profileService.setPrivacyConsent(payload);
+  }
+  exportMyData() {
+    return this.profileService.exportMyData();
+  }
+  deleteAccount() {
+    return this.profileService.deleteAccount();
   }
 
   // ---------- Mercado Pago (resumo para o badge da sidebar) ----------

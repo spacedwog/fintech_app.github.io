@@ -5,12 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fintech Spacecworp - Entrar</title>
 
+  <!-- Segurança (ver tela "Segurança" no painel): restringe de quais domínios o
+       navegador pode carregar script/estilo/fonte/imagem/conexão. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.google.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.googletagmanager.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+
   <!-- Google tag (gtag.js) - Google Ads -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
   <!-- Event snippet for Visualização de página (1) conversion page -->
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    // Privacidade/LGPD (Google Consent Mode v2): cookies de analytics/anúncios
+    // começam BLOQUEADOS até o usuário autorizar na tela "Privacidade" do
+    // painel (ver Api.getPrivacyConsent/setPrivacyConsent em js/api.js e
+    // _loadPrivacyView em js/dashboard.js, que sincroniza a preferência real
+    // assim que a sessão carrega).
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+    });
     gtag('js', new Date());
     gtag('config', 'AW-10926256695');
     gtag('event', 'conversion', {
@@ -38,7 +54,7 @@
 <body>
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MCN6MLH5"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  height="0" width="0" class="hidden-frame"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
 
   <div class="auth-wrapper">
@@ -156,6 +172,7 @@
   <script src="js/plans.js"></script>
   <script src="js/db.js"></script>
   <script src="js/crypto-utils.js"></script>
+  <script src="js/oauth.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth-page.js"></script>
 </body>

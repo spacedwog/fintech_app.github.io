@@ -1,0 +1,36 @@
+{
+  "provedor": "focus_nfe",
+  "ambiente": "homologacao",
+  "focus_nfe_token": "aawpdTTDRero5mUF3nvKpCfRFlgdo75c",
+  "prestador": {
+    "cnpj": "62904267000160",
+    "inscricao_municipal": "0000251624",
+    "codigo_municipio": "3534401",
+    "razao_social": "FELIPE RODRIGUES DOS SANTOS DESENVOLVIMENTO DE SOFTWARE LTDA",
+    "regime_tributario": "AJUSTAR_CONFORME_SEU_ENQUADRAMENTO_REAL"
+  },
+  "servico": {
+    "item_lista_servico": "AJUSTAR_CONFORME_PREFEITURA_DE_OSASCO",
+    "codigo_tributario_municipio": "AJUSTAR_CONFORME_PREFEITURA_DE_OSASCO",
+    "discriminacao_padrao": "Assinatura de plataforma de gestao financeira (SaaS) - Fintech Spacecworp",
+    "aliquota": 0.02,
+    "iss_retido": false
+  },
+  "firebase_service_account": null,
+  "db_json": null,
+  "limite_por_execucao": 20,
+  "max_tentativas_polling": 8,
+  "intervalo_polling_segundos": 5,
+  "_comentarios": {
+    "provedor": "Só 'focus_nfe' está implementado (FocusNfeClient). Trocar de provedor exige escrever um cliente equivalente (mesmo contrato de emitir()/consultar()).",
+    "ambiente": "'homologacao' (padrão, teste - NÃO emite nota fiscal real, mesmo que a resposta pareça 'autorizada') ou 'producao' (emite de verdade e tem custo pelo plano contratado na Focus NFe). NUNCA rode com 'producao' sem antes validar em homologação.",
+    "focus_nfe_token": "Gere em app-v2.focusnfe.com.br após criar sua conta (veja focusnfe.com.br/precos -- há teste grátis de 30 dias, sem cartão). Cada ambiente (homologação/produção) tem um token diferente. NUNCA compartilhe nem versione este arquivo.",
+    "prestador.codigo_municipio": "Código IBGE do município emissor -- 3534401 = Osasco/SP (já preenchido).",
+    "prestador.regime_tributario": "Confirme com seu contador (ex.: 'simples_nacional', 'lucro_presumido' etc.) -- afeta diretamente o cálculo de tributos da nota. Este projeto não faz esse cálculo por você.",
+    "servico.item_lista_servico / codigo_tributario_municipio": "Códigos específicos da Prefeitura de Osasco para 'desenvolvimento de programas de computador sob encomenda' (CNAE 6201-5/01, já no Alvará) -- confirme no portal da Prefeitura ou com seu contador antes de emitir em produção.",
+    "servico.aliquota": "Alíquota de ISS do seu enquadramento/serviço em Osasco -- confirme com seu contador, não é um valor universal.",
+    "firebase_service_account / db_json": "Mesma ideia de mp_reconcile_config.json: use UM dos dois para ler/gravar o banco do painel web (Firestore recomendado). Se os dois estiverem preenchidos, firebase_service_account tem prioridade.",
+    "limite_por_execucao": "Quantos pagamentos pendentes de nota fiscal processar por execução (evita gastar sua cota de notas do plano contratado de uma vez só por engano).",
+    "max_tentativas_polling / intervalo_polling_segundos": "A emissão na Focus NFe é assíncrona -- o script consulta o status até esse limite de tentativas antes de deixar 'emitindo' (pendente) para a próxima execução."
+  }
+}

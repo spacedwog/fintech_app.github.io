@@ -121,7 +121,7 @@ const placeholderFirebaseConfigSrc = realFirebaseConfigSrc
   .replace(/apiKey:\s*"[^"]+"/, 'apiKey: "SUA_API_KEY"')
   .replace(/projectId:\s*"[^"]+"/, 'projectId: "SEU_PROJETO"');
 
-const appBundleSrc = [placeholderFirebaseConfigSrc, read("js/plans.js"), read("js/db.js"), read("js/crypto-utils.js"), read("js/api.js")].join(
+const appBundleSrc = [placeholderFirebaseConfigSrc, read("js/plans.js"), read("js/db.js"), read("js/crypto-utils.js"), read("js/oauth.js"), read("js/api.js")].join(
   "\n;\n"
 );
 

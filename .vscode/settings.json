@@ -4,5 +4,6 @@
         "{**/.c4z/.extsrcs/*.PROTSYM.cbl,**/.c4z/.extsrcs/*.PROTSYM.listing}": true
     },
     "python-envs.defaultEnvManager": "ms-python.python:system",
-    "codeQL.githubDatabase.download": "never"
+    "codeQL.githubDatabase.download": "never",
+    "robotcode.disableExtension": true
 }

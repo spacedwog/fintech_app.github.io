@@ -553,3 +553,189 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   color: var(--muted);
   text-align: left;
 }
+
+/* ---------- Utility classes (migradas de estilos inline) ---------- */
+.d-flex { display: flex; }
+.d-block { display: block; }
+.align-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.gap-6 { gap: 6px; }
+.gap-10 { gap: 10px; }
+.gap-16 { gap: 16px; }
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.w-100 { width: 100%; }
+.min-w-160 { min-width: 160px; }
+.min-h-1rem { min-height: 1rem; }
+.m-0 { margin: 0; }
+.mt-0 { margin-top: 0; }
+.mt-4 { margin-top: 4px; }
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mt-10 { margin-top: 10px; }
+.mb-0 { margin-bottom: 0; }
+.mb-2 { margin-bottom: 2px; }
+.mb-4 { margin-bottom: 4px; }
+.mb-6 { margin-bottom: 6px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-14 { margin-bottom: 14px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-18 { margin-bottom: 18px; }
+.text-danger { color: var(--danger); }
+.btn-outline-danger { border-color: var(--danger); color: var(--danger); }
+.fs-18 { font-size: 18px; }
+.fs-20 { font-size: 20px; }
+.fs-26 { font-size: 26px; }
+.fw-400 { font-weight: 400; }
+.fw-600 { font-weight: 600; }
+.fw-700 { font-weight: 700; }
+.line-height-1 { line-height: 1; }
+.no-bg { background: none; }
+.no-border { border: none; }
+.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.hidden-frame { display: none; visibility: hidden; }
+
+/* Classes compostas para padrões repetidos */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.radio-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+}
+
+.button-row-wrap {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* ---------- Sidebar: seção "Conta" (Segurança/Privacidade/Configurações) ---------- */
+.sidebar-section-label {
+  margin: 18px 0 6px;
+  padding: 0 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+/* ---------- Segurança: lista de controles implementados / direitos LGPD ---------- */
+.security-control-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--text);
+}
+
+.security-control-list li { margin-bottom: 4px; }
+
+/* ---------- CIA Triad ---------- */
+.cia-card { text-align: center; padding: 18px 14px; }
+
+.cia-letter {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Normas ISO (referência) ---------- */
+.iso-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.iso-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+/* ---------- Configurações: dados institucionais (empresa) ---------- */
+.company-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px 20px;
+  font-size: 13px;
+}
+
+.company-profile-grid .company-profile-full { grid-column: 1 / -1; }
+
+/* ---------- Certificação: barra de prontidão (autoavaliação) ---------- */
+.readiness-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.readiness-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+}
+
+/* ---------- Privacidade: toggle de consentimento de cookies ---------- */
+.consent-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.consent-toggle input { width: 18px; height: 18px; cursor: pointer; }
+
+@media (max-width: 860px) {
+  #cia-triad-grid, .iso-grid, .company-profile-grid { grid-template-columns: 1fr; }
+}

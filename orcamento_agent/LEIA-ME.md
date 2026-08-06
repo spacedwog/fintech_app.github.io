@@ -94,11 +94,18 @@ Antes de configurar o Firebase para `mp_reconcile.py`/`mp_expenses.py` valer a p
 pode ser útil só **ver** o que existe na conta primeiro: quantos pagamentos, que
 valores, que descrições. O `mp_list_activities.py` faz exatamente isso — busca as
 atividades (pagamentos) reais na API do Mercado Pago e mostra numa tabela no
-terminal, com um resumo por status e o total aprovado no período. **Não grava nada**
-em lugar nenhum (nem no painel web, nem no Mercado Pago) — só precisa do Access
-Token que já está em `config.json` (reaproveita automaticamente o primeiro entre
-`config.json`, `mp_reconcile_config.json` ou `mp_expenses_config.json` que existir,
-já que todos usam a mesma conta).
+terminal, com um resumo por status/categoria e o total aprovado no período. **Não
+grava nada** em lugar nenhum (nem no painel web, nem no Mercado Pago) — só precisa
+do Access Token que já está em `config.json` (reaproveita automaticamente o primeiro
+entre `config.json`, `mp_reconcile_config.json` ou `mp_expenses_config.json` que
+existir, já que todos usam a mesma conta).
+
+Além do Access Token, cada pagamento também é **categorizado** pela mesma regra de
+palavra-chave usada por `mp_expenses.py` (`mp_expenses.ExpenseCategorizer`), lendo
+`"mapeamento"`/`"categoria_padrao"` do config carregado — mesmo formato de
+`mp_expenses_config.example.json`. Se o config não tiver `"mapeamento"` (ex.: um
+`config.json` simples, só com o token), todo pagamento cai na categoria padrão
+(`"Não categorizado"`, ou o valor de `"categoria_padrao"` se definido).
 
 **Rodar:**
 ```bash
@@ -106,9 +113,14 @@ cd orcamento_agent
 python3 mp_list_activities.py                      # últimos 30 dias
 python3 mp_list_activities.py --dias 90
 python3 mp_list_activities.py --status approved     # só um status
+python3 mp_list_activities.py --categoria Transporte  # só uma categoria (via mapeamento do config)
 python3 mp_list_activities.py --export mp_activities.csv   # também salva um CSV
 python3 mp_list_activities.py --export mp_activities.json  # ou um JSON, pela extensão
 ```
+Para ter categorias de verdade (em vez de tudo cair em "Não categorizado"), use
+`--config mp_expenses_config.json` (ou copie `"mapeamento"`/`"categoria_padrao"` dele
+para o `config.json`) — veja `mp_expenses_config.example.json` para o formato.
+
 Rode `python3 test_mp_list_activities.py` depois de qualquer alteração no script.
 
 ⚠️ Se usar `--export`, o arquivo salvo tem dados financeiros reais (valores,

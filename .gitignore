@@ -28,6 +28,11 @@ orcamento_agent/atividades*.json
 orcamento_agent/*service-account*.json
 orcamento_agent/firebase-adminsdk*.json
 
+# Agente de emissão de nota fiscal (nfse_issuer.py) - o config real tem o
+# token da Focus NFe (emite notas fiscais reais em nome da empresa, com
+# custo). Nunca versionar.
+orcamento_agent/nfse_config.json
+
 # Agente Fibonacci + Laplace (ETL) - mesmos cuidados de teste/cache.
 fibonacci_laplace_agent/__pycache__/
 fibonacci_laplace_agent/TEST_*.xlsx

@@ -16,7 +16,12 @@ Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor p
   - [📊 Resumo Mensal](#-resumo-mensal)
   - [👥 Equipe](#-equipe)
   - [💳 Plano](#-plano)
+  - [🔒 Segurança](#-segurança)
+  - [🕵️ Privacidade (LGPD)](#️-privacidade-lgpd)
+  - [📜 Certificação](#-certificação)
+  - [⚙️ Configurações](#️-configurações)
 - [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)
+- [Nota Fiscal (NFS-e): emissão real via Focus NFe](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe)
 - [Como o sistema funciona por baixo dos panos](#como-o-sistema-funciona-por-baixo-dos-panos)
 - [Conectando ao Firebase](#conectando-ao-firebase)
 - [Como rodar](#como-rodar)
@@ -29,7 +34,7 @@ Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor p
 
 ## Navegue pelo painel (`dashboard.html`)
 
-Depois do login, o painel tem quatro seções na barra lateral, nesta ordem. Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
+Depois do login, o painel tem oito seções na barra lateral (as quatro primeiras são o app em si; as quatro últimas, em "Conta", são segurança/privacidade/certificação/dados institucionais). Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
 
 ### 🔄 Orçamento & Despesas (fluxo em 3 páginas)
 
@@ -118,6 +123,46 @@ Depois de pagar, o usuário envia o comprovante e cada pagamento pode ganhar at�
 Se nenhum dos dois bater, o pagamento fica com **⚠ confirmação manual** — o usuário declarou que pagou, mas nada confirmou automaticamente ainda.
 
 Código: `js/dashboard.js` (`loadPlanView`, `selectPlan`, `openPixPayment`, `renderPaymentsHistory`), `js/pix.js` (payload BR Code), `js/plans.js` (regras dos planos), `Api.addPayment`/`Api.listPayments`/`Api.changePlan` em `js/api.js`.
+</details>
+
+### 🔒 Segurança
+
+<details>
+<summary>O que é e como funciona</summary>
+
+Status da sessão OAuth atual (token, validade, escopo), lista dos controles de segurança realmente implementados (hash PBKDF2, OAuth 2.0 próprio com PKCE, bloqueio após tentativas de login erradas, CSP, isolamento por conta), o modelo CIA Triad e uma tabela de ameaças — conteúdo baseado no [W3Schools Cyber Security Tutorial](https://www.w3schools.com/cybersecurity/) — e uma seção "Conformidade com normas ISO" listando as normas usadas como referência (não uma certificação — ver [📜 Certificação](#-certificação)).
+
+Código: `js/dashboard.js` (`_loadSecurityView`, getters estáticos `SECURITY_CONTROLS`/`CIA_TRIAD`/`SECURITY_THREATS`/`ISO_STANDARDS`), `js/oauth.js` (ver seção própria abaixo).
+</details>
+
+### 🕵️ Privacidade (LGPD)
+
+<details>
+<summary>O que é e como funciona</summary>
+
+Identifica o controlador dos dados (dados da empresa, extraídos do CNPJ/CMC/Alvará), lista o que é coletado e a base legal (LGPD, Lei 13.709/2018), controla o consentimento de cookies de analytics/anúncios via **Google Consent Mode v2** (bloqueado por padrão, `gtag('consent', 'default', {...denied})` no `<head>` de `login.html`/`dashboard.html`, antes de qualquer script do Google carregar), lista os direitos do titular (art. 18) e oferece duas ações reais: **baixar meus dados** (exporta um JSON com tudo que a conta tem no sistema) e **excluir minha conta** (remove o usuário e, se for o único da conta, a conta inteira).
+
+Código: `js/dashboard.js` (`_loadPrivacyView`), `Api.getPrivacyConsent`/`setPrivacyConsent`/`exportMyData`/`deleteAccount` em `js/api.js`.
+</details>
+
+### 📜 Certificação
+
+<details>
+<summary>O que é e como funciona</summary>
+
+**Não é um certificado.** Certificação ISO só é emitida por um organismo certificador acreditado, depois de auditoria paga — nenhum software "obtém" isso sozinho. Esta tela mostra uma autoavaliação honesta e informal (0–100%, sem validade de auditoria) de quanto os controles já implementados cobrem cada norma, o que falta, e o roteiro real (gap assessment → documentação → auditoria interna → organismo certificador acreditado pelo Cgcre/INMETRO ou IAF → correção de não conformidades → certificado, com manutenção anual).
+
+Código: `js/dashboard.js` (`_loadCertificationView`, getters `CERTIFICATION_READINESS`/`CERTIFICATION_ROADMAP`).
+</details>
+
+### ⚙️ Configurações
+
+<details>
+<summary>O que é e como funciona</summary>
+
+Editar nome e trocar senha (com verificação da senha atual). Um campo de **CPF/CNPJ** guarda o documento fiscal do usuário — é o dado do "tomador" exigido para emitir uma Nota Fiscal de Serviço (NFS-e) real (ver [Nota Fiscal (NFS-e)](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe) abaixo); sem ele, a emissão fica pendente. Também mostra os dados institucionais fixos da empresa (razão social, CNPJ, CNAE, endereço, validade do Alvará de Funcionamento) extraídos do cadastro na Prefeitura de Osasco/SP.
+
+Código: `js/dashboard.js` (`_loadSettingsView`, `_handleProfileFormSubmit`, `_handlePasswordFormSubmit`), `Api.updateProfile`/`Api.changePassword`/`Api.getCompanyProfile` em `js/api.js` (`COMPANY_PROFILE`).
 </details>
 
 ---
@@ -224,6 +269,45 @@ No painel web, o botão **🔗 Conectar Mercado Pago** (Página 2 → Registrar 
 
 ---
 
+## Nota Fiscal (NFS-e): emissão real via Focus NFe
+
+Assim como o Access Token do Mercado Pago, um token que emite notas fiscais em nome da empresa **nunca** pode ir para o navegador/site público. Por isso a emissão roda como mais um **agente local separado**, no mesmo espírito de `mp_reconcile.py`:
+
+**`orcamento_agent/nfse_issuer.py`** procura, no histórico de pagamentos do painel (assinaturas de plano, despesas extras pagas via Pix), os que ainda não têm nota fiscal emitida, e chama a API real da [Focus NFe](https://focusnfe.com.br/) (referência escolhida — bem estabelecida no mercado brasileiro; teste grátis de 30 dias, sem cartão) para emitir uma **NFS-e de verdade**, gravando de volta no pagamento o número da nota, o link do PDF/XML e o status.
+
+<details>
+<summary>⚠️ O que isto NÃO faz sozinho — leia antes de configurar</summary>
+
+- **Não emite nada sem você contratar uma conta real na Focus NFe** (ou reescrever `FocusNfeClient` para outro provedor) e configurar um token real em `nfse_config.json`. Sem isso, o script só recusa rodar com uma mensagem clara.
+- **Não emite nada sem um certificado digital e-CNPJ (A1)** cadastrado no provedor — é ele quem assina a nota digitalmente; este script não guarda nem manipula certificados.
+- **Não calcula tributos nem confirma seu enquadramento fiscal** (regime tributário, alíquota de ISS, código de serviço da Prefeitura de Osasco/SP) — os campos ficam em `nfse_config.json` como placeholders (`AJUSTAR_CONFORME_...`) até você preencher com seu contador.
+- **Não inventa dados do cliente.** Só emite para pagamentos cujo usuário já cadastrou CPF/CNPJ em [⚙️ Configurações](#️-configurações) — os demais ficam com `nfseStatus: "aguardando_documento_tomador"`, visível no histórico de pagamentos do painel.
+- **Sempre rode primeiro com `"ambiente": "homologacao"`** (padrão do `nfse_config.example.json`) — simula a emissão sem gerar nota real e sem custo, até você validar o fluxo inteiro.
+- Os nomes de campos/endpoints da Focus NFe usados aqui seguem o formato público e documentado da API, mas provedores de emissão fiscal atualizam detalhes com alguma frequência (ex.: adesão de municípios à NFS-e Nacional) — **confirme em [doc.focusnfe.com.br](https://doc.focusnfe.com.br) antes de rodar em produção.**
+</details>
+
+<details>
+<summary>Como configurar e rodar</summary>
+
+1. `cd orcamento_agent`
+2. Copie `nfse_config.example.json` → `nfse_config.json`.
+3. Crie uma conta em [focusnfe.com.br](https://focusnfe.com.br/precos/) (30 dias grátis) e cole o token de **homologação** em `focus_nfe_token`.
+4. Preencha `prestador`/`servico` em `nfse_config.json` com seu contador (regime tributário, alíquota, código de serviço de Osasco/SP — `codigo_municipio` já vem preenchido: `3534401`).
+5. Escolha **uma** fonte de dados (`firebase_service_account` ou `db_json`), mesma ideia de `mp_reconcile.py`.
+6. `pip install requests --break-system-packages` (e `firebase-admin` se for usar Firestore).
+7. Peça para cada usuário cadastrar CPF/CNPJ em [⚙️ Configurações](#️-configurações) no painel.
+8. Rode:
+   ```bash
+   python3 nfse_issuer.py --dry-run     # mostra o que emitiria, sem chamar a API nem gravar
+   python3 nfse_issuer.py               # emite de verdade (ambiente definido no config)
+   ```
+9. Só depois de validar tudo em homologação, troque `"ambiente"` para `"producao"` no config (token de produção é diferente do de homologação).
+
+Pode ser agendado do mesmo jeito que `mp_reconcile.py` (GitHub Actions ou cron local).
+</details>
+
+---
+
 ## Como o sistema funciona por baixo dos panos
 
 <details>
@@ -244,6 +328,9 @@ js/
                             > localStorage (fallback/cache offline) > db.json
                             (1ª visita) > schema vazio
   crypto-utils.js       -> hash de senha (PBKDF2 + SHA-256 via Web Crypto)
+  oauth.js               -> OAuth 2.0 próprio (Authorization Code + PKCE, RFC
+                            6749/7636), tokens JWT (HS256), refresh/revogação,
+                            bloqueio de login por força bruta (ver "Autenticação")
   api.js                 -> toda a lógica de negócio (antes no FastAPI), mesma
                             interface de antes (Auth/Api), agora sem servidor próprio
   auth-page.js           -> lógica de login/signup (login.html)
@@ -270,6 +357,8 @@ orcamento_agent/
                             pagamentos do Mercado Pago via API (ver seção própria acima)
   mp_list_activities.py   -> lista as atividades (pagamentos) reais da conta via
                             Access Token, só leitura, sem Firebase (ver seção própria acima)
+  nfse_issuer.py          -> emite Nota Fiscal de Serviço (NFS-e) real via Focus
+                            NFe para pagamentos do painel (ver seção própria acima)
   mp_sync.py, ...        -> agente separado para planilha de orçamento pessoal,
                             sem relação com este app (ver orcamento_agent/LEIA-ME.md)
 .github/workflows/
@@ -317,9 +406,17 @@ O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atin
 </details>
 
 <details>
-<summary><strong>"Autenticação"</strong></summary>
+<summary><strong>"Autenticação" — OAuth 2.0 próprio (Authorization Code + PKCE)</strong></summary>
 
-Sem servidor, não há verificação de assinatura real. A sessão logada fica salva no `localStorage` (`fintech_saas_session_v1`) e as senhas são guardadas com hash PBKDF2 (não em texto puro) usando a Web Crypto API nativa do navegador — mas, de novo, isso é higiene básica, não uma barreira de segurança contra quem tem acesso ao próprio navegador.
+Login e cadastro emitem tokens através de um fluxo OAuth 2.0 implementado do zero em `js/oauth.js` — Authorization Code Grant + PKCE (RFC 6749 + RFC 7636), do mesmo jeito que um provedor OAuth de verdade faria, só que rodando 100% no navegador (não é "Entrar com o Google"; é o próprio app fazendo as duas pontas, já que não há backend):
+
+- **Tokens JWT (HS256):** `access_token` (1h) e `refresh_token` (30 dias), assinados com HMAC-SHA256. A chave de assinatura é gerada uma vez por instalação do navegador (Web Crypto, 256 bits) e guardada em `localStorage` — não é um segredo fixo no código-fonte.
+- **PKCE de verdade:** `code_verifier`/`code_challenge` (S256) amarram o authorization code (de uso único, TTL de 60s) a quem o pediu.
+- **Verificação criptográfica na entrada do painel:** `dashboard.html` reconfere a assinatura + expiração do `access_token` (`Auth.verifySession()`) antes de confiar na sessão, renovando automaticamente via `refresh_token` se necessário — em vez de só checar se existe algo no `localStorage`.
+- **Revogação e rotação:** logout revoga os tokens atuais (`OAuth.revoke`); cada renovação via `refresh_token` rotaciona (revoga o antigo, emite um novo).
+- **Bloqueio de força bruta:** 5 senhas erradas seguidas para o mesmo e-mail travam novas tentativas de login por 60s (`LoginRateLimiter`).
+
+Senhas continuam com hash PBKDF2 (100.000 iterações, SHA-256, Web Crypto) — nunca texto puro. **De novo, o limite honesto:** sem backend, a chave de assinatura e o "banco de usuários" moram no mesmo navegador — isso é uma implementação correta do protocolo OAuth, não uma fronteira de segurança real contra quem tem acesso a este navegador/dispositivo (mesma ressalva de sempre neste projeto). Ver a tela [🔒 Segurança](#-segurança) no painel para o detalhe completo dos controles.
 </details>
 
 ---
@@ -434,7 +531,7 @@ Acesse `http://localhost:5500`.
 <details>
 <summary><strong>Painel web — <code>tests/firebase-sync.test.js</code></strong></summary>
 
-Executa `js/db.js`/`js/api.js` de verdade (sem modificar nada) contra um Firestore simulado (mesma interface `.collection().doc().get()/.set()` do SDK), cobrindo: migração automática do localStorage para o Firestore, leitura dos mesmos dados a partir de um segundo dispositivo, fallback quando o Firebase cai, e reconciliação (merge de 3 vias) ao reconectar sem apagar mudanças que outro dispositivo tenha sincronizado nesse meio tempo. Não precisa de projeto Firebase real nem de rede — só Node.js:
+Executa `js/db.js`/`js/oauth.js`/`js/api.js` de verdade (sem modificar nada) contra um Firestore simulado (mesma interface `.collection().doc().get()/.set()` do SDK), cobrindo: migração automática do localStorage para o Firestore, leitura dos mesmos dados a partir de um segundo dispositivo, fallback quando o Firebase cai, e reconciliação (merge de 3 vias) ao reconectar sem apagar mudanças que outro dispositivo tenha sincronizado nesse meio tempo. Não precisa de projeto Firebase real nem de rede — só Node.js:
 
 ```bash
 node tests/firebase-sync.test.js
@@ -517,6 +614,9 @@ Rode de novo sempre que alterar `mp_list_activities.py`.
 - Editar a categoria de uma despesa já lançada (hoje só dá para excluir e relançar) — ajudaria a corrigir categorizações erradas do `mp_expenses.py` sem reimportar.
 - Deixar a Página 3 comparar mais de um mês ao mesmo tempo (hoje é um seletor de mês por vez) e exportar o comparativo Previsto x Realizado de volta para planilha.
 - Conectar outros bancos além do Mercado Pago: para bancos sem API pública para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX).
+- ~~Emitir nota fiscal dos pagamentos~~ — feito com `orcamento_agent/nfse_issuer.py` (Focus NFe, roda localmente, exige conta real + certificado digital do usuário). Ver [Nota Fiscal (NFS-e)](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe).
+- Emissão de NFS-e **automática logo após o pagamento** (hoje depende de rodar/agendar `nfse_issuer.py`, como os agentes do Mercado Pago) — daria para incluir no mesmo workflow do GitHub Actions que já roda `mp_reconcile.py`/`mp_expenses.py`.
+- Perseguir certificação ISO de verdade (27001 é a mais natural, dado o produto) — ver roteiro na tela [📜 Certificação](#-certificação); depende de trabalho fora do código (políticas, auditoria externa paga).
 
 ## Limitações
 
@@ -528,3 +628,6 @@ Rode de novo sempre que alterar `mp_list_activities.py`.
 - IDs de novos registros (despesas, categorias etc.) são strings geradas no dispositivo (timestamp + sufixo aleatório), não um contador sequencial — de propósito, para não colidir quando dois dispositivos criam registros ao mesmo tempo.
 - **Confirmação de pagamento não é tempo real:** nem a IA de OCR do comprovante nem o `mp_reconcile.py` são um webhook bancário — o primeiro depende do usuário enviar o comprovante, o segundo depende de alguém rodar o script (manual ou agendado) e casa por valor+data, não por um identificador exato (ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)).
 - Para um SaaS real, com múltiplos usuários acessando de dispositivos diferentes e dados protegidos de verdade, o próximo passo seria adicionar Firebase Authentication e regras de segurança do Firestore por usuário (ver [Roadmap](#roadmap)).
+- **OAuth 2.0 próprio (`js/oauth.js`):** implementa o protocolo corretamente (Authorization Code + PKCE, tokens JWT assinados, revogação/rotação — ver [Autenticação](#como-o-sistema-funciona-por-baixo-dos-panos)), mas a chave de assinatura mora no mesmo navegador do "banco" — não é uma fronteira de segurança real contra quem tem acesso a este dispositivo, e não interopera com apps terceiros (não é "Entrar com..." nenhum provedor externo).
+- **Nota Fiscal (NFS-e):** `nfse_issuer.py` só emite nota real depois que você contrata uma conta própria num provedor (Focus NFe, referência usada aqui) com certificado digital e-CNPJ — nada disso é fornecido por este repositório. Sem essa configuração, pagamentos ficam com `nfseStatus` pendente/aguardando documento, nunca uma nota fantasma.
+- **Certificação ISO:** a tela [📜 Certificação](#-certificação) é uma autoavaliação informal — não substitui um gap assessment feito por profissional, nem uma auditoria externa. Nenhuma norma está certificada hoje.

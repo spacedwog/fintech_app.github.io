@@ -320,10 +320,25 @@ class DashboardController {
     this.pixModal = new PixPaymentModal(PIX_MERCHANT);
     this.syncStatus = new SyncStatusIndicator();
     this.mpStatus = new MercadoPagoStatusIndicator();
+
+    this.securityBound = false;
+    this.privacyBound = false;
+    this.certificationBound = false;
+    this.settingsBound = false;
   }
 
   async init() {
     if (!Auth.isLoggedIn()) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    // Verificação criptográfica de verdade do access_token OAuth (assinatura
+    // HMAC + expiração — ver SessionManager.verifySession em js/api.js),
+    // com renovação automática via refresh_token se o access_token já
+    // expirou. Só depois disso confiamos na sessão para carregar o painel.
+    const sessionOk = await Auth.verifySession();
+    if (!sessionOk) {
       window.location.href = "login.html";
       return;
     }
@@ -407,6 +422,10 @@ class DashboardController {
     if (viewName === "reports") this._loadReportsView();
     if (viewName === "team") this._loadTeamView();
     if (viewName === "plan") this._loadPlanView();
+    if (viewName === "security") this._loadSecurityView();
+    if (viewName === "privacy") this._loadPrivacyView();
+    if (viewName === "certification") this._loadCertificationView();
+    if (viewName === "settings") this._loadSettingsView();
   }
 
   // Registra, num único lugar, os handlers de submit dos formulários da
@@ -430,6 +449,12 @@ class DashboardController {
           break;
         case "invite-form":
           this._handleInviteFormSubmit(e);
+          break;
+        case "settings-profile-form":
+          this._handleProfileFormSubmit(e);
+          break;
+        case "settings-password-form":
+          this._handlePasswordFormSubmit(e);
           break;
         default:
           break;
@@ -1272,6 +1297,37 @@ class DashboardController {
     await Api.addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification });
   }
 
+  // Status da Nota Fiscal de Serviço (NFS-e) real deste pagamento -- gerada
+  // fora do navegador por orcamento_agent/nfse_issuer.py (nunca no site
+  // público: o token do provedor de emissão fiscal nunca pode ir para o
+  // front-end, mesmo cuidado do Access Token do Mercado Pago). Este método
+  // só EXIBE o que o script já gravou no pagamento (nfseStatus e afins);
+  // não dispara emissão nenhuma a partir do painel.
+  _nfseStatusHtml(p) {
+    const status = p.nfseStatus;
+    if (!status) {
+      return '<span class="small-muted">Nota fiscal: ainda não processada.</span>';
+    }
+    if (status === "emitida") {
+      const numero = p.nfseNumero ? ` nº ${p.nfseNumero}` : "";
+      const link = p.nfsePdfUrl
+        ? ` · <a href="${p.nfsePdfUrl}" target="_blank" rel="noopener">ver PDF</a>`
+        : "";
+      return `<span style="color:var(--success);">✓ Nota fiscal emitida${numero}${link}</span>`;
+    }
+    if (status === "emitindo") {
+      return '<span style="color:#b45309;">⏳ Nota fiscal em processamento…</span>';
+    }
+    if (status === "aguardando_documento_tomador" || status === "aguardando_dados_tomador") {
+      return '<span style="color:#b45309;">⚠ Nota fiscal pendente: cadastre seu CPF/CNPJ em Configurações.</span>';
+    }
+    if (status === "erro") {
+      const detalhe = p.nfseErro ? ` (${String(p.nfseErro).slice(0, 120)})` : "";
+      return `<span style="color:var(--danger);">✗ Erro ao emitir nota fiscal${detalhe}</span>`;
+    }
+    return `<span class="small-muted">Nota fiscal: ${status}</span>`;
+  }
+
   async _renderPaymentsHistory() {
     const container = document.getElementById("payments-history");
     if (!container) return;
@@ -1311,11 +1367,370 @@ class DashboardController {
             <p style="margin:0;font-size:14px;">${label}</p>
             <p class="small-muted" style="margin:2px 0 0;">${dt.toLocaleDateString("pt-BR")} ${dt.toLocaleTimeString("pt-BR").slice(0, 5)} · txid ${p.txid || "-"}</p>
             <p style="margin:2px 0 0;font-size:12px;">${badge}</p>
+            <p style="margin:2px 0 0;font-size:12px;">${this._nfseStatusHtml(p)}</p>
           </div>
           <strong style="color:var(--success);">R$ ${p.amount.toFixed(2)}</strong>
         </div>`;
       })
       .join("");
+  }
+
+  // ---------- Segurança ----------
+  //
+  // Conteúdo baseado no material de referência público do W3Schools Cyber
+  // Security Tutorial (https://www.w3schools.com/cybersecurity/ — CIA
+  // Triad, Passwords, Web Applications/Web Application Attacks, Network
+  // Attacks) e nos controles de segurança de fato implementados neste app
+  // (ver js/oauth.js, js/crypto-utils.js, meta CSP em dashboard.html).
+
+  static get SECURITY_CONTROLS() {
+    return [
+      { title: "Senha nunca em texto puro", detail: "Hash PBKDF2 (100.000 iterações, SHA-256) + salt aleatório por usuário — mesmo o próprio banco de dados nunca guarda a senha real (js/crypto-utils.js)." },
+      { title: "OAuth 2.0 próprio (Authorization Code + PKCE)", detail: "Login emite tokens JWT (HS256) assinados: access_token de 1h e refresh_token de 30 dias, com rotação e revogação (js/oauth.js)." },
+      { title: "Verificação criptográfica da sessão", detail: "Assinatura do token é reconferida (crypto.subtle.verify, comparação em tempo constante) e a expiração é checada a cada carregamento do painel." },
+      { title: "Bloqueio após tentativas de login erradas", detail: "5 senhas erradas seguidas para o mesmo e-mail travam novas tentativas por 60s — mitigação de força bruta (W3Schools Cyber Security > Passwords)." },
+      { title: "HTTPS obrigatório", detail: "Hospedado no GitHub Pages: todo tráfego (login, dados) é cifrado em trânsito (TLS)." },
+      { title: "Content-Security-Policy", detail: "Meta tag CSP restringe de quais domínios o navegador pode carregar script/estilo/imagem/conexão (ver <head> deste documento)." },
+      { title: "Isolamento por conta (tenant_id)", detail: "Toda consulta ao banco filtra pelo tenant_id da sessão — um usuário nunca lê dados de outra conta (js/api.js)." },
+      { title: "Consentimento de cookies (Google Consent Mode)", detail: "Cookies de analytics/anúncios começam bloqueados (\"denied\") até o usuário autorizar na tela Privacidade." },
+    ];
+  }
+
+  static get CIA_TRIAD() {
+    return [
+      { letter: "C", title: "Confidencialidade", detail: "Senha em hash (nunca reversível), tokens assinados, CSP e HTTPS impedem que dados sejam lidos por quem não deveria." },
+      { letter: "I", title: "Integridade", detail: "Assinatura HMAC garante que ninguém alterou as claims de um token; merge de 3 vias (js/db.js) evita corromper dados entre dispositivos." },
+      { letter: "A", title: "Disponibilidade", detail: "Fallback automático para localStorage quando o Firestore está fora do ar — o app continua funcionando offline." },
+    ];
+  }
+
+  static get SECURITY_THREATS() {
+    return [
+      { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser o Fintech Spacecworp para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
+      { name: "Força bruta de senha", what: "Tentar adivinhar sua senha por tentativa e erro.", mitigation: "Bloqueio temporário após 5 tentativas + hash PBKDF2 (100.000 iterações) dificultam ataque offline." },
+      { name: "Ataques a aplicações web (XSS/injeção)", what: "Injetar código ou comandos maliciosos através de campos de formulário.", mitigation: "Sem SQL (Firestore/localStorage), escaping ao exibir dados do usuário, e Content-Security-Policy." },
+      { name: "Man-in-the-middle", what: "Interceptar dados trafegando entre você e o servidor.", mitigation: "HTTPS/TLS obrigatório em toda comunicação com Firebase e com a página." },
+      { name: "Roubo/vazamento de token de sessão", what: "Uso indevido de uma sessão logada roubada.", mitigation: "Tokens de curta duração (1h), revogação no logout e rotação do refresh_token." },
+      { name: "Vazamento de dados / Dark Web", what: "Credenciais vazadas sendo revendidas ou reutilizadas em outros sites.", mitigation: "Coletamos o mínimo necessário e nunca guardamos a senha em formato reversível." },
+    ];
+  }
+
+  static get ISO_STANDARDS() {
+    return [
+      { code: "ISO/IEC 27001", name: "Gestão de Segurança da Informação", relevance: "Referência para os controles de segurança (senha, tokens, sessão) desta tela." },
+      { code: "ISO/IEC 27002", name: "Código de práticas de segurança da informação", relevance: "Orienta os controles técnicos específicos adotados (política de senha, criptografia)." },
+      { code: "ISO/IEC 27017", name: "Segurança da informação em nuvem", relevance: "Dados hospedados no Firebase/Firestore (nuvem)." },
+      { code: "ISO/IEC 27018", name: "Proteção de dados pessoais (PII) em nuvem pública", relevance: "Base para como tratamos dados pessoais armazenados na nuvem." },
+      { code: "ISO/IEC 27701", name: "Gestão de privacidade da informação", relevance: "Estrutura usada na tela Privacidade (extensão de privacidade da 27001)." },
+      { code: "ISO/IEC 29100", name: "Framework de privacidade", relevance: "Princípios de privacidade (minimização, finalidade, consentimento) da tela Privacidade." },
+      { code: "ISO/IEC 25010", name: "Qualidade de software (SQuaRE)", relevance: "Características de qualidade (segurança, confiabilidade, usabilidade) que guiam o desenvolvimento." },
+      { code: "ISO 31000", name: "Gestão de riscos", relevance: "Avaliação de riscos como dependência de um único provedor de nuvem e ausência de backend próprio." },
+      { code: "ISO 9001", name: "Gestão da qualidade", relevance: "Processos gerais da empresa desenvolvedora (SPACECWORP)." },
+      { code: "ISO 20022", name: "Mensageria financeira", relevance: "Padrão usado no sistema financeiro brasileiro (Bacen/Pix) — o app processa pagamentos Pix." },
+      { code: "ISO 8000", name: "Qualidade de dados", relevance: "Consistência dos dados financeiros (despesas, orçamento) armazenados." },
+    ];
+  }
+
+  // ---------- Certificação (autoavaliação + roteiro real) ----------
+  //
+  // "readiness" é uma autoavaliação INFORMAL (não é uma auditoria) de
+  // quanto os controles já implementados neste app cobrem cada norma —
+  // serve para orientar por onde começar, não substitui um gap assessment
+  // de verdade feito por quem for conduzir a certificação.
+
+  static get CERTIFICATION_READINESS() {
+    return [
+      { code: "ISO/IEC 27001", readiness: 35, evidencias: "Hash de senha (PBKDF2), tokens OAuth assinados e com expiração, CSP, isolamento por conta (tenant_id), controle de acesso por papel (admin/membro).", faltam: "Política de segurança documentada e aprovada, análise de risco formal, gestão de incidentes formalizada, auditoria interna, Declaração de Aplicabilidade (SoA)." },
+      { code: "ISO/IEC 27701", readiness: 30, evidencias: "Consentimento de cookies (Google Consent Mode), exportação e exclusão de dados (tela Privacidade), controlador identificado.", faltam: "Registro de operações de tratamento (ROPA), avaliação de impacto (DPIA), encarregado de dados (DPO) formalmente designado, política de retenção documentada." },
+      { code: "ISO/IEC 25010", readiness: 40, evidencias: "Testes de integração automatizados (tests/*.test.js) cobrindo fluxos críticos, arquitetura em camadas de serviço, fallback offline (localStorage).", faltam: "Métricas de qualidade formalizadas, testes de carga/performance, testes de usabilidade com usuários reais." },
+      { code: "ISO/IEC 27017 / 27018", readiness: 25, evidencias: "Dados hospedados em nuvem (Firebase/Firestore) com regras de acesso por conta.", faltam: "Avaliação formal do fornecedor de nuvem, contrato/SLA cobrindo esses controles especificamente." },
+      { code: "ISO 31000", readiness: 15, evidencias: "Riscos conhecidos já documentados em comentários no código (ex.: dependência de um único provedor de nuvem, ausência de backend próprio).", faltam: "Matriz de riscos formal, dono de cada risco, plano de tratamento e monitoramento contínuo." },
+      { code: "ISO 9001", readiness: 20, evidencias: "Processo de desenvolvimento com testes automatizados antes de mudanças.", faltam: "Sistema de gestão da qualidade documentado, controle de não conformidades, auditoria interna, revisão pela direção." },
+      { code: "ISO 20022 / ISO 8000", readiness: null, evidencias: "Não são normas certificáveis por auditoria organizacional — são padrões técnicos de mensageria financeira e qualidade de dados a seguir no formato dos dados.", faltam: "Não aplicável (ver evidências)." },
+    ];
+  }
+
+  static get CERTIFICATION_ROADMAP() {
+    return [
+      "Escolher a norma e definir o escopo formal (ex.: \"sistema de gestão de segurança da informação do produto Fintech Spacecworp\").",
+      "Fazer um gap assessment de verdade (auditoria interna ou consultoria especializada) comparando os controles exigidos com o que já existe.",
+      "Documentar as políticas exigidas (segurança da informação, gestão de risco, gestão de incidentes, privacidade, etc.).",
+      "Implementar os controles que faltam e treinar a equipe nos processos documentados.",
+      "Rodar uma auditoria interna e uma revisão formal pela direção da empresa.",
+      "Contratar um organismo certificador ACREDITADO (no Brasil, pelo Cgcre/INMETRO, ou por outro membro do IAF) para a auditoria externa em dois estágios.",
+      "Corrigir as não conformidades apontadas na auditoria externa e receber o certificado — válido por 3 anos, com auditorias de manutenção anuais.",
+    ];
+  }
+
+  _readinessBarHtml(item) {
+    if (item.readiness === null) {
+      return `<div class="iso-card"><span class="badge premium">${item.code}</span>
+        <p class="small-muted mt-6 mb-4"><strong>Não aplicável</strong> — ${item.evidencias}</p></div>`;
+    }
+    return `
+      <div class="iso-card">
+        <div class="row-between mb-6"><span class="badge premium">${item.code}</span><strong class="fs-18">${item.readiness}%</strong></div>
+        <div class="readiness-bar"><div class="readiness-bar-fill" style="width:${item.readiness}%"></div></div>
+        <p class="small-muted mt-8 mb-2"><strong>Já implementado:</strong> ${item.evidencias}</p>
+        <p class="small-muted m-0"><strong>Falta para certificar:</strong> ${item.faltam}</p>
+      </div>`;
+  }
+
+  _loadCertificationView() {
+    if (this.certificationBound) return;
+    this.certificationBound = true;
+
+    document.getElementById("certification-readiness-list").innerHTML =
+      `<div class="iso-grid">${DashboardController.CERTIFICATION_READINESS.map((i) => this._readinessBarHtml(i)).join("")}</div>`;
+
+    document.getElementById("certification-roadmap-list").innerHTML = DashboardController.CERTIFICATION_ROADMAP.map(
+      (step) => `<li>${step}</li>`
+    ).join("");
+  }
+
+  async _loadSecurityView() {
+    if (!this.securityBound) {
+      this.securityBound = true;
+
+      document.getElementById("security-controls-list").innerHTML = DashboardController.SECURITY_CONTROLS.map(
+        (c) => `<li><strong>${c.title}</strong> — ${c.detail}</li>`
+      ).join("");
+
+      document.getElementById("cia-triad-grid").innerHTML = DashboardController.CIA_TRIAD.map(
+        (c) => `
+        <div class="card cia-card">
+          <div class="cia-letter">${c.letter}</div>
+          <h4 class="mt-0 mb-4">${c.title}</h4>
+          <p class="small-muted m-0">${c.detail}</p>
+        </div>`
+      ).join("");
+
+      document.getElementById("security-threats-tbody").innerHTML = DashboardController.SECURITY_THREATS.map(
+        (t) => `<tr><td><strong>${t.name}</strong></td><td>${t.what}</td><td>${t.mitigation}</td></tr>`
+      ).join("");
+
+      document.getElementById("iso-grid").innerHTML = DashboardController.ISO_STANDARDS.map(
+        (i) => `
+        <div class="iso-card">
+          <span class="badge premium">${i.code}</span>
+          <h4 class="mt-6 mb-4">${i.name}</h4>
+          <p class="small-muted m-0">${i.relevance}</p>
+        </div>`
+      ).join("");
+
+      const revokeBtn = document.getElementById("security-revoke-btn");
+      if (revokeBtn) {
+        revokeBtn.addEventListener("click", () => {
+          Auth.clearToken();
+          window.location.href = "login.html";
+        });
+      }
+    }
+
+    const box = document.getElementById("security-session-box");
+    if (box) {
+      try {
+        const raw = Auth.getToken();
+        const tokens = raw ? JSON.parse(raw) : null;
+        const claims = tokens && tokens.access_token ? OAuth.decodeUnsafe(tokens.access_token) : null;
+        if (claims) {
+          const expiresAt = new Date(claims.exp * 1000);
+          const scope = (claims.scope || []).join(", ") || "—";
+          box.className = "alert-ok mb-14";
+          box.innerHTML =
+            `Token de acesso válido até <strong>${expiresAt.toLocaleString("pt-BR")}</strong>.<br/>` +
+            `Escopo concedido (OAuth): <code>${scope}</code>.`;
+        } else {
+          box.className = "alert-warn mb-14";
+          box.textContent = "Não foi possível ler a sessão OAuth atual.";
+        }
+      } catch (e) {
+        box.className = "alert-warn mb-14";
+        box.textContent = "Não foi possível ler a sessão OAuth atual.";
+      }
+    }
+  }
+
+  // ---------- Privacidade (LGPD, Lei 13.709/2018) ----------
+
+  static get PRIVACY_DATA_ROWS() {
+    return [
+      { data: "Nome e e-mail", finalidade: "Criar sua conta, identificar você e permitir o login.", base: "Execução de contrato (art. 7º, V)" },
+      { data: "Senha (armazenada como hash, nunca em texto puro)", finalidade: "Autenticação.", base: "Execução de contrato (art. 7º, V)" },
+      { data: "Despesas, categorias e orçamentos", finalidade: "Fornecer o serviço de controle financeiro.", base: "Execução de contrato (art. 7º, V)" },
+      { data: "Comprovante de Pix (imagem, lida localmente no navegador)", finalidade: "Confirmar pagamentos.", base: "Execução de contrato (art. 7º, V)" },
+      { data: "Cookies do Google Ads / Tag Manager", finalidade: "Medir audiência e conversões de anúncios.", base: "Consentimento (art. 7º, I) — desativado por padrão" },
+    ];
+  }
+
+  static get PRIVACY_RIGHTS() {
+    return [
+      "Confirmação da existência de tratamento e acesso aos seus dados.",
+      "Correção de dados incompletos, inexatos ou desatualizados (tela Configurações).",
+      "Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em excesso.",
+      "Portabilidade dos dados a outro fornecedor, mediante requisição (botão \"Baixar meus dados\" abaixo).",
+      "Eliminação dos dados tratados com consentimento (botão \"Excluir minha conta\" abaixo).",
+      "Revogação do consentimento de cookies de analytics/anúncios, a qualquer momento.",
+      "Informação sobre com quem seus dados são compartilhados — apenas Firebase/Google (infraestrutura) e, se você consentir, Google Ads/Tag Manager.",
+    ];
+  }
+
+  async _loadPrivacyView() {
+    if (!this.privacyBound) {
+      this.privacyBound = true;
+
+      const profile = await Api.getCompanyProfile();
+      document.getElementById("privacy-controller-box").innerHTML =
+        `<strong>${profile.razao_social}</strong> (${profile.nome_fantasia}) — CNPJ ${profile.cnpj}. ` +
+        `${profile.endereco.logradouro}, ${profile.endereco.bairro}, ${profile.endereco.cidade}/${profile.endereco.uf} — CEP ${profile.endereco.cep}. ` +
+        `Contato para solicitações de privacidade (LGPD): <a href="mailto:${profile.contato_privacidade}">${profile.contato_privacidade}</a>.`;
+
+      document.getElementById("privacy-data-tbody").innerHTML = DashboardController.PRIVACY_DATA_ROWS.map(
+        (r) => `<tr><td>${r.data}</td><td>${r.finalidade}</td><td>${r.base}</td></tr>`
+      ).join("");
+
+      document.getElementById("privacy-rights-list").innerHTML = DashboardController.PRIVACY_RIGHTS.map(
+        (r) => `<li>${r}</li>`
+      ).join("");
+
+      const consentInput = document.getElementById("privacy-marketing-consent");
+      const consentStatus = document.getElementById("privacy-consent-status");
+      if (consentInput) {
+        consentInput.addEventListener("change", async () => {
+          const granted = consentInput.checked;
+          await Api.setPrivacyConsent({ marketing: granted });
+          if (typeof gtag === "function") {
+            gtag("consent", "update", {
+              ad_storage: granted ? "granted" : "denied",
+              analytics_storage: granted ? "granted" : "denied",
+              ad_user_data: granted ? "granted" : "denied",
+              ad_personalization: granted ? "granted" : "denied",
+            });
+          }
+          if (consentStatus) {
+            consentStatus.textContent = granted
+              ? "Cookies de analytics/anúncios autorizados."
+              : "Cookies de analytics/anúncios bloqueados.";
+          }
+        });
+      }
+
+      const exportBtn = document.getElementById("privacy-export-btn");
+      if (exportBtn) {
+        exportBtn.addEventListener("click", async () => {
+          const data = await Api.exportMyData();
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `meus-dados-fintech-spacecworp-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      const deleteBtn = document.getElementById("privacy-delete-btn");
+      const deleteError = document.getElementById("privacy-delete-error");
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", async () => {
+          deleteError.classList.add("hidden");
+          const confirmed = window.confirm(
+            "Tem certeza? Isso vai excluir permanentemente seu usuário e, se você for o único membro da conta, todos os dados dela (despesas, orçamentos, pagamentos). Esta ação não pode ser desfeita."
+          );
+          if (!confirmed) return;
+          try {
+            await Api.deleteAccount();
+            window.location.href = "login.html";
+          } catch (err) {
+            deleteError.textContent = err.message;
+            deleteError.classList.remove("hidden");
+          }
+        });
+      }
+    }
+
+    try {
+      const consent = await Api.getPrivacyConsent();
+      const consentInput = document.getElementById("privacy-marketing-consent");
+      if (consentInput) consentInput.checked = !!consent.marketing;
+    } catch (e) {
+      // sessão pode ter acabado de carregar — ignora silenciosamente
+    }
+  }
+
+  // ---------- Configurações ----------
+
+  async _loadSettingsView() {
+    if (!this.settingsBound) {
+      this.settingsBound = true;
+
+      const profile = await Api.getCompanyProfile();
+      document.getElementById("settings-company-box").innerHTML = `
+        <div><span class="small-muted">Razão social</span><p class="m-0 fw-600">${profile.razao_social}</p></div>
+        <div><span class="small-muted">Nome fantasia</span><p class="m-0 fw-600">${profile.nome_fantasia}</p></div>
+        <div><span class="small-muted">CNPJ</span><p class="m-0 fw-600">${profile.cnpj}</p></div>
+        <div><span class="small-muted">Porte</span><p class="m-0 fw-600">${profile.porte}</p></div>
+        <div><span class="small-muted">Inscrição Municipal (CCM)</span><p class="m-0 fw-600">${profile.inscricao_municipal_ccm}</p></div>
+        <div><span class="small-muted">Inscrição Estadual (Jucesp)</span><p class="m-0 fw-600">${profile.inscricao_estadual_jucesp}</p></div>
+        <div><span class="small-muted">CNAE principal</span><p class="m-0 fw-600">${profile.cnae_principal}</p></div>
+        <div><span class="small-muted">Endereço</span><p class="m-0 fw-600">${profile.endereco.logradouro}, ${profile.endereco.bairro}, ${profile.endereco.cidade}/${profile.endereco.uf} — CEP ${profile.endereco.cep}</p></div>
+        <div><span class="small-muted">Telefone</span><p class="m-0 fw-600">${profile.telefone}</p></div>
+        <div><span class="small-muted">Início de atividade</span><p class="m-0 fw-600">${profile.inicio_atividade}</p></div>
+        <div><span class="small-muted">Alvará de Funcionamento</span><p class="m-0 fw-600">Nº processo ${profile.alvara.numero_processo} — válido até ${profile.alvara.valido_ate}</p></div>
+        <div class="company-profile-full"><span class="small-muted">Atividades registradas</span><p class="m-0">${profile.atividades.join("; ")}.</p></div>
+      `;
+    }
+
+    document.getElementById("settings-profile-name").value = this.currentUser.name;
+    document.getElementById("settings-profile-email").value = this.currentUser.email || "";
+    const docInput = document.getElementById("settings-profile-document");
+    if (docInput) docInput.value = this.currentUser.tax_document || "";
+  }
+
+  async _handleProfileFormSubmit(e) {
+    e.preventDefault();
+    const errorBox = document.getElementById("settings-profile-error");
+    const successBox = document.getElementById("settings-profile-success");
+    errorBox.classList.add("hidden");
+    successBox.classList.add("hidden");
+
+    const name = document.getElementById("settings-profile-name").value.trim();
+    const document_ = document.getElementById("settings-profile-document").value.trim();
+    try {
+      const updated = await Api.updateProfile({ name, document: document_ });
+      this.currentUser.name = updated.name;
+      this.currentUser.tax_document = updated.tax_document;
+      const userNameEl = document.getElementById("user-name");
+      if (userNameEl) userNameEl.textContent = updated.name;
+      successBox.textContent = "Perfil atualizado!";
+      successBox.classList.remove("hidden");
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.classList.remove("hidden");
+    }
+  }
+
+  async _handlePasswordFormSubmit(e) {
+    e.preventDefault();
+    const errorBox = document.getElementById("settings-password-error");
+    const successBox = document.getElementById("settings-password-success");
+    errorBox.classList.add("hidden");
+    successBox.classList.add("hidden");
+
+    const currentPassword = document.getElementById("settings-current-password").value;
+    const newPassword = document.getElementById("settings-new-password").value;
+
+    try {
+      await Api.changePassword({ currentPassword, newPassword });
+      document.getElementById("settings-password-form").reset();
+      successBox.textContent = "Senha alterada!";
+      successBox.classList.remove("hidden");
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.classList.remove("hidden");
+    }
   }
 }
 
