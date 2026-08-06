@@ -43,12 +43,7 @@ class SyncStatusIndicator {
 // no topo da sidebar. ----------
 
 class MercadoPagoStatusIndicator {
-  // onClick: callback opcional (ex.: abrir/fechar o painel do MercadoPagoAgent) --
-  // o badge inteiro vira clicável quando informado (ver DashboardController).
-  constructor(onClick) {
-    this.onClick = onClick || null;
-    this._bound = false;
-  }
+  constructor() {}
 
   _formatAgo(iso) {
     if (!iso) return null;
@@ -69,12 +64,6 @@ class MercadoPagoStatusIndicator {
     const label = document.getElementById("mp-status-label");
     if (!box || !label || typeof Api === "undefined") return;
 
-    if (this.onClick && !this._bound) {
-      box.style.cursor = "pointer";
-      box.addEventListener("click", () => this.onClick());
-      this._bound = true;
-    }
-
     try {
       const status = await Api.getMercadoPagoStatus();
       box.classList.toggle("connected", status.connected);
@@ -93,279 +82,23 @@ class MercadoPagoStatusIndicator {
         box.title =
           `Última atualização: ${lastSync}. ${status.payments_verified_count} pagamento(s) confirmado(s) ` +
           `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py (via API).` +
-          (agoAutomacao ? ` Última execução dos agentes: ${agoAutomacao}.` : "") +
-          " Clique para ver/configurar a integração.";
+          (agoAutomacao ? ` Última execução dos agentes: ${agoAutomacao}.` : "");
       } else if (status.automation_configured) {
         // Agente já rodou (ex.: via GitHub Actions) mas ainda não gerou
         // nenhuma despesa/confirmação nesta janela -- diferente de "nunca
         // configurado", vale deixar isso claro no rótulo.
         label.textContent = `Integração ativa, sem novidades (sync ${agoAutomacao || "recente"})`;
-        box.title =
-          "A automação do Mercado Pago já rodou, mas não encontrou pagamento novo para importar/confirmar. " +
-          "Clique para ver detalhes ou reconfigurar.";
+        box.title = "A automação do Mercado Pago já rodou, mas não encontrou pagamento novo para importar/confirmar.";
       } else {
         label.textContent = "Nenhuma despesa sincronizada ainda";
         box.title =
-          "Nenhum pagamento do Mercado Pago foi importado ainda. Clique para gerar a configuração (Access Token + " +
-          "e-mail da conta) e ver como automatizar com orcamento_agent/mp_reconcile.py + mp_expenses.py -- fora " +
-          "do navegador, ou agendado via GitHub Actions.";
+          "Nenhum pagamento do Mercado Pago foi importado ainda. Configure orcamento_agent/mp_reconcile.py + " +
+          "mp_expenses.py -- fora do navegador, ou agendado via GitHub Actions (veja orcamento_agent/LEIA-ME.md).";
       }
     } catch (e) {
       label.textContent = "";
       box.title = "";
     }
-  }
-}
-
-// ---------- MercadoPagoAgent: "agenteIA" que conecta/reconecta a
-// integração com o Mercado Pago -- substitui o antigo modal por um painel
-// leve (popover sem overlay escuro) ancorado no badge da sidebar
-// (#mp-status), aberto pelo próprio badge, pelo botão "Conectar/Reconectar
-// Mercado Pago" da tabela de despesas, ou fechado a qualquer momento.
-//
-// Importante: este agente NUNCA chama a API do Mercado Pago (o navegador
-// não consegue -- api.mercadopago.com não libera CORS para o Access Token,
-// nem seria seguro se liberasse, já que o site é 100% estático/GitHub
-// Pages). O que ele faz de fato:
-//   1) Diagnóstico (_diagnose): lê Api.getMercadoPagoStatus() e explica, em
-//      linguagem simples, se a integração está conectada, configurada-mas-
-//      parada, ou nunca conectada -- e ajusta o botão para "Conectar" ou
-//      "Reconectar" conforme o estado.
-//   2) Conectar/Reconectar (_handleSubmit): gera os dois arquivos de
-//      configuração (mp_expenses_config.json / mp_reconcile_config.json)
-//      que os scripts reais (orcamento_agent/mp_expenses.py +
-//      mp_reconcile.py, rodando fora do navegador) usam para falar com o
-//      Mercado Pago de verdade -- o Access Token digitado aqui só existe
-//      na hora, nunca é salvo nem enviado a lugar nenhum.
-//   3) Refresh (refresh): reconsulta o status a qualquer momento (botão ⟳
-//      ao lado do badge), sem precisar abrir o painel -- útil depois de
-//      rodar os scripts manualmente ou via GitHub Actions.
-class MercadoPagoAgent {
-  // onStatusChange: callback opcional chamado pelo refresh() para
-  // re-renderizar o badge da sidebar (ver MercadoPagoStatusIndicator).
-  constructor(onStatusChange) {
-    this.panelEl = null;
-    this.defaultEmail = "";
-    this.onStatusChange = onStatusChange || null;
-    this._open = false;
-    this._outsideClickBound = false;
-  }
-
-  setup() {
-    this.panelEl = document.getElementById("mp-agent-panel");
-    if (!this.panelEl) return;
-
-    document.getElementById("mp-agent-close").addEventListener("click", () => this.close());
-    document.getElementById("mp-agent-form").addEventListener("submit", (e) => this._handleSubmit(e));
-
-    const refreshBtn = document.getElementById("mp-refresh-btn");
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", (e) => {
-        e.stopPropagation(); // não deixa o clique "vazar" pro badge (que abre/fecha o painel)
-        this.refresh();
-      });
-    }
-
-    if (!this._outsideClickBound) {
-      document.addEventListener("click", (e) => {
-        if (!this._open) return;
-        const badge = document.getElementById("mp-status");
-        if (this.panelEl.contains(e.target) || (badge && badge.contains(e.target))) return;
-        this.close();
-      });
-      this._outsideClickBound = true;
-    }
-  }
-
-  _position() {
-    const badge = document.getElementById("mp-status");
-    if (!badge || !this.panelEl) return;
-    const rect = badge.getBoundingClientRect();
-    this.panelEl.style.top = `${Math.round(rect.bottom + 8)}px`;
-    this.panelEl.style.left = `${Math.round(rect.left)}px`;
-  }
-
-  async open(defaultEmail) {
-    if (!this.panelEl) return;
-    this.defaultEmail = defaultEmail || "";
-
-    document.getElementById("mp-agent-error").classList.add("hidden");
-    document.getElementById("mp-agent-success").classList.add("hidden");
-    document.getElementById("mp-agent-token").value = "";
-    const emailInput = document.getElementById("mp-agent-email");
-    if (emailInput && !emailInput.value) emailInput.value = this.defaultEmail;
-
-    this._position();
-    this.panelEl.classList.remove("hidden");
-    this._open = true;
-    await this._diagnose();
-  }
-
-  close() {
-    if (!this.panelEl) return;
-    // Higiene: nunca deixa o token digitado na tela depois de fechar.
-    const tokenInput = document.getElementById("mp-agent-token");
-    if (tokenInput) tokenInput.value = "";
-    this.panelEl.classList.add("hidden");
-    this._open = false;
-  }
-
-  toggle(defaultEmail) {
-    if (this._open) this.close();
-    else this.open(defaultEmail);
-  }
-
-  _formatWhen(entry) {
-    if (!entry || !entry.at) return null;
-    const d = new Date(entry.at);
-    return isNaN(d.getTime()) ? null : d.toLocaleString("pt-BR");
-  }
-
-  // Lê o status agregado (Api.getMercadoPagoStatus) e traduz num
-  // diagnóstico em português + ação sugerida -- o rótulo do botão muda
-  // entre "Conectar" e "Reconectar" conforme o estado atual.
-  async _diagnose() {
-    const box = document.getElementById("mp-agent-diagnosis");
-    const submitBtn = document.getElementById("mp-agent-submit");
-    if (!box) return null;
-    box.textContent = "Analisando status…";
-    try {
-      const status = await Api.getMercadoPagoStatus();
-      const reconcile = status.automation.last_reconcile;
-      const expensesApi = status.automation.last_expenses_api;
-      const linhas = [];
-
-      if (status.connected) {
-        linhas.push(
-          `✅ Conectado — ${status.expenses_count} despesa(s) via Mercado Pago ` +
-            `(R$ ${status.expenses_total.toFixed(2)}), ${status.payments_verified_count} pagamento(s) confirmado(s).`
-        );
-        if (submitBtn) submitBtn.textContent = "Reconectar (gerar novo token)";
-      } else if (status.automation_configured) {
-        linhas.push(
-          "⚙️ Automação configurada e já rodou, mas sem despesa/pagamento novo nesta janela. Se acha que " +
-            "deveria haver, o token pode ter expirado — gere um novo abaixo e reconecte."
-        );
-        if (submitBtn) submitBtn.textContent = "Reconectar";
-      } else {
-        linhas.push(
-          "🔌 Ainda não conectado. Gere a configuração abaixo para conectar seus agentes locais ao Mercado Pago."
-        );
-        if (submitBtn) submitBtn.textContent = "Conectar";
-      }
-
-      if (reconcile) {
-        linhas.push(
-          `mp_reconcile.py: última execução ${this._formatWhen(reconcile) || "?"} — ` +
-            `${reconcile.verificados || 0} confirmado(s), ${reconcile.ambiguos || 0} ambíguo(s).`
-        );
-      }
-      if (expensesApi) {
-        linhas.push(
-          `mp_expenses.py: última execução ${this._formatWhen(expensesApi) || "?"} — ` +
-            `${expensesApi.criadas || 0} despesa(s) gerada(s).`
-        );
-      }
-      if (!reconcile && !expensesApi) {
-        linhas.push("Nenhum agente rodou ainda nesta conta.");
-      }
-
-      box.innerHTML = linhas.map((l) => `<p style="margin:0 0 6px;">${l}</p>`).join("");
-      return status;
-    } catch (e) {
-      box.textContent = "Não foi possível carregar o status agora.";
-      return null;
-    }
-  }
-
-  // Botão ⟳ ao lado do badge: reconsulta o status sem precisar abrir o
-  // painel -- gira o ícone enquanto busca e, se o painel já estiver aberto,
-  // atualiza o diagnóstico junto.
-  async refresh() {
-    const btn = document.getElementById("mp-refresh-btn");
-    if (btn) btn.classList.add("spinning");
-    try {
-      if (this.onStatusChange) await this.onStatusChange();
-      if (this._open) await this._diagnose();
-    } finally {
-      if (btn) btn.classList.remove("spinning");
-    }
-  }
-
-  _downloadJson(filename, obj) {
-    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  async _handleSubmit(e) {
-    e.preventDefault();
-    const errorBox = document.getElementById("mp-agent-error");
-    const successBox = document.getElementById("mp-agent-success");
-    errorBox.classList.add("hidden");
-    successBox.classList.add("hidden");
-
-    const token = document.getElementById("mp-agent-token").value.trim();
-    const email = document.getElementById("mp-agent-email").value.trim();
-    const dias = parseInt(document.getElementById("mp-agent-dias").value, 10) || 30;
-
-    if (!token) {
-      errorBox.textContent = "Cole o Access Token do Mercado Pago (developers.mercadopago.com.br → Credenciais).";
-      errorBox.classList.remove("hidden");
-      return;
-    }
-    if (!email) {
-      errorBox.textContent = "Informe o e-mail da conta (login neste painel) que vai receber as despesas.";
-      errorBox.classList.remove("hidden");
-      return;
-    }
-
-    const expensesConfig = {
-      mercado_pago_access_token: token,
-      firebase_service_account: "COLE_AQUI_O_CAMINHO_DA_CHAVE.json",
-      db_json: null,
-      conta_email: email,
-      janela_dias: dias,
-      categoria_padrao: "Mercado Pago (não categorizado)",
-      mapeamento: [
-        { palavra_chave: "uber", categoria: "Transporte" },
-        { palavra_chave: "99", categoria: "Transporte" },
-        { palavra_chave: "ifood", categoria: "Alimentação" },
-        { palavra_chave: "supermercado", categoria: "Alimentação" },
-        { palavra_chave: "farmacia", categoria: "Saúde" },
-      ],
-      ignorar_descricoes_contendo: ["despesa extra", "assinatura", "fintech spacecworp"],
-    };
-
-    const reconcileConfig = {
-      mercado_pago_access_token: token,
-      firebase_service_account: "COLE_AQUI_O_CAMINHO_DA_CHAVE.json",
-      db_json: null,
-      janela_dias: dias,
-    };
-
-    this._downloadJson("mp_expenses_config.json", expensesConfig);
-    this._downloadJson("mp_reconcile_config.json", reconcileConfig);
-
-    // Higiene: some com o token da tela assim que os arquivos são gerados --
-    // já foi usado, não precisa continuar visível/em memória no formulário.
-    document.getElementById("mp-agent-token").value = "";
-
-    successBox.textContent =
-      "2 arquivos baixados (mp_expenses_config.json e mp_reconcile_config.json). Troque " +
-      '"COLE_AQUI_O_CAMINHO_DA_CHAVE.json" pelo caminho da sua chave do Firebase (ou pelo campo "db_json") ' +
-      "e coloque os dois dentro de orcamento_agent/ -- veja orcamento_agent/LEIA-ME.md.";
-    successBox.classList.remove("hidden");
-
-    // Reavalia o diagnóstico -- deixa claro que o botão virou "Reconectar"
-    // e evita mostrar a análise antiga logo depois de gerar a config.
-    await this._diagnose();
   }
 }
 
@@ -586,8 +319,7 @@ class DashboardController {
 
     this.pixModal = new PixPaymentModal(PIX_MERCHANT);
     this.syncStatus = new SyncStatusIndicator();
-    this.mpAgent = new MercadoPagoAgent(() => this.mpStatus.render());
-    this.mpStatus = new MercadoPagoStatusIndicator(() => this.mpAgent.toggle(this.currentUser && this.currentUser.email));
+    this.mpStatus = new MercadoPagoStatusIndicator();
   }
 
   async init() {
@@ -607,9 +339,19 @@ class DashboardController {
     }
 
     this.pixModal.setup();
-    this.mpAgent.setup();
-    const mpOpenBtn = document.getElementById("mp-connect-open-btn");
-    if (mpOpenBtn) mpOpenBtn.addEventListener("click", () => this.mpAgent.open(this.currentUser && this.currentUser.email));
+    // Botão ⟳ ao lado do badge do Mercado Pago: só reconsulta o status
+    // (Api.getMercadoPagoStatus), sem abrir nenhuma configuração.
+    const mpRefreshBtn = document.getElementById("mp-refresh-btn");
+    if (mpRefreshBtn) {
+      mpRefreshBtn.addEventListener("click", async () => {
+        mpRefreshBtn.classList.add("spinning");
+        try {
+          await this.mpStatus.render();
+        } finally {
+          mpRefreshBtn.classList.remove("spinning");
+        }
+      });
+    }
     this._setupBudgetLayoutModal();
     this._renderShell();
     this._bindNav();

@@ -45,65 +45,6 @@
                 aria-label="Atualizar status do Mercado Pago">⟳</button>
       </div>
 
-      <!-- ============================================================
-           PAINEL DO AGENTE IA — MERCADO PAGO (não é modal: popover
-           ancorado no badge acima, aberto/fechado por MercadoPagoAgent
-           em js/dashboard.js). O site é 100% estático (GitHub Pages): o
-           Access Token do Mercado Pago nunca é enviado nem chamado direto
-           daqui -- o agenteIA só lê o status já gravado pelos scripts
-           (orcamento_agent/mp_expenses.py e mp_reconcile.py, rodando fora
-           do navegador) e monta a configuração deles para conectar ou
-           reconectar (ex.: depois de gerar um novo Access Token).
-      ============================================================ -->
-      <div id="mp-agent-panel" class="mp-agent-panel hidden">
-        <div class="mp-agent-header">
-          <strong id="mp-agent-title">Agente Mercado Pago</strong>
-          <button type="button" id="mp-agent-close" class="mp-agent-close" aria-label="Fechar">&times;</button>
-        </div>
-
-        <p class="small-muted" style="margin:0 0 10px;">
-          Painel estático — o Access Token nunca é enviado nem chamado direto daqui. O agenteIA avalia o status
-          já gravado por <code>orcamento_agent/mp_expenses.py</code> + <code>mp_reconcile.py</code> e monta a
-          configuração deles.
-        </p>
-
-        <div id="mp-agent-diagnosis" class="mp-agent-diagnosis small-muted">Analisando status…</div>
-
-        <div id="mp-agent-error" class="error-box hidden"></div>
-        <div id="mp-agent-success" class="success-box hidden"></div>
-
-        <form id="mp-agent-form">
-          <div class="field">
-            <label>Access Token do Mercado Pago</label>
-            <input type="password" id="mp-agent-token" placeholder="APP_USR-..." autocomplete="off" />
-            <p class="small-muted" style="margin:6px 0 0;">
-              Gere em developers.mercadopago.com.br → Suas integrações → Credenciais. Usado só agora, neste
-              navegador, para montar o arquivo de configuração — nunca sai daqui nem fica salvo depois de gerar
-              o download.
-            </p>
-          </div>
-          <div class="field">
-            <label>E-mail da conta (login neste painel)</label>
-            <input type="email" id="mp-agent-email" required />
-          </div>
-          <div class="field">
-            <label>Busca por pagamentos dos últimos (dias)</label>
-            <input type="number" id="mp-agent-dias" min="1" value="30" />
-          </div>
-
-          <button type="submit" class="primary" id="mp-agent-submit" style="width:100%;margin-top:0;">
-            Conectar
-          </button>
-        </form>
-
-        <p class="small-muted" style="margin:12px 0 0;">
-          Depois de baixar: coloque os arquivos em <code>orcamento_agent/</code> e rode
-          <code>python3 mp_reconcile.py && python3 mp_expenses.py</code> (ou configure os Secrets no GitHub
-          Actions — veja <code>orcamento_agent/LEIA-ME.md</code>).
-        </p>
-      </div>
-      <!-- /PAINEL DO AGENTE IA — MERCADO PAGO -->
-
       <button class="nav-item active" data-view="budget-flow">Orçamento &amp; Despesas</button>
       <button class="nav-item" data-view="reports">Resumo Mensal</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
@@ -245,9 +186,6 @@
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
               <h3 style="margin:0;">Minhas despesas</h3>
-              <button type="button" id="mp-connect-open-btn" class="secondary" style="margin:0;">
-                🔗 Conectar/Reconectar Mercado Pago
-              </button>
             </div>
             <table>
               <thead>
