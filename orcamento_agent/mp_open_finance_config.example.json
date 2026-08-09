@@ -1,0 +1,32 @@
+{
+  "provider": "open_finance_mp",
+  "conta_email": "dona@example.com",
+  "mercado_pago_access_token": "COLE_AQUI_SEU_ACCESS_TOKEN_MP",
+  "mercado_pago_card_sync_endpoint": "https://api.mercadopago.com/v1/card_connections/cards",
+
+  "open_finance_token_endpoint": "https://openfinance.exemplo.com/oauth/token",
+  "open_finance_base_url": "https://openfinance.exemplo.com/api",
+  "open_finance_cards_endpoint": "/cards",
+  "open_finance_transactions_endpoint": "/cards/transactions",
+  "open_finance_client_id": "COLE_AQUI_CLIENT_ID",
+  "open_finance_client_secret": "COLE_AQUI_CLIENT_SECRET",
+  "open_finance_audience": "https://openfinance.exemplo.com",
+
+  "card_token_secret": "TROQUE_POR_UM_SEGREDO_FORTE_E_UNICO",
+  "janela_dias": 30,
+  "http_timeout_seconds": 30,
+  "http_max_retries": 3,
+  "dead_letter_file": "open_finance_dlq.jsonl",
+
+  "projetar_transacoes_em_despesas": true,
+  "categoria_padrao": "Cartão Mercado Pago",
+  "mapeamento": [
+    {"palavra_chave": "ifood", "categoria": "Alimentação"},
+    {"palavra_chave": "uber", "categoria": "Transporte"},
+    {"palavra_chave": "farmacia", "categoria": "Saúde"}
+  ],
+  "ignorar_descricoes_contendo": ["estorno interno", "ajuste operacional"],
+
+  "firebase_service_account": "firebase-serviceAccount.json",
+  "db_json": null
+}

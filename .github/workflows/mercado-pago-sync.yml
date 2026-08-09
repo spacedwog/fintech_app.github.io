@@ -30,6 +30,13 @@ name: Mercado Pago — sincronização automática
 #                                 cada execução (padrão: 3 — a idempotência dos
 #                                 scripts garante que rodar de novo não duplica
 #                                 nada, então uma janela com folga é segura).
+#   OPEN_FINANCE_TOKEN_ENDPOINT   (opcional) — habilita o agente Open Finance
+#                                 quando combinado com os 4 secrets abaixo.
+#   OPEN_FINANCE_BASE_URL         (opcional) — base da API Open Finance.
+#   OPEN_FINANCE_CLIENT_ID        (opcional) — client_id OAuth Open Finance.
+#   OPEN_FINANCE_CLIENT_SECRET    (opcional) — client_secret OAuth Open Finance.
+#   OPEN_FINANCE_CARD_TOKEN_SECRET (opcional) — segredo para tokenização estável
+#                                 dos IDs de cartão (não armazena PAN/CVV).
 #
 # O modal "Conectar Mercado Pago" no painel (Página 2 → Registrar Despesas)
 # ajuda a gerar os valores de MERCADO_PAGO_ACCESS_TOKEN/MP_CONTA_EMAIL (baixa
@@ -54,6 +61,7 @@ jobs:
     # checam essas variáveis em vez de "secrets.*" diretamente.
     env:
       HAS_REQUIRED_SECRETS: ${{ secrets.MERCADO_PAGO_ACCESS_TOKEN != '' && secrets.MP_CONTA_EMAIL != '' && secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
+      HAS_OPEN_FINANCE_SECRETS: ${{ secrets.OPEN_FINANCE_TOKEN_ENDPOINT != '' && secrets.OPEN_FINANCE_BASE_URL != '' && secrets.OPEN_FINANCE_CLIENT_ID != '' && secrets.OPEN_FINANCE_CLIENT_SECRET != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,14 +88,20 @@ jobs:
           MP_EMAIL: ${{ secrets.MP_CONTA_EMAIL }}
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           JANELA: ${{ secrets.MP_JANELA_DIAS }}
+          OF_TOKEN_ENDPOINT: ${{ secrets.OPEN_FINANCE_TOKEN_ENDPOINT }}
+          OF_BASE_URL: ${{ secrets.OPEN_FINANCE_BASE_URL }}
+          OF_CLIENT_ID: ${{ secrets.OPEN_FINANCE_CLIENT_ID }}
+          OF_CLIENT_SECRET: ${{ secrets.OPEN_FINANCE_CLIENT_SECRET }}
+          OF_CARD_TOKEN_SECRET: ${{ secrets.OPEN_FINANCE_CARD_TOKEN_SECRET }}
         run: |
           set -euo pipefail
           echo "$FIREBASE_SA" > firebase-serviceAccount.json
           dias="${JANELA:-3}"
 
-          python3 - "$MP_TOKEN" "$MP_EMAIL" "$dias" <<'PYEOF'
+          python3 - "$MP_TOKEN" "$MP_EMAIL" "$dias" "$OF_TOKEN_ENDPOINT" "$OF_BASE_URL" "$OF_CLIENT_ID" "$OF_CLIENT_SECRET" "$OF_CARD_TOKEN_SECRET" <<'PYEOF'
           import json, sys
           token, email, dias = sys.argv[1], sys.argv[2], int(sys.argv[3])
+          token_endpoint, base_url, client_id, client_secret, card_token_secret = sys.argv[4:9]
 
           reconcile_cfg = {
               "mercado_pago_access_token": token,
@@ -116,6 +130,29 @@ jobs:
           }
           with open("mp_expenses_config.json", "w", encoding="utf-8") as f:
               json.dump(expenses_cfg, f)
+
+          if token_endpoint and base_url and client_id and client_secret:
+              open_finance_cfg = {
+                  "provider": "open_finance_mp",
+                  "conta_email": email,
+                  "mercado_pago_access_token": token,
+                  "open_finance_token_endpoint": token_endpoint,
+                  "open_finance_base_url": base_url,
+                  "open_finance_cards_endpoint": "/cards",
+                  "open_finance_transactions_endpoint": "/cards/transactions",
+                  "open_finance_client_id": client_id,
+                  "open_finance_client_secret": client_secret,
+                  "card_token_secret": card_token_secret or client_secret,
+                  "firebase_service_account": "firebase-serviceAccount.json",
+                  "db_json": None,
+                  "janela_dias": dias,
+                  "projetar_transacoes_em_despesas": True,
+                  "categoria_padrao": "Cartão Mercado Pago",
+                  "mapeamento": expenses_cfg["mapeamento"],
+                  "ignorar_descricoes_contendo": expenses_cfg["ignorar_descricoes_contendo"],
+              }
+              with open("mp_open_finance_config.json", "w", encoding="utf-8") as f:
+                  json.dump(open_finance_cfg, f)
           PYEOF
 
       - name: mp_reconcile.py (confirma cobranças recebidas pelo app)
@@ -128,8 +165,13 @@ jobs:
         working-directory: orcamento_agent
         run: python3 mp_expenses.py
 
+      - name: mp_open_finance_sync.py (sync Open Finance de cartão, opcional)
+        if: env.HAS_REQUIRED_SECRETS == 'true' && env.HAS_OPEN_FINANCE_SECRETS == 'true'
+        working-directory: orcamento_agent
+        run: python3 mp_open_finance_sync.py
+
       - name: Limpar arquivos com segredos
         if: always()
         working-directory: orcamento_agent
         run: |
-          rm -f firebase-serviceAccount.json mp_reconcile_config.json mp_expenses_config.json
+          rm -f firebase-serviceAccount.json mp_reconcile_config.json mp_expenses_config.json mp_open_finance_config.json

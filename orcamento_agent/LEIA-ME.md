@@ -1,7 +1,7 @@
 # Agente de Controle de Orçamento — Mercado Pago
 
 ## O que é
-Esta pasta reúne três agentes que usam a conta do Mercado Pago via API (Access
+Esta pasta reúne quatro agentes que usam a conta do Mercado Pago via API (Access
 Token) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local):
 
 1. **`mp_sync.py`** — puxa pagamentos do Mercado Pago, categoriza automaticamente e
@@ -18,6 +18,9 @@ Token) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local):
    automaticamente e sem duplicar o que já é receita da conta (assinatura/despesa
    extra). Ver "Gerar despesas a partir do Mercado Pago (`mp_expenses.py`)" mais
    abaixo.
+4. **`mp_open_finance_sync.py`** — sincroniza cartões/transações de Open Finance
+   (OAuth) + deploy Mercado Pago para o painel web com idempotência, projeção
+   opcional em despesas e bloqueio explícito de CVV/CVC por compliance (PCI DSS).
 
 Além dos três, **`mp_list_activities.py`** é um utilitário só de leitura: lista as
 atividades (pagamentos) reais da conta do Mercado Pago no terminal (e pode exportar
@@ -38,12 +41,13 @@ Orçamento" para a diferença entre as duas.
 ## ⚠️ Segurança — leia antes de usar
 Esta pasta vive dentro de `fintech_app.github.io`, que é um **repositório público**
 no GitHub. `config.json` (e, se você usar `mp_reconcile.py`/`mp_expenses.py`, também
-`mp_reconcile_config.json`/`mp_expenses_config.json`) vai conter o Access Token real
+`mp_reconcile_config.json`/`mp_expenses_config.json`/`mp_open_finance_config.json`) vai conter o Access Token real
 da sua conta Mercado Pago — se isso for parar num commit público, qualquer pessoa
 consegue ler/movimentar sua conta. O mesmo vale para uma eventual chave de conta de
 serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por isso:
 - Foi criado um `.gitignore` na raiz do repositório que ignora `orcamento_agent/config.json`,
   `orcamento_agent/mp_reconcile_config.json`, `orcamento_agent/mp_expenses_config.json`,
+  `orcamento_agent/mp_open_finance_config.json`,
   qualquer `*serviceAccount*.json`/`*service-account*.json`/`firebase-adminsdk*.json`
   dentro desta pasta, `orcamento_agent/logs/` e arquivos de teste. **Confira, antes do
   primeiro `git add`, que esses arquivos aparecem como ignorados** (`git status` não
@@ -83,6 +87,13 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
   depois de qualquer alteração no script.
 - `mp_expenses_config.example.json` — modelo de configuração do `mp_expenses.py`
   (copie para `mp_expenses_config.json`, nunca versione o arquivo copiado).
+- `mp_open_finance_sync.py` — sincroniza cartão Open Finance + Mercado Pago sem persistir
+  CVV/CVC (só `last4` quando houver PAN), com idempotência e DLQ para webhook.
+- `test_mp_open_finance_sync.py` — teste automatizado do `mp_open_finance_sync.py`
+  com dados simulados (sem API real). Rode `python3 test_mp_open_finance_sync.py`
+  depois de qualquer alteração no script.
+- `mp_open_finance_config.example.json` — modelo de configuração do
+  `mp_open_finance_sync.py` (copie para `mp_open_finance_config.json`, nunca versione o copiado).
 - `mp_list_activities.py` — utilitário só de leitura: lista/exporta as atividades
   reais da conta do Mercado Pago sem gerar despesa nenhuma. Ver seção própria abaixo.
 - `test_mp_list_activities.py` — teste automatizado do `mp_list_activities.py` com
@@ -292,13 +303,41 @@ automaticamente); pagamentos que nunca aparecerem em `payments` nem baterem no
 filtro de descrição podem, em teoria, ser lançados como despesa mesmo sendo receita
 — por isso a recomendação de sempre rodar `mp_reconcile.py` antes.
 
+## Sincronizar cartão Open Finance + deploy MP (`mp_open_finance_sync.py`)
+Este agente cobre o fluxo de cartão: busca snapshot de cartões/transações num provedor
+Open Finance (OAuth client-credentials), opcionalmente combina com cartões vindos de
+um endpoint de deploy Mercado Pago e grava no mesmo banco do painel (`Firestore` ou
+`db.json`) em `openFinanceCards` e `openFinanceCardTransactions` (upsert idempotente
+por chave externa).
+
+Também pode projetar compras aprovadas (débito) em `expenses`, reaproveitando o mesmo
+mapeamento de categorias por palavra-chave de `mp_expenses.py`.
+
+**Compliance obrigatório:** CVV/CVC/security_code são removidos antes de qualquer
+persistência; PAN completo não é salvo (somente `last4` quando disponível).
+
+**Configurar:**
+1. Copie `mp_open_finance_config.example.json` → `mp_open_finance_config.json`.
+2. Preencha credenciais OAuth (`open_finance_token_endpoint`, `open_finance_client_id`,
+   `open_finance_client_secret`), `conta_email` e a fonte de dados
+   (`firebase_service_account` ou `db_json`).
+3. (Opcional) Preencha `mercado_pago_card_sync_endpoint` para combinar cartões vindos
+   do deploy Mercado Pago no mesmo ciclo.
+4. Rode:
+   ```
+   python3 mp_open_finance_sync.py --dry-run
+   python3 mp_open_finance_sync.py
+   python3 mp_open_finance_sync.py --modo webhook --payload evento_open_finance.json
+   ```
+5. Rode `python3 test_mp_open_finance_sync.py` depois de qualquer alteração no script.
+
 ## Agendamento (rodando sozinho)
 Foi configurada uma tarefa agendada que roda `mp_sync.py` automaticamente e te avisa
 por mensagem quando alguma categoria estourar o orçamento. Veja a periodicidade e
 altere quando quiser diretamente pedindo para ajustar o agendamento. O mesmo pode
-ser feito para `mp_reconcile.py`/`mp_expenses.py` (ex.: rodar todo dia, sempre
-`mp_reconcile.py` antes de `mp_expenses.py`) — basta pedir para configurar o
-agendamento.
+ser feito para `mp_reconcile.py`/`mp_expenses.py`/`mp_open_finance_sync.py` (ex.:
+rodar todo dia, sempre `mp_reconcile.py` antes de `mp_expenses.py`) — basta pedir para
+configurar o agendamento.
 
 Enquanto `config.json`/`mp_reconcile_config.json`/`mp_expenses_config.json` não
 tiverem um token válido, a execução agendada só vai avisar que falta configurar —
@@ -306,14 +345,16 @@ não falha silenciosamente.
 
 ## Automação sem depender do seu computador (GitHub Actions)
 Além do agendamento local (acima), existe `.github/workflows/mercado-pago-sync.yml`
-no repositório: um workflow do GitHub Actions que roda `mp_reconcile.py` e
-`mp_expenses.py` sozinho, todo dia, num runner do GitHub — sem precisar do seu
+no repositório: um workflow do GitHub Actions que roda `mp_reconcile.py`,
+`mp_expenses.py` e (opcional) `mp_open_finance_sync.py` sozinho, todo dia, num runner do GitHub — sem precisar do seu
 computador ligado. Os segredos (Access Token, e-mail da conta, chave do Firebase)
 ficam em **Secrets** do repositório (Settings → Secrets and variables → Actions),
 nunca no código nem no navegador — o próprio arquivo do workflow documenta, nos
 comentários do topo, exatamente quais Secrets criar (`MERCADO_PAGO_ACCESS_TOKEN`,
 `MP_CONTA_EMAIL`, `FIREBASE_SERVICE_ACCOUNT_JSON`, e opcionalmente
-`MP_JANELA_DIAS`).
+`MP_JANELA_DIAS`; para Open Finance: `OPEN_FINANCE_TOKEN_ENDPOINT`,
+`OPEN_FINANCE_BASE_URL`, `OPEN_FINANCE_CLIENT_ID`, `OPEN_FINANCE_CLIENT_SECRET` e
+`OPEN_FINANCE_CARD_TOKEN_SECRET`).
 
 Pode rodar manualmente a qualquer momento em **Actions → Mercado Pago —
 sincronização automática → Run workflow**, além do agendamento diário (`cron`,
@@ -337,19 +378,19 @@ JSON do download. O mesmo modal também mostra o status real da última execuç�
 cada agente (`mercado_pago_status`, ver abaixo).
 
 ## Status da automação no painel web (`mercado_pago_status`)
-Depois de rodar (local, agendado, ou via GitHub Actions), `mp_reconcile.py` e
-`mp_expenses.py` gravam um resumo leve da própria execução (horário + contagens) no
+Depois de rodar (local, agendado, ou via GitHub Actions), `mp_reconcile.py`,
+`mp_expenses.py` e `mp_open_finance_sync.py` gravam um resumo leve da própria execução (horário + contagens) no
 mesmo banco do painel (Firestore ou `db.json`), no campo
 `mercado_pago_status` — implementado por `StatusTracker` em `mp_reconcile.py`
-(reaproveitado por `mp_expenses.py`). Isso é só informativo: nenhum script decide nada
+(reaproveitado pelos outros agentes). Isso é só informativo: nenhum script decide nada
 a partir desse campo, e o cálculo de despesas/pagamentos continua vindo de
 `expenses`/`payments` como sempre. Serve para o painel web mostrar "quando a
 automação rodou pela última vez" mesmo em execuções sem nenhuma despesa nova — ver
 `Api.getMercadoPagoStatus()` em `js/api.js` e o modal "Conectar Mercado Pago"
 (`MercadoPagoConnectModal` em `js/dashboard.js`).
 
-## mp_sync.py x mp_reconcile.py x mp_expenses.py x Importar Orçamento — qual usar
-Os três primeiros usam a conta do Mercado Pago via API; o quarto é só leitura local
+## mp_sync.py x mp_reconcile.py x mp_expenses.py x mp_open_finance_sync.py x Importar Orçamento — qual usar
+Os quatro primeiros usam a conta do Mercado Pago/Open Finance via API; o quinto é só leitura local
 — cada um resolve uma coisa diferente:
 - **`mp_sync.py`** (Python, agendado): automação recorrente para a planilha de
   orçamento (ex.: casamento) — puxa pagamentos reais do Mercado Pago, grava em
@@ -367,6 +408,11 @@ Os três primeiros usam a conta do Mercado Pago via API; o quarto é só leitura
   inverso: gera despesas reais na Página 2 do fluxo Orçamento & Despesas a partir dos
   pagamentos do Mercado Pago que **não** são receita da conta. Exige
   `mp_expenses_config.json` com token, `conta_email` e fonte de dados. Ver seção
+  própria acima.
+- **`mp_open_finance_sync.py`** (Python, agendado): sincroniza cartão/transações de
+  Open Finance + deploy Mercado Pago para o painel web com upsert idempotente,
+  bloqueio explícito de CVV/CVC e projeção opcional em despesas. Exige
+  `mp_open_finance_config.json` com OAuth Open Finance + fonte de dados. Ver seção
   própria acima.
 - **Painel web → Importar Orçamento** (`js/budget-ai.js`): leitura pontual, sem token
   nem agendamento, sem Mercado Pago — você sobe a planilha (ou um CSV simples de
@@ -386,6 +432,8 @@ Os três primeiros usam a conta do Mercado Pago via API; o quarto é só leitura
   `mp_list_activities.py` (ver seção acima).
 - ~~Rodar a automação sem depender do computador do usuário~~ — feito via
   `.github/workflows/mercado-pago-sync.yml` (GitHub Actions, ver seção própria acima).
+- ~~Sincronizar cartão via Open Finance + deploy MP sem persistir CVV~~ — feito em
+  `mp_open_finance_sync.py` (ver seção própria acima).
 - Conectar outros bancos: hoje o escopo é só Mercado Pago. Para bancos sem API pública
   para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX) — posso
   adicionar um `bank_import.py` que lê esses arquivos e joga na mesma aba MP_Transacoes
