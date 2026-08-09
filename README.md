@@ -234,6 +234,27 @@ No painel web, despesas geradas assim aparecem na Página 2 com o selo **Mercado
 - Não roda em tempo real: só gera despesas quando alguém executa o script (manual ou agendado).
 </details>
 
+### Sincronizar cartão via Open Finance + deploy MP (`mp_open_finance_sync.py`)
+
+Para o cenário de cartão, o **`orcamento_agent/mp_open_finance_sync.py`** sincroniza dados de cartão/transações vindos de um provedor Open Finance (OAuth) e, opcionalmente, do endpoint de deploy do Mercado Pago. A gravação é idempotente (upsert por `externalCardId`/`externalTransactionId`) e pode projetar compras aprovadas como despesas reais no painel.
+
+**Regra crítica de compliance (PCI DSS):** o agente **remove CVV/CVC/security_code por design** antes de qualquer persistência. Se vier PAN completo, só `last4` é preservado.
+
+<details>
+<summary>Como configurar e rodar</summary>
+
+```bash
+cd orcamento_agent
+cp mp_open_finance_config.example.json mp_open_finance_config.json
+python3 mp_open_finance_sync.py --dry-run
+python3 mp_open_finance_sync.py
+python3 mp_open_finance_sync.py --modo webhook --payload evento_open_finance.json
+python3 test_mp_open_finance_sync.py
+```
+
+No config (`mp_open_finance_config.json`): preencha OAuth Open Finance (`open_finance_token_endpoint`, `open_finance_client_id`, `open_finance_client_secret`), `conta_email` da conta do painel, e a fonte de dados (`firebase_service_account` recomendado, ou `db_json`).
+</details>
+
 ### Ver as atividades da conta (`mp_list_activities.py`)
 
 Antes de gerar despesas de verdade, às vezes é útil só **espiar o que existe na conta do Mercado Pago**: quantos pagamentos, valores, status. O **`orcamento_agent/mp_list_activities.py`** faz exatamente isso — busca as atividades (pagamentos) reais dos últimos N dias direto da API do Mercado Pago usando o mesmo Access Token dos outros agentes, sem precisar do Firebase nem de nenhuma cópia do banco do painel. É só leitura: nunca grava nada no painel web nem no Mercado Pago.
@@ -255,7 +276,7 @@ Reaproveita o mesmo Access Token já configurado em `config.json`, `mp_reconcile
 
 ### Automatizando de verdade: GitHub Actions + modal "Conectar Mercado Pago"
 
-Os dois agentes acima (`mp_reconcile.py`, `mp_expenses.py`) podem rodar **sozinhos, sem depender do seu computador ligado**, via `.github/workflows/mercado-pago-sync.yml` — um workflow do GitHub Actions agendado (diário, ajustável) que roda num runner temporário do GitHub, lendo os segredos (Access Token, e-mail da conta, chave do Firebase) de **Secrets** do repositório (Settings → Secrets and variables → Actions) — nunca do código, nunca do navegador. Pode também ser disparado manualmente em Actions → "Mercado Pago — sincronização automática" → Run workflow. Os nomes dos Secrets esperados estão documentados nos comentários do próprio arquivo do workflow.
+Os agentes de sincronização (`mp_reconcile.py`, `mp_expenses.py` e opcionalmente `mp_open_finance_sync.py`) podem rodar **sozinhos, sem depender do seu computador ligado**, via `.github/workflows/mercado-pago-sync.yml` — um workflow do GitHub Actions agendado (diário, ajustável) que roda num runner temporário do GitHub, lendo os segredos (Access Token, e-mail da conta, chave do Firebase e, para Open Finance, credenciais OAuth) de **Secrets** do repositório (Settings → Secrets and variables → Actions) — nunca do código, nunca do navegador. Pode também ser disparado manualmente em Actions → "Mercado Pago — sincronização automática" → Run workflow. Os nomes dos Secrets esperados estão documentados nos comentários do próprio arquivo do workflow.
 
 No painel web, o botão **🔗 Conectar Mercado Pago** (Página 2 → Registrar Despesas) abre um modal que: (1) mostra o status real da última execução de cada agente — horário e contagens, gravados por eles mesmos (`mercado_pago_status`, via `Api.getMercadoPagoStatus()`); e (2) ajuda a gerar `mp_expenses_config.json`/`mp_reconcile_config.json` prontos para download a partir do Access Token e e-mail digitados ali. Por segurança — e porque a API do Mercado Pago não libera CORS para chamadas com Access Token vindas do navegador de qualquer forma — **o modal nunca chama a API do Mercado Pago nem salva o token em lugar nenhum** (nem localStorage): o token só existe na memória do formulário até o download ser gerado, e é limpo da tela logo em seguida.
 
@@ -601,6 +622,19 @@ python3 test_mp_list_activities.py
 ```
 
 Rode de novo sempre que alterar `mp_list_activities.py`.
+</details>
+
+<details>
+<summary><strong>Sync Open Finance + cartão MP — <code>orcamento_agent/test_mp_open_finance_sync.py</code></strong></summary>
+
+Testa `mp_open_finance_sync.py` (remoção de CVV/CVC, mascaramento de PAN para `last4`, idempotência e execução em modo webhook com `db_json`) com dados simulados, sem API real:
+
+```bash
+cd orcamento_agent
+python3 test_mp_open_finance_sync.py
+```
+
+Rode de novo sempre que alterar `mp_open_finance_sync.py`.
 </details>
 
 ## Roadmap
