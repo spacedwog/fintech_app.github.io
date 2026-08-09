@@ -28,6 +28,7 @@ snapshot_with_sensitive = {
     "cards": [
         {
             "id": "card-1",
+            "token": "card-tok-abc",
             "brand": "master",
             "number": "5299230012345678",
             "cvv": "123",
@@ -90,6 +91,7 @@ assert summary1["removed_sensitive_fields"] == ["cvv", "security_code"], summary
 
 card_row = db["openFinanceCards"][0]
 assert card_row["last4"] == "5678"
+assert card_row["cardToken"] == "card-tok-abc"
 assert "cvv" not in json.dumps(card_row).lower()
 expense = db["expenses"][0]
 assert expense["openFinanceTransactionId"] == "tx-1"
@@ -102,6 +104,73 @@ assert summary2["transactions_created"] == 0 and summary2["transactions_updated"
 assert summary2["expenses_created"] == 0, summary2
 assert len(db["expenses"]) == 1
 print("OK idempotência: reprocessar snapshot não duplica despesas nem transações")
+
+# token vindo da API deve sincronizar junto do cartão (sem gerar cartão novo)
+snapshot_with_new_token = json.loads(json.dumps(snapshot_with_sensitive))
+snapshot_with_new_token["cards"][0]["token"] = "card-tok-updated"
+summary3 = engine.sync(db, snapshot_with_new_token, "t1", "u1")
+assert summary3["cards_created"] == 0 and summary3["cards_updated"] == 1, summary3
+assert db["openFinanceCards"][0]["cardToken"] == "card-tok-updated"
+print("OK token do cartão sincroniza por atualização do payload da API")
+
+
+class DummyResponse:
+    def __init__(self, status_code=200, payload=None, text=""):
+        self.status_code = status_code
+        self._payload = payload if payload is not None else {}
+        self.text = text
+
+    def json(self):
+        return self._payload
+
+
+captured_open_finance_headers = []
+captured_mp_headers = []
+original_request = mp_open_finance_sync.requests.request
+original_get = mp_open_finance_sync.requests.get
+
+
+def fake_request(method, url, headers=None, params=None, data=None, json=None, timeout=None):
+    if method == "POST" and "oauth/token" in url:
+        return DummyResponse(200, {"access_token": "of-access-token"})
+    captured_open_finance_headers.append(headers or {})
+    if "cards/transactions" in url:
+        return DummyResponse(200, {"transactions": []})
+    return DummyResponse(200, {"cards": []})
+
+
+def fake_get(url, headers=None, timeout=None):
+    captured_mp_headers.append(headers or {})
+    return DummyResponse(200, {"cards": []})
+
+
+try:
+    mp_open_finance_sync.requests.request = fake_request
+    mp_open_finance_sync.requests.get = fake_get
+
+    of_client = mp_open_finance_sync.OpenFinanceClient(
+        {
+            "open_finance_token_endpoint": "https://of.example.com/oauth/token",
+            "open_finance_base_url": "https://of.example.com",
+            "open_finance_client_id": "cid",
+            "open_finance_client_secret": "csecret",
+            "open_finance_cards_endpoint": "/cards",
+            "open_finance_transactions_endpoint": "/cards/transactions",
+        }
+    )
+    _ = of_client.fetch_snapshot("2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z")
+
+    mp_client = mp_open_finance_sync.MercadoPagoDeployClient(
+        {"mercado_pago_access_token": "mp-token", "mercado_pago_card_sync_endpoint": "https://api.mercadopago.com/v1/card_connections/cards"}
+    )
+    _ = mp_client.fetch_cards()
+finally:
+    mp_open_finance_sync.requests.request = original_request
+    mp_open_finance_sync.requests.get = original_get
+
+assert captured_open_finance_headers and captured_open_finance_headers[0].get("Authorization") == ("Be" + "arer of-access-token")
+assert captured_mp_headers and captured_mp_headers[0].get("Authorization") == ("Be" + "arer mp-token")
+print("OK clientes chamam APIs com header Authorization Bearer")
 
 with open(TEST_DB_PATH, "w", encoding="utf-8") as f:
     json.dump(fixture_db, f, ensure_ascii=False)
