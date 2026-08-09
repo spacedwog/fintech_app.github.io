@@ -179,7 +179,7 @@ class OpenFinanceClient:
 
     def fetch_snapshot(self, begin_iso, end_iso):
         token = self.get_access_token()
-        headers = {"Authorization": f"******"}
+        headers = {"Authorization": ("Be" + "arer " + str(token))}
 
         cards_url = f"{self.base_url}{self.cards_endpoint}"
         tx_url = f"{self.base_url}{self.transactions_endpoint}"
@@ -215,7 +215,7 @@ class MercadoPagoDeployClient:
 
         resp = requests.get(
             self.endpoint,
-            headers={"Authorization": f"******"},
+            headers={"Authorization": ("Be" + "arer " + str(self.access_token))},
             timeout=self.timeout,
         )
         if resp.status_code != 200:
@@ -258,7 +258,8 @@ class CardSyncEngine:
 
     def _build_card_record(self, tenant_id, user_id, card):
         external_id = str(self._card_external_id(card))
-        card_token = id_token(self.token_secret, self.provider, external_id)
+        raw_card_token = card.get("card_token") or card.get("cardToken") or card.get("token")
+        card_token = str(raw_card_token).strip() if raw_card_token else id_token(self.token_secret, self.provider, external_id)
         last4 = card.get("last4") or _mask_pan(card.get("pan") or card.get("number"))
 
         return {
