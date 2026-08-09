@@ -17,6 +17,7 @@ orcamento_agent/TEST_*.json
 orcamento_agent/mp_reconcile_config.json
 orcamento_agent/mp_expenses_config.json
 orcamento_agent/mp_open_finance_config.json
+orcamento_agent/mp_oauth_account_config.json
 orcamento_agent/open_finance_dlq.jsonl
 orcamento_agent/*serviceAccount*.json
 # Exportações de atividades reais do Mercado Pago (mp_list_activities.py
