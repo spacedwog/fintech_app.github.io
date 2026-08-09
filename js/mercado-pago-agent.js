@@ -22,7 +22,8 @@
     else s = s.replace(/,/g, "");
     s = s.replace(/[^\d.\-]/g, "");
     var n = parseFloat(s);
-    if (!isFinite(n) || n <= 0) return null;
+    if (!isFinite(n) || n === 0) return null;
+    if (n < 0) n = Math.abs(n);
     return n;
   }
 
@@ -48,6 +49,136 @@
     return n.includes("credito") || n.includes("crédito") || n.includes("receb") || n.includes("estorno");
   }
 
+  function pickFirst(obj, keys) {
+    if (!obj || !keys || !keys.length) return null;
+    for (var i = 0; i < keys.length; i++) {
+      var v = obj[keys[i]];
+      if (v != null && String(v).trim() !== "") return v;
+    }
+    return null;
+  }
+
+  function normalizeAmountCandidate(raw) {
+    if (raw == null) return null;
+    if (typeof raw === "object") {
+      return pickFirst(raw, ["amount", "value", "valor"]);
+    }
+    return raw;
+  }
+
+  function isDebitLikeRecord(item) {
+    var direction = normalize(
+      pickFirst(item, [
+        "credit_debit_type",
+        "creditDebitType",
+        "type",
+        "operation_type",
+        "transaction_type",
+        "entry_type",
+        "nature",
+      ])
+    );
+    if (!direction) return true;
+    if (
+      direction.includes("credit") ||
+      direction.includes("entrada") ||
+      direction.includes("receb") ||
+      direction.includes("deposit") ||
+      direction.includes("inflow") ||
+      direction.includes("estorno")
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  function isApprovedLikeRecord(item) {
+    var status = normalize(pickFirst(item, ["status", "transaction_status", "payment_status", "state"]));
+    if (!status) return true;
+    return (
+      status === "approved" ||
+      status === "accredited" ||
+      status === "settled" ||
+      status === "completed" ||
+      status === "success" ||
+      status === "succeeded" ||
+      status === "posted"
+    );
+  }
+
+  function extractRowsFromJsonPayload(text) {
+    var parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (_err) {
+      return { rows: [], skipped: 0 };
+    }
+
+    var list = [];
+    if (Array.isArray(parsed)) list = parsed;
+    else if (parsed && typeof parsed === "object") {
+      list = parsed.results || parsed.data || parsed.payments || parsed.transactions || parsed.items || [];
+      if (!Array.isArray(list)) list = [];
+    }
+
+    var rows = [];
+    var skipped = 0;
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i] || {};
+
+      if (!isApprovedLikeRecord(item) || !isDebitLikeRecord(item)) {
+        skipped++;
+        continue;
+      }
+
+      var amountRaw = normalizeAmountCandidate(
+        pickFirst(item, ["amount", "transaction_amount", "value", "valor", "amount_in_local_currency"])
+      );
+      var amount = parseAmount(amountRaw);
+      if (!amount) {
+        skipped++;
+        continue;
+      }
+
+      var date = parseDate(
+        pickFirst(item, [
+          "date",
+          "date_approved",
+          "dateApproved",
+          "date_created",
+          "created_at",
+          "approved_at",
+          "transaction_date",
+          "booking_date",
+          "datetime",
+        ])
+      );
+      if (!date) date = new Date().toISOString().slice(0, 10);
+
+      var desc = String(
+        pickFirst(item, [
+          "description",
+          "desc",
+          "statement_description",
+          "detail",
+          "concept",
+          "merchant_name",
+          "counterparty",
+          "title",
+        ]) || "Transferência Mercado Pago"
+      ).trim();
+
+      rows.push({
+        amount: amount,
+        date: date,
+        description: desc,
+        categoryName: guessCategory(desc),
+      });
+    }
+
+    return { rows: rows, skipped: skipped };
+  }
+
   function guessCategory(description) {
     var n = normalize(description);
     if (/(uber|99|taxi|metr|onibus|ônibus|combustivel|combustível|posto|pedagio|pedágio|transporte)/.test(n)) return "Transporte";
@@ -67,28 +198,10 @@
       var rows = [];
       var skipped = 0;
 
-      if (text[0] === "[") {
-        try {
-          var arr = JSON.parse(text);
-          if (Array.isArray(arr)) {
-            for (var i = 0; i < arr.length; i++) {
-              var item = arr[i] || {};
-              var amount = parseAmount(item.amount);
-              var date = parseDate(item.date) || new Date().toISOString().slice(0, 10);
-              if (!amount) {
-                skipped++;
-                continue;
-              }
-              var desc = String(item.description || item.desc || "Transferência Mercado Pago").trim();
-              rows.push({
-                amount: amount,
-                date: date,
-                description: desc,
-                categoryName: guessCategory(desc),
-              });
-            }
-          }
-        } catch (_err) {}
+      if (text[0] === "[" || text[0] === "{") {
+        var jsonParsed = extractRowsFromJsonPayload(text);
+        rows = jsonParsed.rows || [];
+        skipped = jsonParsed.skipped || 0;
       }
 
       if (!rows.length) {
