@@ -36,8 +36,9 @@ class SyncStatusIndicator {
 }
 
 // ---------- MercadoPagoStatusIndicator: badge da sidebar com o resumo do
-// que orcamento_agent/mp_expenses.py (despesas geradas) e mp_reconcile.py
-// (pagamentos confirmados) já trouxeram do Mercado Pago para esta conta.
+// que os agentes Mercado Pago/Open Finance já trouxeram para esta conta
+// (mp_reconcile.py, mp_expenses.py, mp_open_finance_sync.py e
+// mp_oauth_account_sync.py).
 // Distinto do selo "Mercado Pago" por linha na tabela de despesas (Página 2
 // do fluxo Orçamento & Despesas) — este é um resumo único, sempre visível,
 // no topo da sidebar. ----------
@@ -81,7 +82,8 @@ class MercadoPagoStatusIndicator {
           : "data desconhecida";
         box.title =
           `Última atualização: ${lastSync}. ${status.payments_verified_count} pagamento(s) confirmado(s) ` +
-          `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py (via API).` +
+          `automaticamente (mp_reconcile.py). Despesas geradas por orcamento_agent/mp_expenses.py e ` +
+          `sincronizações de Open Finance/OAuth (mp_open_finance_sync.py, mp_oauth_account_sync.py).` +
           (agoAutomacao ? ` Última execução dos agentes: ${agoAutomacao}.` : "");
       } else if (status.automation_configured) {
         // Agente já rodou (ex.: via GitHub Actions) mas ainda não gerou
@@ -93,7 +95,8 @@ class MercadoPagoStatusIndicator {
         label.textContent = "Nenhuma despesa sincronizada ainda";
         box.title =
           "Nenhum pagamento do Mercado Pago foi importado ainda. Configure orcamento_agent/mp_reconcile.py + " +
-          "mp_expenses.py -- fora do navegador, ou agendado via GitHub Actions (veja orcamento_agent/LEIA-ME.md).";
+          "mp_expenses.py + mp_open_finance_sync.py/mp_oauth_account_sync.py (quando aplicável) fora do navegador, " +
+          "ou agende via GitHub Actions (veja orcamento_agent/LEIA-ME.md).";
       }
     } catch (e) {
       label.textContent = "";

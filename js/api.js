@@ -1241,9 +1241,16 @@ class ApiFacade {
     const automation = {
       last_reconcile: statusGlobal.last_reconcile || null,
       last_expenses_api: statusByTenant.last_expenses_api || null,
+      last_open_finance_sync: statusByTenant.last_open_finance_sync || null,
+      last_oauth_account_sync: statusByTenant.last_oauth_account_sync || null,
     };
     const lastRunAt =
-      [automation.last_reconcile, automation.last_expenses_api]
+      [
+        automation.last_reconcile,
+        automation.last_expenses_api,
+        automation.last_open_finance_sync,
+        automation.last_oauth_account_sync,
+      ]
         .filter(Boolean)
         .map((s) => s.at)
         .filter(Boolean)
