@@ -678,6 +678,80 @@ class DashboardController {
     status.style.color = isError ? "#b45309" : "";
   }
 
+  _extractExpensesFromChatbotText(text) {
+    const raw = String(text || "");
+    const payloads = [];
+    const blockRe = /```(?:json)?\s*([\s\S]*?)```/gi;
+    let blockMatch;
+    while ((blockMatch = blockRe.exec(raw))) {
+      payloads.push(blockMatch[1]);
+    }
+    if (!payloads.length) payloads.push(raw);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const normalized = [];
+    for (const payload of payloads) {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(payload);
+      } catch (_err) {
+        continue;
+      }
+      const items = Array.isArray(parsed) ? parsed : parsed && (parsed.despesas || parsed.expenses);
+      if (!Array.isArray(items)) continue;
+
+      for (const item of items) {
+        if (!item || typeof item !== "object") continue;
+        const rawAmount = item.amount != null ? item.amount : item.valor;
+        const amount = Number(String(rawAmount).replace(",", "."));
+        if (!isFinite(amount) || amount <= 0) continue;
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || item.data || "")) ? String(item.date || item.data) : today;
+        normalized.push({
+          amount,
+          date,
+          description: String(item.description || item.descricao || "Despesa via chatbot"),
+          categoryName: String(item.category || item.categoria || "").trim(),
+        });
+      }
+    }
+    return normalized;
+  }
+
+  async _importExpensesFromChatbotText(text) {
+    const expenses = this._extractExpensesFromChatbotText(text);
+    if (!expenses.length) return 0;
+
+    const categories = await Api.listCategories();
+    const byName = new Map(categories.map((c) => [String(c.name || "").trim().toLowerCase(), c]));
+    let imported = 0;
+
+    for (const expense of expenses) {
+      let categoryId = null;
+      if (expense.categoryName) {
+        const key = expense.categoryName.toLowerCase();
+        let category = byName.get(key);
+        if (!category) {
+          await Api.addCategory(expense.categoryName);
+          const refreshed = await Api.listCategories();
+          byName.clear();
+          refreshed.forEach((c) => byName.set(String(c.name || "").trim().toLowerCase(), c));
+          category = byName.get(key) || null;
+        }
+        categoryId = category ? category.id : null;
+      }
+
+      await Api.addExpense({
+        amount: expense.amount,
+        date: expense.date,
+        description: expense.description,
+        category_id: categoryId,
+      });
+      imported++;
+    }
+
+    return imported;
+  }
+
   _clearGoogleAIChat() {
     const box = document.getElementById("google-ai-chat-messages");
     if (box) {
@@ -731,7 +805,13 @@ class DashboardController {
         grounding: !!groundingInput.checked,
       });
       this._appendGoogleAIChatMessage("bot", result.text);
-      this._setGoogleAIChatStatus("Resposta recebida.", false);
+      const imported = await this._importExpensesFromChatbotText(result.text);
+      if (imported > 0) {
+        await this._loadExpensesView();
+        this._setGoogleAIChatStatus(`${imported} despesa(s) adicionada(s) em Minhas despesas.`, false);
+      } else {
+        this._setGoogleAIChatStatus("Resposta recebida.", false);
+      }
     } catch (err) {
       this._appendGoogleAIChatMessage("bot", "Não consegui responder agora. Verifique a chave/modelo e tente novamente.");
       this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar Google AI.", true);
@@ -922,6 +1002,7 @@ class DashboardController {
 
   async _refreshExpenseTable() {
     const expenses = await Api.listExpenses();
+    this.expensesById = new Map(expenses.map((e) => [e.id, e]));
     const tbody = document.getElementById("expenses-tbody");
     tbody.innerHTML = expenses
       .map(
@@ -931,7 +1012,10 @@ class DashboardController {
           <td>${e.category_name || "-"}</td>
           <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${this._mercadoPagoRowBadgeHtml(e)}</td>
           <td>R$ ${e.amount.toFixed(2)}</td>
-          <td><button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button></td>
+          <td class="actions-cell">
+            <button class="secondary" onclick="editExpense('${e.id}')">Alterar</button>
+            <button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button>
+          </td>
         </tr>`
       )
       .join("");
@@ -947,6 +1031,48 @@ class DashboardController {
     await this._refreshQuotaInfo();
     await this._refreshExpenseTable();
     await this._refreshExpenseCategoryBudgetInfo();
+  }
+
+  async editExpense(id) {
+    const expense = (this.expensesById && this.expensesById.get(id)) || (await Api.listExpenses()).find((e) => e.id === id);
+    if (!expense) throw new Error("Despesa não encontrada");
+
+    const date = window.prompt("Data (AAAA-MM-DD):", expense.date || "");
+    if (date === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date).trim())) throw new Error("Data inválida. Use AAAA-MM-DD.");
+
+    const description = window.prompt("Descrição:", expense.description || "");
+    if (description === null) return;
+
+    const amountRaw = window.prompt("Valor (R$):", String(expense.amount || ""));
+    if (amountRaw === null) return;
+    const amount = Number(String(amountRaw).replace(",", "."));
+    if (!isFinite(amount) || amount <= 0) throw new Error("Valor inválido.");
+
+    const categoryRaw = window.prompt("Categoria (nome):", expense.category_name || "");
+    if (categoryRaw === null) return;
+    const categoryName = String(categoryRaw).trim();
+
+    let categoryId = null;
+    if (categoryName) {
+      const categories = await Api.listCategories();
+      const key = categoryName.toLowerCase();
+      let category = categories.find((c) => String(c.name || "").trim().toLowerCase() === key);
+      if (!category) {
+        await Api.addCategory(categoryName);
+        category = (await Api.listCategories()).find((c) => String(c.name || "").trim().toLowerCase() === key);
+      }
+      categoryId = category ? category.id : null;
+    }
+
+    await Api.updateExpense(id, {
+      amount,
+      date: String(date).trim(),
+      description: String(description).trim(),
+      category_id: categoryId,
+    });
+
+    await this._loadExpensesView();
   }
 
   async _handleExpenseFormSubmit(e) {
@@ -2076,6 +2202,10 @@ document.addEventListener("DOMContentLoaded", () => {
 // enxergam o escopo global do navegador, não métodos de instância.
 function removeExpense(id) {
   return dashboardController && dashboardController.removeExpense(id);
+}
+
+function editExpense(id) {
+  return dashboardController && dashboardController.editExpense(id);
 }
 
 function selectPlan(planKey) {

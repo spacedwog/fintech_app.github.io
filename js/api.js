@@ -554,6 +554,21 @@ class ExpenseService {
     if (db.expenses.length === before) throw new Error("Despesa não encontrada");
     return { ok: true };
   }
+
+  async updateExpense(id, { amount, date, description, category_id }) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const expense = db.expenses.find((e) => e.id === id && e.tenant_id === session.tenant_id);
+    if (!expense) throw new Error("Despesa não encontrada");
+
+    expense.amount = amount;
+    expense.date = date;
+    expense.description = description || "";
+    expense.category_id = category_id || null;
+
+    await saveDb(db);
+    return { ok: true };
+  }
 }
 
 // ---------- BudgetService: limite geral do mês (sem categoria) ----------
@@ -1131,6 +1146,9 @@ class ApiFacade {
   }
   addExpense(payload) {
     return this.expenseService.addExpense(payload);
+  }
+  updateExpense(id, payload) {
+    return this.expenseService.updateExpense(id, payload);
   }
   deleteExpense(id) {
     return this.expenseService.deleteExpense(id);
