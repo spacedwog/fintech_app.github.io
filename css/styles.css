@@ -664,6 +664,38 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   margin-top: 6px;
 }
 
+.mp-transfer-preview {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.mp-transfer-preview-wrap {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.mp-transfer-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.mp-transfer-preview-table th,
+.mp-transfer-preview-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.mp-transfer-preview-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 /* ---------- Sidebar: seção "Conta" (Segurança/Privacidade/Configurações) ---------- */
 .sidebar-section-label {
   margin: 18px 0 6px;

@@ -680,11 +680,30 @@
         ></textarea>
       </div>
 
+      <div id="mp-transfer-preview" class="mp-transfer-preview hidden">
+        <p class="small-muted mt-0 mb-6">Pré-visualização das despesas que serão importadas:</p>
+        <p id="mp-transfer-preview-summary" class="small-muted mt-0 mb-6"></p>
+        <div class="mp-transfer-preview-wrap">
+          <table class="mp-transfer-preview-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody id="mp-transfer-preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+
       <p id="mp-transfer-status" class="small-muted mt-0 mb-0 min-h-1rem"></p>
 
       <div class="button-row">
         <button type="button" id="mp-transfer-modal-cancel" class="secondary flex-1">Cancelar</button>
-        <button type="button" id="mp-transfer-modal-import" class="primary flex-1 mt-0">Importar despesas</button>
+        <button type="button" id="mp-transfer-modal-preview" class="secondary flex-1">Pré-visualizar</button>
+        <button type="button" id="mp-transfer-modal-import" class="primary flex-1 mt-0" disabled>Importar despesas</button>
       </div>
     </div>
   </div>

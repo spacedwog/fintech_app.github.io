@@ -441,6 +441,8 @@ class DashboardController {
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
     this.mpTransferModalEl = null;
     this.mpTransferImporting = false;
+    this.mpTransferPreview = null;
+    this.mpTransferPreviewSignature = null;
 
     this.manualTxnModal = new ManualTransactionModal();
     this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
@@ -649,12 +651,23 @@ class DashboardController {
     const openBtn = document.getElementById("mp-transfer-modal-open-btn");
     const closeBtn = document.getElementById("mp-transfer-modal-close");
     const cancelBtn = document.getElementById("mp-transfer-modal-cancel");
+    const previewBtn = document.getElementById("mp-transfer-modal-preview");
     const importBtn = document.getElementById("mp-transfer-modal-import");
+    const rawInput = document.getElementById("mp-transfer-input");
+    const holderInput = document.getElementById("mp-card-holder");
+    const brandInput = document.getElementById("mp-card-brand");
+    const last4Input = document.getElementById("mp-card-last4");
+    const periodInput = document.getElementById("mp-transfer-period");
 
     if (openBtn) openBtn.addEventListener("click", () => this._openMercadoPagoTransferModal());
     if (closeBtn) closeBtn.addEventListener("click", () => this._closeMercadoPagoTransferModal());
     if (cancelBtn) cancelBtn.addEventListener("click", () => this._closeMercadoPagoTransferModal());
+    if (previewBtn) previewBtn.addEventListener("click", () => this._previewMercadoPagoTransfers());
     if (importBtn) importBtn.addEventListener("click", () => this._importMercadoPagoTransfers());
+
+    [rawInput, holderInput, brandInput, last4Input, periodInput].forEach((el) => {
+      if (el) el.addEventListener("input", () => this._resetMercadoPagoTransferPreview());
+    });
   }
 
   _openMercadoPagoTransferModal() {
@@ -664,6 +677,7 @@ class DashboardController {
       status.textContent = "";
       status.style.color = "";
     }
+    this._resetMercadoPagoTransferPreview();
     this.mpTransferModalEl.classList.remove("hidden");
   }
 
@@ -681,17 +695,52 @@ class DashboardController {
       .trim();
   }
 
-  async _importMercadoPagoTransfers() {
-    if (this.mpTransferImporting) return;
-    const status = document.getElementById("mp-transfer-status");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
+  _getMercadoPagoTransferPreviewSignature() {
     const rawInput = document.getElementById("mp-transfer-input");
     const holderInput = document.getElementById("mp-card-holder");
     const brandInput = document.getElementById("mp-card-brand");
     const last4Input = document.getElementById("mp-card-last4");
     const periodInput = document.getElementById("mp-transfer-period");
 
-    if (!rawInput || !status) return;
+    const cardLast4 = String((last4Input && last4Input.value) || "").replace(/\D+/g, "").slice(-4);
+    return JSON.stringify({
+      transferText: String((rawInput && rawInput.value) || "").trim(),
+      cardHolder: String((holderInput && holderInput.value) || "").trim(),
+      cardBrand: String((brandInput && brandInput.value) || "").trim(),
+      cardLast4,
+      period: String((periodInput && periodInput.value) || "").trim(),
+    });
+  }
+
+  _resetMercadoPagoTransferPreview() {
+    this.mpTransferPreview = null;
+    this.mpTransferPreviewSignature = null;
+
+    const previewEl = document.getElementById("mp-transfer-preview");
+    const previewBody = document.getElementById("mp-transfer-preview-body");
+    const previewSummary = document.getElementById("mp-transfer-preview-summary");
+    const importBtn = document.getElementById("mp-transfer-modal-import");
+
+    if (previewEl) previewEl.classList.add("hidden");
+    if (previewBody) previewBody.innerHTML = "";
+    if (previewSummary) previewSummary.textContent = "";
+    if (importBtn) importBtn.disabled = true;
+  }
+
+  async _previewMercadoPagoTransfers() {
+    if (this.mpTransferImporting) return;
+    const status = document.getElementById("mp-transfer-status");
+    const previewBtn = document.getElementById("mp-transfer-modal-preview");
+    const importBtn = document.getElementById("mp-transfer-modal-import");
+    const previewEl = document.getElementById("mp-transfer-preview");
+    const previewBody = document.getElementById("mp-transfer-preview-body");
+    const previewSummary = document.getElementById("mp-transfer-preview-summary");
+    const rawInput = document.getElementById("mp-transfer-input");
+    const holderInput = document.getElementById("mp-card-holder");
+    const brandInput = document.getElementById("mp-card-brand");
+    const last4Input = document.getElementById("mp-card-last4");
+
+    if (!rawInput || !status || !previewEl || !previewBody || !previewSummary) return;
     if (!window.MercadoPagoAgentIA) {
       status.textContent = "AgentIA indisponível neste navegador.";
       status.style.color = "#b45309";
@@ -705,27 +754,95 @@ class DashboardController {
       return;
     }
 
-    const period = String((periodInput && periodInput.value) || "").trim();
-    const transferText = rawInput.value || "";
-
     this.mpTransferImporting = true;
+    if (previewBtn) previewBtn.disabled = true;
     if (importBtn) importBtn.disabled = true;
-    status.textContent = "AgentIA analisando transferências e preparando despesas...";
+    status.textContent = "AgentIA analisando transferências para pré-visualização...";
     status.style.color = "";
 
     try {
-      const result = window.MercadoPagoAgentIA.analyze(transferText, {
+      const result = window.MercadoPagoAgentIA.analyze(rawInput.value || "", {
         cardHolder: holderInput ? holderInput.value.trim() : "",
         cardBrand: brandInput ? brandInput.value.trim() : "",
         cardLast4,
       });
 
+      this.mpTransferPreview = result;
+      this.mpTransferPreviewSignature = this._getMercadoPagoTransferPreviewSignature();
+
+      previewBody.innerHTML = "";
+      result.rows.forEach((row) => {
+        const tr = document.createElement("tr");
+        const dateCell = document.createElement("td");
+        const descCell = document.createElement("td");
+        const categoryCell = document.createElement("td");
+        const amountCell = document.createElement("td");
+
+        dateCell.textContent = row.date;
+        descCell.textContent = row.description;
+        categoryCell.textContent = row.categoryName || "Outros";
+        amountCell.textContent = `R$ ${Number(row.amount || 0).toFixed(2)}`;
+
+        tr.appendChild(dateCell);
+        tr.appendChild(descCell);
+        tr.appendChild(categoryCell);
+        tr.appendChild(amountCell);
+        previewBody.appendChild(tr);
+      });
+
+      previewSummary.textContent =
+        `${result.rows.length} transferência(s) pronta(s) para importar` +
+        (result.skipped ? ` · ${result.skipped} linha(s) ignorada(s).` : ".");
+      previewEl.classList.remove("hidden");
+
+      status.textContent = "Pré-visualização pronta. Revise os dados e clique em “Importar despesas”.";
+      status.style.color = "var(--success)";
+      if (importBtn) importBtn.disabled = false;
+    } catch (err) {
+      this._resetMercadoPagoTransferPreview();
+      status.textContent = (err && err.message) || "Não foi possível gerar a pré-visualização.";
+      status.style.color = "#b45309";
+    } finally {
+      this.mpTransferImporting = false;
+      if (previewBtn) previewBtn.disabled = false;
+    }
+  }
+
+  async _importMercadoPagoTransfers() {
+    if (this.mpTransferImporting) return;
+    const status = document.getElementById("mp-transfer-status");
+    const previewBtn = document.getElementById("mp-transfer-modal-preview");
+    const importBtn = document.getElementById("mp-transfer-modal-import");
+    const rawInput = document.getElementById("mp-transfer-input");
+    const periodInput = document.getElementById("mp-transfer-period");
+
+    if (!rawInput || !status) return;
+    if (!this.mpTransferPreview || !this.mpTransferPreview.rows || !this.mpTransferPreview.rows.length) {
+      status.textContent = "Gere a pré-visualização antes de importar.";
+      status.style.color = "#b45309";
+      return;
+    }
+    if (this._getMercadoPagoTransferPreviewSignature() !== this.mpTransferPreviewSignature) {
+      status.textContent = "Os dados mudaram. Gere a pré-visualização novamente antes de importar.";
+      status.style.color = "#b45309";
+      return;
+    }
+
+    const period = String((periodInput && periodInput.value) || "").trim();
+
+    this.mpTransferImporting = true;
+    if (previewBtn) previewBtn.disabled = true;
+    if (importBtn) importBtn.disabled = true;
+    status.textContent = "Importando despesas a partir da pré-visualização...";
+    status.style.color = "";
+
+    try {
       const categories = await Api.listCategories();
       const byName = new Map(categories.map((c) => [this._normalizeCategoryName(c.name), c.id]));
       const fallbackCategoryId = byName.get(this._normalizeCategoryName("Outros")) || (categories[0] ? categories[0].id : null);
 
       let imported = 0;
-      for (const row of result.rows) {
+      for (const row of this.mpTransferPreview.rows) {
         const categoryId = byName.get(this._normalizeCategoryName(row.categoryName)) || fallbackCategoryId;
         const extraInfo = period ? ` (fatura ${period})` : "";
         await Api.addExpense({
@@ -737,19 +854,23 @@ class DashboardController {
         imported++;
       }
 
-      status.textContent = `✅ ${imported} transferência(s) importada(s) para despesas` + (result.skipped ? ` · ${result.skipped} linha(s) ignorada(s).` : ".");
+      status.textContent =
+        `✅ ${imported} transferência(s) importada(s) para despesas` +
+        (this.mpTransferPreview.skipped ? ` · ${this.mpTransferPreview.skipped} linha(s) ignorada(s).` : ".");
       status.style.color = "var(--success)";
 
       await this._refreshQuotaInfo();
       await this._refreshExpenseTable();
       await this._refreshExpenseCategoryBudgetInfo();
       rawInput.value = "";
+      this._resetMercadoPagoTransferPreview();
     } catch (err) {
       status.textContent = (err && err.message) || "Não foi possível importar as transferências.";
       status.style.color = "#b45309";
     } finally {
       this.mpTransferImporting = false;
-      if (importBtn) importBtn.disabled = false;
+      if (previewBtn) previewBtn.disabled = false;
+      if (importBtn) importBtn.disabled = !(this.mpTransferPreview && this.mpTransferPreview.rows && this.mpTransferPreview.rows.length);
     }
   }
 
