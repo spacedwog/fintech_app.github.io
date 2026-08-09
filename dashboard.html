@@ -211,6 +211,9 @@
                   <input type="text" id="expense-description" />
                 </div>
                 <button type="submit" class="primary">Salvar</button>
+                <button type="button" id="mp-transfer-modal-open-btn" class="secondary mt-10">
+                  Importar transferências do cartão Mercado Pago
+                </button>
               </form>
             </div>
 
@@ -629,6 +632,84 @@
   <!-- /MODAL Nº DA TRANSAÇÃO -->
 
   <!-- ============================================================
+       MODAL — IMPORTAR TRANSFERÊNCIAS DO CARTÃO MERCADO PAGO
+       Coleta dados básicos do cartão + extrato textual e usa o
+       AgentIA local (js/mercado-pago-agent.js) para normalizar as
+       transferências e lançar as despesas em lote.
+  ============================================================ -->
+  <div id="mp-transfer-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 class="m-0 fs-18">Importar transferências (Mercado Pago)</h2>
+        <button type="button" id="mp-transfer-modal-close" class="modal-close-btn">&times;</button>
+      </div>
+
+      <p class="small-muted mt-0 mb-12">
+        Informe os dados do cartão e cole o extrato com as transferências (uma linha por movimentação).
+        O AgentIA local identifica data/descrição/valor e prepara o lançamento de despesas.
+      </p>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Titular do cartão</label>
+          <input type="text" id="mp-card-holder" placeholder="Ex: Maria da Silva" />
+        </div>
+        <div class="field">
+          <label>Bandeira</label>
+          <input type="text" id="mp-card-brand" placeholder="Ex: Visa, Mastercard" />
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Últimos 4 dígitos</label>
+          <input type="text" id="mp-card-last4" inputmode="numeric" maxlength="4" placeholder="1234" />
+        </div>
+        <div class="field">
+          <label>Período (opcional)</label>
+          <input type="text" id="mp-transfer-period" placeholder="Ex: 2026-08" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="mp-transfer-input">Extrato/transferências</label>
+        <textarea
+          id="mp-transfer-input"
+          rows="8"
+          placeholder="Exemplos:&#10;2026-08-01;Uber;R$ 32,90&#10;01/08/2026 iFood 45,20&#10;2026-08-03 PIX Farmácia 89,90"
+        ></textarea>
+      </div>
+
+      <div id="mp-transfer-preview" class="mp-transfer-preview hidden">
+        <p class="small-muted mt-0 mb-6">Pré-visualização das despesas que serão importadas:</p>
+        <p id="mp-transfer-preview-summary" class="small-muted mt-0 mb-6"></p>
+        <div class="mp-transfer-preview-wrap">
+          <table class="mp-transfer-preview-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody id="mp-transfer-preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <p id="mp-transfer-status" class="small-muted mt-0 mb-0 min-h-1rem"></p>
+
+      <div class="button-row">
+        <button type="button" id="mp-transfer-modal-cancel" class="secondary flex-1">Cancelar</button>
+        <button type="button" id="mp-transfer-modal-preview" class="secondary flex-1">Pré-visualizar</button>
+        <button type="button" id="mp-transfer-modal-import" class="primary flex-1 mt-0" disabled>Importar despesas</button>
+      </div>
+    </div>
+  </div>
+  <!-- /MODAL IMPORTAR TRANSFERÊNCIAS -->
+
+  <!-- ============================================================
        MODAL — CONFIGURAR LAYOUT DE LEITURA (Importar Orçamento)
        Deixa o usuário descrever manualmente onde ficam a categoria e
        os valores Previsto/Realizado, para quando a leitura automática
@@ -746,6 +827,7 @@
   <script src="js/pix.js"></script>
   <script src="js/receipt-ai.js"></script>
   <script src="js/budget-ai.js"></script>
+  <script src="js/mercado-pago-agent.js"></script>
   <script src="js/api.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
