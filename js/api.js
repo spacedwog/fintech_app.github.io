@@ -465,6 +465,7 @@ class ExpenseService {
           amount: e.amount,
           date: e.date,
           description: e.description,
+          transaction_number: e.transaction_number || null,
           category_id: e.category_id,
           category_name: category ? category.name : null,
           user_id: e.user_id,
@@ -505,7 +506,7 @@ class ExpenseService {
     };
   }
 
-  async addExpense({ amount, date, description, category_id }) {
+  async addExpense({ amount, date, description, category_id, transaction_number }) {
     const session = Auth.requireSession();
     const db = await loadDb();
     const tenant = TenantRepository.find(db, session.tenant_id);
@@ -536,6 +537,7 @@ class ExpenseService {
       amount,
       date,
       description: description || "",
+      transaction_number: transaction_number || null,
       created_at: nowIso(),
       is_extra: isExtra,
       extra_charge: extraCharge,
@@ -555,7 +557,7 @@ class ExpenseService {
     return { ok: true };
   }
 
-  async updateExpense(id, { amount, date, description, category_id }) {
+  async updateExpense(id, { amount, date, description, category_id, transaction_number }) {
     const session = Auth.requireSession();
     const db = await loadDb();
     const expense = db.expenses.find((e) => e.id === id && e.tenant_id === session.tenant_id);
@@ -565,6 +567,7 @@ class ExpenseService {
     expense.date = date;
     expense.description = description || "";
     expense.category_id = category_id || null;
+    if (transaction_number !== undefined) expense.transaction_number = transaction_number || null;
 
     await saveDb(db);
     return { ok: true };

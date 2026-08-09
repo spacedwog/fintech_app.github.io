@@ -711,6 +711,15 @@ class DashboardController {
           date,
           description: String(item.description || item.descricao || "Despesa via chatbot"),
           categoryName: String(item.category || item.categoria || "").trim(),
+          transactionNumber: String(
+            item.transaction_number ||
+              item.transactionNumber ||
+              item.txnNumber ||
+              item.txid ||
+              item.numero_transacao ||
+              item.numeroTransacao ||
+              ""
+          ).trim(),
         });
       }
     }
@@ -745,6 +754,7 @@ class DashboardController {
         date: expense.date,
         description: expense.description,
         category_id: categoryId,
+        transaction_number: expense.transactionNumber || null,
       });
       imported++;
     }
@@ -862,20 +872,13 @@ class DashboardController {
   }
 
   // Abre o ManualTransactionModal quando a leitura do comprovante de
-  // despesa não é possível. Como o formulário de despesa não tem um campo
-  // dedicado a "número da transação", ele é anexado à descrição — assim o
-  // dado fica salvo junto com a despesa (Api.addExpense) sem precisar de
-  // mudança no schema.
+  // despesa não é possível.
   _promptManualTxnForExpense(reason, status) {
     if (!this.manualTxnModal) return;
     this.manualTxnModal.open({
       reason,
       onConfirm: (txnNumber) => {
-        const descInput = document.getElementById("expense-description");
-        if (descInput) {
-          const tag = `Nº transação: ${txnNumber}`;
-          descInput.value = descInput.value.trim() ? `${descInput.value.trim()} — ${tag}` : tag;
-        }
+        this.pendingExpenseTxnNumber = String(txnNumber || "").trim() || null;
         if (status) {
           status.textContent = `📝 Nº da transação informado: ${txnNumber}. Confira o valor e a categoria da despesa.`;
           status.style.color = "#b45309";
@@ -1000,6 +1003,12 @@ class DashboardController {
     return ` <span class="badge mp" title="${origem.title}">${origem.label}</span>`;
   }
 
+  _expenseTransactionNumberHtml(e) {
+    const txn = String(e.transaction_number || "").trim();
+    if (!txn) return "";
+    return `<p class="small-muted" style="margin:4px 0 0;font-size:12px;">Nº transação: ${txn}</p>`;
+  }
+
   async _refreshExpenseTable() {
     const expenses = await Api.listExpenses();
     this.expensesById = new Map(expenses.map((e) => [e.id, e]));
@@ -1010,7 +1019,7 @@ class DashboardController {
         <tr>
           <td>${e.date}</td>
           <td>${e.category_name || "-"}</td>
-          <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${this._mercadoPagoRowBadgeHtml(e)}</td>
+          <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${this._mercadoPagoRowBadgeHtml(e)}${this._expenseTransactionNumberHtml(e)}</td>
           <td>R$ ${e.amount.toFixed(2)}</td>
           <td class="actions-cell">
             <button class="secondary" onclick="editExpense('${e.id}')">Alterar</button>
@@ -1094,13 +1103,20 @@ class DashboardController {
       const willBeExtra = !quota.unlimited && quota.used_today >= quota.max_per_day;
 
       const finalize = async (txid, analysis) => {
-        const result = await Api.addExpense({ amount, date, description, category_id });
+        const result = await Api.addExpense({
+          amount,
+          date,
+          description,
+          category_id,
+          transaction_number: this.pendingExpenseTxnNumber || null,
+        });
         successBox.textContent = result.is_extra
           ? `Pagamento confirmado! Despesa extra registrada (R$ ${result.extra_charge.toFixed(2)}).`
           : "Despesa registrada!";
         successBox.classList.remove("hidden");
         document.getElementById("expense-form").reset();
         document.getElementById("expense-date").value = new Date().toISOString().slice(0, 10);
+        this.pendingExpenseTxnNumber = null;
         if (result.is_extra) {
           await this._recordPayment({
             type: "despesa_extra",
