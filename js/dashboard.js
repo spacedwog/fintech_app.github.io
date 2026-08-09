@@ -442,9 +442,7 @@ class DashboardController {
     this.budgetLayoutModalEl = null;
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
-    this.mpTransferImporting = false;
-    this.mpTransferPreview = null;
-    this.mpTransferPreviewSignature = null;
+    this.googleChatLoading = false;
 
     this.manualTxnModal = new ManualTransactionModal();
     this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
@@ -485,7 +483,7 @@ class DashboardController {
 
     this.manualTxnModal.setup();
     this.pixModal.setup();
-    this._setupMercadoPagoTransferModal();
+    this._setupGoogleAIChatbot();
     // Botão ⟳ ao lado do badge do Mercado Pago: só reconsulta o status
     // (Api.getMercadoPagoStatus), sem abrir nenhuma configuração.
     const mpRefreshBtn = document.getElementById("mp-refresh-btn");
@@ -646,215 +644,190 @@ class DashboardController {
     }
   }
 
-  _setupMercadoPagoTransferModal() {
-    const previewBtn = document.getElementById("mp-transfer-modal-preview");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-    const rawInput = document.getElementById("mp-transfer-input");
-    const holderInput = document.getElementById("mp-card-holder");
-    const brandInput = document.getElementById("mp-card-brand");
-    const last4Input = document.getElementById("mp-card-last4");
-    const periodInput = document.getElementById("mp-transfer-period");
+  _setupGoogleAIChatbot() {
+    const sendBtn = document.getElementById("google-ai-chat-send");
+    const clearBtn = document.getElementById("google-ai-chat-clear");
+    const input = document.getElementById("google-ai-chat-input");
 
-    if (!previewBtn || !importBtn || !rawInput || !holderInput || !brandInput || !last4Input || !periodInput) return;
+    if (!sendBtn || !clearBtn || !input) return;
 
-    if (previewBtn) previewBtn.addEventListener("click", () => this._previewMercadoPagoTransfers());
-    if (importBtn) importBtn.addEventListener("click", () => this._importMercadoPagoTransfers());
-
-    [rawInput, holderInput, brandInput, last4Input, periodInput].forEach((el) => {
-      if (el) el.addEventListener("input", () => this._resetMercadoPagoTransferPreview());
-    });
-    const status = document.getElementById("mp-transfer-status");
-    if (status) {
-      status.textContent = "";
-      status.style.color = "";
-    }
-    this._resetMercadoPagoTransferPreview();
-  }
-
-  _normalizeCategoryName(name) {
-    return String(name || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim();
-  }
-
-  _getMercadoPagoTransferPreviewSignature() {
-    const rawInput = document.getElementById("mp-transfer-input");
-    const holderInput = document.getElementById("mp-card-holder");
-    const brandInput = document.getElementById("mp-card-brand");
-    const last4Input = document.getElementById("mp-card-last4");
-    const periodInput = document.getElementById("mp-transfer-period");
-
-    const cardLast4 = String((last4Input && last4Input.value) || "").replace(/\D+/g, "").slice(-4);
-    return JSON.stringify({
-      transferText: String((rawInput && rawInput.value) || "").trim(),
-      cardHolder: String((holderInput && holderInput.value) || "").trim(),
-      cardBrand: String((brandInput && brandInput.value) || "").trim(),
-      cardLast4,
-      period: String((periodInput && periodInput.value) || "").trim(),
+    sendBtn.addEventListener("click", () => this._sendGoogleAIChatMessage());
+    clearBtn.addEventListener("click", () => this._clearGoogleAIChat());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        this._sendGoogleAIChatMessage();
+      }
     });
   }
 
-  _resetMercadoPagoTransferPreview() {
-    this.mpTransferPreview = null;
-    this.mpTransferPreviewSignature = null;
-
-    const previewEl = document.getElementById("mp-transfer-preview");
-    const previewBody = document.getElementById("mp-transfer-preview-body");
-    const previewSummary = document.getElementById("mp-transfer-preview-summary");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-
-    if (previewEl) previewEl.classList.add("hidden");
-    if (previewBody) previewBody.innerHTML = "";
-    if (previewSummary) previewSummary.textContent = "";
-    if (importBtn) importBtn.disabled = true;
+  _appendGoogleAIChatMessage(type, text) {
+    const box = document.getElementById("google-ai-chat-messages");
+    if (!box) return;
+    const el = document.createElement("div");
+    el.className = `google-ai-msg ${type === "user" ? "user" : "bot"}`;
+    el.textContent = String(text || "");
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
   }
 
-  async _previewMercadoPagoTransfers() {
-    if (this.mpTransferImporting) return;
-    const status = document.getElementById("mp-transfer-status");
-    const previewBtn = document.getElementById("mp-transfer-modal-preview");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-    const previewEl = document.getElementById("mp-transfer-preview");
-    const previewBody = document.getElementById("mp-transfer-preview-body");
-    const previewSummary = document.getElementById("mp-transfer-preview-summary");
-    const rawInput = document.getElementById("mp-transfer-input");
-    const holderInput = document.getElementById("mp-card-holder");
-    const brandInput = document.getElementById("mp-card-brand");
-    const last4Input = document.getElementById("mp-card-last4");
-
-    if (!rawInput || !status || !previewEl || !previewBody || !previewSummary) return;
-    if (!window.MercadoPagoAgentIA) {
-      status.textContent = "AgentIA indisponível neste navegador.";
-      status.style.color = "#b45309";
-      return;
-    }
-
-    const cardLast4 = String((last4Input && last4Input.value) || "").replace(/\D+/g, "").slice(-4);
-    if (!cardLast4) {
-      status.textContent = "Informe ao menos os 4 últimos dígitos do cartão.";
-      status.style.color = "#b45309";
-      return;
-    }
-
-    this.mpTransferImporting = true;
-    if (previewBtn) previewBtn.disabled = true;
-    if (importBtn) importBtn.disabled = true;
-    status.textContent = "AgentIA analisando transferências para pré-visualização...";
-    status.style.color = "";
-
-    try {
-      const result = window.MercadoPagoAgentIA.analyze(rawInput.value || "", {
-        cardHolder: holderInput ? holderInput.value.trim() : "",
-        cardBrand: brandInput ? brandInput.value.trim() : "",
-        cardLast4,
-      });
-
-      this.mpTransferPreview = result;
-      this.mpTransferPreviewSignature = this._getMercadoPagoTransferPreviewSignature();
-
-      previewBody.innerHTML = "";
-      result.rows.forEach((row) => {
-        const tr = document.createElement("tr");
-        const dateCell = document.createElement("td");
-        const descCell = document.createElement("td");
-        const categoryCell = document.createElement("td");
-        const amountCell = document.createElement("td");
-
-        dateCell.textContent = row.date;
-        descCell.textContent = row.description;
-        categoryCell.textContent = row.categoryName || "Outros";
-        amountCell.textContent = `R$ ${Number(row.amount || 0).toFixed(2)}`;
-
-        tr.appendChild(dateCell);
-        tr.appendChild(descCell);
-        tr.appendChild(categoryCell);
-        tr.appendChild(amountCell);
-        previewBody.appendChild(tr);
-      });
-
-      previewSummary.textContent =
-        `${result.rows.length} transferência(s) pronta(s) para importar` +
-        (result.skipped ? ` · ${result.skipped} linha(s) ignorada(s).` : ".");
-      previewEl.classList.remove("hidden");
-
-      status.textContent = "Pré-visualização pronta. Revise os dados e clique em “Importar despesas”.";
-      status.style.color = "var(--success)";
-      if (importBtn) importBtn.disabled = false;
-    } catch (err) {
-      this._resetMercadoPagoTransferPreview();
-      status.textContent = (err && err.message) || "Não foi possível gerar a pré-visualização.";
-      status.style.color = "#b45309";
-    } finally {
-      this.mpTransferImporting = false;
-      if (previewBtn) previewBtn.disabled = false;
-    }
+  _setGoogleAIChatStatus(message, isError) {
+    const status = document.getElementById("google-ai-chat-status");
+    if (!status) return;
+    status.textContent = message || "";
+    status.style.color = isError ? "#b45309" : "";
   }
 
-  async _importMercadoPagoTransfers() {
-    if (this.mpTransferImporting) return;
-    const status = document.getElementById("mp-transfer-status");
-    const previewBtn = document.getElementById("mp-transfer-modal-preview");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-    const rawInput = document.getElementById("mp-transfer-input");
-    const periodInput = document.getElementById("mp-transfer-period");
-
-    if (!rawInput || !status) return;
-    if (!this.mpTransferPreview || !this.mpTransferPreview.rows || !this.mpTransferPreview.rows.length) {
-      status.textContent = "Gere a pré-visualização antes de importar.";
-      status.style.color = "#b45309";
-      return;
+  _extractExpensesFromChatbotText(text) {
+    const raw = String(text || "");
+    const payloads = [];
+    const blockRe = /```(?:json)?\s*([\s\S]*?)```/gi;
+    let blockMatch;
+    while ((blockMatch = blockRe.exec(raw))) {
+      payloads.push(blockMatch[1]);
     }
-    if (this._getMercadoPagoTransferPreviewSignature() !== this.mpTransferPreviewSignature) {
-      status.textContent = "Os dados mudaram. Gere a pré-visualização novamente antes de importar.";
-      status.style.color = "#b45309";
-      return;
-    }
+    if (!payloads.length) payloads.push(raw);
 
-    const period = String((periodInput && periodInput.value) || "").trim();
+    const today = new Date().toISOString().slice(0, 10);
+    const normalized = [];
+    for (const payload of payloads) {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(payload);
+      } catch (_err) {
+        continue;
+      }
+      const items = Array.isArray(parsed) ? parsed : parsed && (parsed.despesas || parsed.expenses);
+      if (!Array.isArray(items)) continue;
 
-    this.mpTransferImporting = true;
-    if (previewBtn) previewBtn.disabled = true;
-    if (importBtn) importBtn.disabled = true;
-    status.textContent = "Importando despesas a partir da pré-visualização...";
-    status.style.color = "";
-
-    try {
-      const categories = await Api.listCategories();
-      const byName = new Map(categories.map((c) => [this._normalizeCategoryName(c.name), c.id]));
-      const fallbackCategoryId = byName.get(this._normalizeCategoryName("Outros")) || (categories[0] ? categories[0].id : null);
-
-      let imported = 0;
-      for (const row of this.mpTransferPreview.rows) {
-        const categoryId = byName.get(this._normalizeCategoryName(row.categoryName)) || fallbackCategoryId;
-        const extraInfo = period ? ` (fatura ${period})` : "";
-        await Api.addExpense({
-          amount: row.amount,
-          date: row.date,
-          description: `${row.description}${extraInfo}`,
-          category_id: categoryId,
+      for (const item of items) {
+        if (!item || typeof item !== "object") continue;
+        const rawAmount = item.amount != null ? item.amount : item.valor;
+        const amount = Number(String(rawAmount).replace(",", "."));
+        if (!isFinite(amount) || amount <= 0) continue;
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || item.data || "")) ? String(item.date || item.data) : today;
+        normalized.push({
+          amount,
+          date,
+          description: String(item.description || item.descricao || "Despesa via chatbot"),
+          categoryName: String(item.category || item.categoria || "").trim(),
+          transactionNumber: String(
+            item.transaction_number ||
+              item.transactionNumber ||
+              item.txnNumber ||
+              item.txid ||
+              item.numero_transacao ||
+              item.numeroTransacao ||
+              ""
+          ).trim(),
         });
-        imported++;
+      }
+    }
+    return normalized;
+  }
+
+  async _importExpensesFromChatbotText(text) {
+    const expenses = this._extractExpensesFromChatbotText(text);
+    if (!expenses.length) return 0;
+
+    const categories = await Api.listCategories();
+    const byName = new Map(categories.map((c) => [String(c.name || "").trim().toLowerCase(), c]));
+    let imported = 0;
+
+    for (const expense of expenses) {
+      let categoryId = null;
+      if (expense.categoryName) {
+        const key = expense.categoryName.toLowerCase();
+        let category = byName.get(key);
+        if (!category) {
+          await Api.addCategory(expense.categoryName);
+          const refreshed = await Api.listCategories();
+          byName.clear();
+          refreshed.forEach((c) => byName.set(String(c.name || "").trim().toLowerCase(), c));
+          category = byName.get(key) || null;
+        }
+        categoryId = category ? category.id : null;
       }
 
-      status.textContent =
-        `✅ ${imported} transferência(s) importada(s) para despesas` +
-        (this.mpTransferPreview.skipped ? ` · ${this.mpTransferPreview.skipped} linha(s) ignorada(s).` : ".");
-      status.style.color = "var(--success)";
+      await Api.addExpense({
+        amount: expense.amount,
+        date: expense.date,
+        description: expense.description,
+        category_id: categoryId,
+        transaction_number: expense.transactionNumber || null,
+      });
+      imported++;
+    }
 
-      await this._refreshQuotaInfo();
-      await this._refreshExpenseTable();
-      await this._refreshExpenseCategoryBudgetInfo();
-      rawInput.value = "";
-      this._resetMercadoPagoTransferPreview();
+    return imported;
+  }
+
+  _clearGoogleAIChat() {
+    const box = document.getElementById("google-ai-chat-messages");
+    if (box) {
+      box.innerHTML = "";
+      const welcome = document.createElement("div");
+      welcome.className = "google-ai-msg bot";
+      welcome.textContent = "Conversa limpa. Como posso ajudar agora?";
+      box.appendChild(welcome);
+    }
+    if (window.GoogleAIChatbot) window.GoogleAIChatbot.clear();
+    this._setGoogleAIChatStatus("Histórico limpo.", false);
+  }
+
+  async _sendGoogleAIChatMessage() {
+    if (this.googleChatLoading) return;
+
+    const apiKeyInput = document.getElementById("google-ai-api-key");
+    const modelInput = document.getElementById("google-ai-model");
+    const groundingInput = document.getElementById("google-ai-grounding");
+    const msgInput = document.getElementById("google-ai-chat-input");
+    const sendBtn = document.getElementById("google-ai-chat-send");
+
+    if (!apiKeyInput || !modelInput || !groundingInput || !msgInput || !sendBtn) return;
+    if (!window.GoogleAIChatbot) {
+      this._setGoogleAIChatStatus("Cliente Google AI indisponível neste navegador.", true);
+      return;
+    }
+
+    const message = String(msgInput.value || "").trim();
+    const apiKey = String(apiKeyInput.value || "").trim();
+    if (!apiKey) {
+      this._setGoogleAIChatStatus("Informe sua Google AI API Key.", true);
+      return;
+    }
+    if (!message) {
+      this._setGoogleAIChatStatus("Digite uma mensagem.", true);
+      return;
+    }
+
+    this._appendGoogleAIChatMessage("user", message);
+    msgInput.value = "";
+    this.googleChatLoading = true;
+    sendBtn.disabled = true;
+    this._setGoogleAIChatStatus("Consultando Google AI...", false);
+
+    try {
+      const result = await window.GoogleAIChatbot.sendMessage({
+        apiKey,
+        model: modelInput.value,
+        message,
+        grounding: !!groundingInput.checked,
+      });
+      this._appendGoogleAIChatMessage("bot", result.text);
+      const imported = await this._importExpensesFromChatbotText(result.text);
+      if (imported > 0) {
+        await this._loadExpensesView();
+        this._setGoogleAIChatStatus(`${imported} despesa(s) adicionada(s) em Minhas despesas.`, false);
+      } else {
+        this._setGoogleAIChatStatus("Resposta recebida.", false);
+      }
     } catch (err) {
-      status.textContent = (err && err.message) || "Não foi possível importar as transferências.";
-      status.style.color = "#b45309";
+      this._appendGoogleAIChatMessage("bot", "Não consegui responder agora. Verifique a chave/modelo e tente novamente.");
+      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar Google AI.", true);
     } finally {
-      this.mpTransferImporting = false;
-      if (previewBtn) previewBtn.disabled = false;
-      if (importBtn) importBtn.disabled = !(this.mpTransferPreview && this.mpTransferPreview.rows && this.mpTransferPreview.rows.length);
+      this.googleChatLoading = false;
+      sendBtn.disabled = false;
     }
   }
 
@@ -899,20 +872,13 @@ class DashboardController {
   }
 
   // Abre o ManualTransactionModal quando a leitura do comprovante de
-  // despesa não é possível. Como o formulário de despesa não tem um campo
-  // dedicado a "número da transação", ele é anexado à descrição — assim o
-  // dado fica salvo junto com a despesa (Api.addExpense) sem precisar de
-  // mudança no schema.
+  // despesa não é possível.
   _promptManualTxnForExpense(reason, status) {
     if (!this.manualTxnModal) return;
     this.manualTxnModal.open({
       reason,
       onConfirm: (txnNumber) => {
-        const descInput = document.getElementById("expense-description");
-        if (descInput) {
-          const tag = `Nº transação: ${txnNumber}`;
-          descInput.value = descInput.value.trim() ? `${descInput.value.trim()} — ${tag}` : tag;
-        }
+        this.pendingExpenseTxnNumber = String(txnNumber || "").trim() || null;
         if (status) {
           status.textContent = `📝 Nº da transação informado: ${txnNumber}. Confira o valor e a categoria da despesa.`;
           status.style.color = "#b45309";
@@ -1037,8 +1003,15 @@ class DashboardController {
     return ` <span class="badge mp" title="${origem.title}">${origem.label}</span>`;
   }
 
+  _expenseTransactionNumberHtml(e) {
+    const txn = String(e.transaction_number || "").trim();
+    if (!txn) return "";
+    return `<p class="small-muted" style="margin:4px 0 0;font-size:12px;">Nº transação: ${txn}</p>`;
+  }
+
   async _refreshExpenseTable() {
     const expenses = await Api.listExpenses();
+    this.expensesById = new Map(expenses.map((e) => [e.id, e]));
     const tbody = document.getElementById("expenses-tbody");
     tbody.innerHTML = expenses
       .map(
@@ -1046,9 +1019,12 @@ class DashboardController {
         <tr>
           <td>${e.date}</td>
           <td>${e.category_name || "-"}</td>
-          <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${this._mercadoPagoRowBadgeHtml(e)}</td>
+          <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${this._mercadoPagoRowBadgeHtml(e)}${this._expenseTransactionNumberHtml(e)}</td>
           <td>R$ ${e.amount.toFixed(2)}</td>
-          <td><button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button></td>
+          <td class="actions-cell">
+            <button class="secondary" onclick="editExpense('${e.id}')">Alterar</button>
+            <button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button>
+          </td>
         </tr>`
       )
       .join("");
@@ -1064,6 +1040,48 @@ class DashboardController {
     await this._refreshQuotaInfo();
     await this._refreshExpenseTable();
     await this._refreshExpenseCategoryBudgetInfo();
+  }
+
+  async editExpense(id) {
+    const expense = (this.expensesById && this.expensesById.get(id)) || (await Api.listExpenses()).find((e) => e.id === id);
+    if (!expense) throw new Error("Despesa não encontrada");
+
+    const date = window.prompt("Data (AAAA-MM-DD):", expense.date || "");
+    if (date === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date).trim())) throw new Error("Data inválida. Use AAAA-MM-DD.");
+
+    const description = window.prompt("Descrição:", expense.description || "");
+    if (description === null) return;
+
+    const amountRaw = window.prompt("Valor (R$):", String(expense.amount || ""));
+    if (amountRaw === null) return;
+    const amount = Number(String(amountRaw).replace(",", "."));
+    if (!isFinite(amount) || amount <= 0) throw new Error("Valor inválido.");
+
+    const categoryRaw = window.prompt("Categoria (nome):", expense.category_name || "");
+    if (categoryRaw === null) return;
+    const categoryName = String(categoryRaw).trim();
+
+    let categoryId = null;
+    if (categoryName) {
+      const categories = await Api.listCategories();
+      const key = categoryName.toLowerCase();
+      let category = categories.find((c) => String(c.name || "").trim().toLowerCase() === key);
+      if (!category) {
+        await Api.addCategory(categoryName);
+        category = (await Api.listCategories()).find((c) => String(c.name || "").trim().toLowerCase() === key);
+      }
+      categoryId = category ? category.id : null;
+    }
+
+    await Api.updateExpense(id, {
+      amount,
+      date: String(date).trim(),
+      description: String(description).trim(),
+      category_id: categoryId,
+    });
+
+    await this._loadExpensesView();
   }
 
   async _handleExpenseFormSubmit(e) {
@@ -1085,13 +1103,20 @@ class DashboardController {
       const willBeExtra = !quota.unlimited && quota.used_today >= quota.max_per_day;
 
       const finalize = async (txid, analysis) => {
-        const result = await Api.addExpense({ amount, date, description, category_id });
+        const result = await Api.addExpense({
+          amount,
+          date,
+          description,
+          category_id,
+          transaction_number: this.pendingExpenseTxnNumber || null,
+        });
         successBox.textContent = result.is_extra
           ? `Pagamento confirmado! Despesa extra registrada (R$ ${result.extra_charge.toFixed(2)}).`
           : "Despesa registrada!";
         successBox.classList.remove("hidden");
         document.getElementById("expense-form").reset();
         document.getElementById("expense-date").value = new Date().toISOString().slice(0, 10);
+        this.pendingExpenseTxnNumber = null;
         if (result.is_extra) {
           await this._recordPayment({
             type: "despesa_extra",
@@ -2193,6 +2218,10 @@ document.addEventListener("DOMContentLoaded", () => {
 // enxergam o escopo global do navegador, não métodos de instância.
 function removeExpense(id) {
   return dashboardController && dashboardController.removeExpense(id);
+}
+
+function editExpense(id) {
+  return dashboardController && dashboardController.editExpense(id);
 }
 
 function selectPlan(planKey) {

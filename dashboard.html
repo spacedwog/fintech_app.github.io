@@ -188,66 +188,46 @@
         <!-- Página 2: Registrar Despesas -->
         <div class="flow-page hidden" id="flow-page-2">
           <div class="card">
-            <h3 class="mt-0">Transferências do cartão Mercado Pago</h3>
+            <h3 class="mt-0">Agente IA Google (chatbot)</h3>
             <p class="small-muted mt-0 mb-12">
-              Sincronize dados reais do Mercado Pago via Open Finance/agentes externos e cole aqui o extrato (texto ou JSON da API) para importar como despesas.
-              Aqui você pode revisar e importar as transferências para despesas.
+              Converse com a IA para organizar gastos, revisar orçamento e receber sugestões. O chat usa seu próprio Google AI API Key e não salva a chave no app.
             </p>
 
             <div class="grid-2">
               <div class="field">
-                <label>Titular do cartão</label>
-                <input type="text" id="mp-card-holder" placeholder="Ex: Maria da Silva" />
+                <label>Google AI API Key</label>
+                <input type="password" id="google-ai-api-key" placeholder="AIza..." autocomplete="off" />
               </div>
               <div class="field">
-                <label>Bandeira</label>
-                <input type="text" id="mp-card-brand" placeholder="Ex: Visa, Mastercard" />
-              </div>
-            </div>
-
-            <div class="grid-2">
-              <div class="field">
-                <label>Últimos 4 dígitos</label>
-                <input type="text" id="mp-card-last4" inputmode="numeric" maxlength="4" placeholder="1234" />
-              </div>
-              <div class="field">
-                <label>Período (opcional)</label>
-                <input type="text" id="mp-transfer-period" placeholder="Ex: 2026-08" />
+                <label>Modelo</label>
+                <select id="google-ai-model">
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                </select>
               </div>
             </div>
 
             <div class="field">
-              <label for="mp-transfer-input">Extrato/transferências</label>
-              <textarea
-                id="mp-transfer-input"
-                rows="8"
-                placeholder="Exemplos:&#10;2026-08-01;Uber;R$ 32,90&#10;01/08/2026 iFood 45,20&#10;[{&quot;transaction_amount&quot;:45.2,&quot;date_approved&quot;:&quot;2026-08-01T10:00:00-03:00&quot;,&quot;description&quot;:&quot;iFood&quot;,&quot;status&quot;:&quot;approved&quot;}]"
-              ></textarea>
+              <label class="radio-inline">
+                <input type="checkbox" id="google-ai-grounding" checked />
+                Usar busca do Google (grounding)
+              </label>
             </div>
 
-            <div id="mp-transfer-preview" class="mp-transfer-preview hidden">
-              <p class="small-muted mt-0 mb-6">Pré-visualização das despesas que serão importadas:</p>
-              <p id="mp-transfer-preview-summary" class="small-muted mt-0 mb-6"></p>
-              <div class="mp-transfer-preview-wrap">
-                <table class="mp-transfer-preview-table">
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Descrição</th>
-                      <th>Categoria</th>
-                      <th>Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody id="mp-transfer-preview-body"></tbody>
-                </table>
-              </div>
+            <div id="google-ai-chat-messages" class="google-ai-chat-messages" aria-live="polite">
+              <div class="google-ai-msg bot">Olá! Sou seu agente IA Google. Posso gerar despesas para você e adicioná-las em Minhas despesas.</div>
             </div>
 
-            <p id="mp-transfer-status" class="small-muted mt-0 mb-0 min-h-1rem"></p>
+            <div class="field mb-10">
+              <label for="google-ai-chat-input">Sua mensagem</label>
+              <textarea id="google-ai-chat-input" rows="4" placeholder="Ex: Analise meus gastos e sugira metas para o próximo mês."></textarea>
+            </div>
+
+            <p id="google-ai-chat-status" class="small-muted mt-0 mb-0 min-h-1rem"></p>
 
             <div class="button-row">
-              <button type="button" id="mp-transfer-modal-preview" class="secondary flex-1">Pré-visualizar</button>
-              <button type="button" id="mp-transfer-modal-import" class="primary flex-1 mt-0" disabled>Importar despesas</button>
+              <button type="button" id="google-ai-chat-send" class="primary flex-1 mt-0">Enviar</button>
+              <button type="button" id="google-ai-chat-clear" class="secondary flex-1">Limpar conversa</button>
             </div>
           </div>
 
@@ -772,7 +752,7 @@
   <script src="js/pix.js"></script>
   <script src="js/receipt-ai.js"></script>
   <script src="js/budget-ai.js"></script>
-  <script src="js/mercado-pago-agent.js"></script>
+  <script src="js/google-ai-chatbot.js"></script>
   <script src="js/api.js"></script>
   <script src="js/dashboard.js"></script>
 </body>

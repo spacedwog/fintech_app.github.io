@@ -62,13 +62,14 @@ Código: `js/dashboard.js` (`loadBudgetView`, `handleBudgetFileUpload`, `showBud
 
 Registra despesas com valor, data, categoria e descrição — igual a antes, com um adicional: ao escolher a categoria, um aviso mostra o Previsto x Realizado **daquela categoria no mês atual**, puxado do que foi importado na Página 1 (`Api.getBudgetOverview`), inclusive avisando quando a categoria ainda não tem orçamento definido.
 
+- O bloco "Transferências do cartão Mercado Pago" foi removido desta página e substituído por um **chatbot de IA Google (Gemini)** para apoio em orçamento e despesas, usando Google AI API Key informada pelo próprio usuário.
 - O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — a 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
 - Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).
 - Despesas com o selo **Mercado Pago (API)** na tabela não foram digitadas por ninguém — foram geradas automaticamente a partir de um pagamento real no Mercado Pago via API (`orcamento_agent/mp_expenses.py`, com Access Token, fora do navegador) — e não contam para o limite diário do plano Free (é importação de histórico, não uma ação em tempo real do usuário). Ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
 - Além do selo por linha, a **sidebar do painel** (todas as telas, não só esta) mostra um badge **Mercado Pago** único e sempre visível, logo abaixo do indicador de sincronização: resume quantas despesas foram geradas e quantos pagamentos foram confirmados via Mercado Pago, com a data da atualização mais recente (tudo por conta/tenant). Cinza/apagado quando nenhum dado do Mercado Pago chegou ainda; colorido quando há pelo menos uma despesa gerada ou um pagamento confirmado. Ver `MercadoPagoStatusIndicator`/`Api.getMercadoPagoStatus()` abaixo.
 
-Código: `js/dashboard.js` (`loadExpensesView`, `refreshExpenseCategoryBudgetInfo`, `refreshQuotaInfo`, `refreshExpenseTable`, `MercadoPagoStatusIndicator`), lógica de negócio em `js/api.js` (`addExpense`, `getMercadoPagoStatus`).
+Código: `js/dashboard.js` (`loadExpensesView`, `refreshExpenseCategoryBudgetInfo`, `refreshQuotaInfo`, `refreshExpenseTable`, `_setupGoogleAIChatbot`, `MercadoPagoStatusIndicator`), `js/google-ai-chatbot.js`, lógica de negócio em `js/api.js` (`addExpense`, `getMercadoPagoStatus`).
 </details>
 
 <details>
