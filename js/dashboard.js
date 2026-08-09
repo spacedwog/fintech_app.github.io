@@ -439,7 +439,6 @@ class DashboardController {
     this.budgetLayoutModalEl = null;
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
-    this.mpTransferModalEl = null;
     this.mpTransferImporting = false;
     this.mpTransferPreview = null;
     this.mpTransferPreviewSignature = null;
@@ -645,12 +644,6 @@ class DashboardController {
   }
 
   _setupMercadoPagoTransferModal() {
-    this.mpTransferModalEl = document.getElementById("mp-transfer-modal");
-    if (!this.mpTransferModalEl) return;
-
-    const openBtn = document.getElementById("mp-transfer-modal-open-btn");
-    const closeBtn = document.getElementById("mp-transfer-modal-close");
-    const cancelBtn = document.getElementById("mp-transfer-modal-cancel");
     const previewBtn = document.getElementById("mp-transfer-modal-preview");
     const importBtn = document.getElementById("mp-transfer-modal-import");
     const rawInput = document.getElementById("mp-transfer-input");
@@ -659,32 +652,20 @@ class DashboardController {
     const last4Input = document.getElementById("mp-card-last4");
     const periodInput = document.getElementById("mp-transfer-period");
 
-    if (openBtn) openBtn.addEventListener("click", () => this._openMercadoPagoTransferModal());
-    if (closeBtn) closeBtn.addEventListener("click", () => this._closeMercadoPagoTransferModal());
-    if (cancelBtn) cancelBtn.addEventListener("click", () => this._closeMercadoPagoTransferModal());
+    if (!previewBtn || !importBtn || !rawInput || !holderInput || !brandInput || !last4Input || !periodInput) return;
+
     if (previewBtn) previewBtn.addEventListener("click", () => this._previewMercadoPagoTransfers());
     if (importBtn) importBtn.addEventListener("click", () => this._importMercadoPagoTransfers());
 
     [rawInput, holderInput, brandInput, last4Input, periodInput].forEach((el) => {
       if (el) el.addEventListener("input", () => this._resetMercadoPagoTransferPreview());
     });
-  }
-
-  _openMercadoPagoTransferModal() {
-    if (!this.mpTransferModalEl) return;
     const status = document.getElementById("mp-transfer-status");
     if (status) {
       status.textContent = "";
       status.style.color = "";
     }
     this._resetMercadoPagoTransferPreview();
-    this.mpTransferModalEl.classList.remove("hidden");
-  }
-
-  _closeMercadoPagoTransferModal() {
-    if (!this.mpTransferModalEl) return;
-    if (this.mpTransferImporting) return;
-    this.mpTransferModalEl.classList.add("hidden");
   }
 
   _normalizeCategoryName(name) {
@@ -968,19 +949,21 @@ class DashboardController {
   // ---------- Registrar Despesa ----------
 
   async _loadExpensesView() {
-    const categories = await Api.listCategories();
     const select = document.getElementById("expense-category");
-    const previous = select.value;
-    select.innerHTML = categories.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
-    if (previous && categories.some((c) => c.id === previous)) select.value = previous;
+    if (select) {
+      const categories = await Api.listCategories();
+      const previous = select.value;
+      select.innerHTML = categories.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+      if (previous && categories.some((c) => c.id === previous)) select.value = previous;
 
-    if (!this.expenseCategorySelectBound) {
-      this.expenseCategorySelectBound = true;
-      select.addEventListener("change", () => this._refreshExpenseCategoryBudgetInfo());
+      if (!this.expenseCategorySelectBound) {
+        this.expenseCategorySelectBound = true;
+        select.addEventListener("change", () => this._refreshExpenseCategoryBudgetInfo());
+      }
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    document.getElementById("expense-date").value = today;
+    const dateInput = document.getElementById("expense-date");
+    if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
 
     await this._refreshQuotaInfo();
     await this._refreshExpenseTable();
