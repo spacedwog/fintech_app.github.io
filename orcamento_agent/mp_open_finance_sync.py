@@ -82,7 +82,11 @@ def sanitize_payload(value, removed=None):
         removed = []
 
     if isinstance(value, list):
-        return [sanitize_payload(v, removed) for v in value], removed
+        cleaned = []
+        for v in value:
+            cleaned_v, _ = sanitize_payload(v, removed)
+            cleaned.append(cleaned_v)
+        return cleaned, removed
 
     if isinstance(value, dict):
         out = {}
