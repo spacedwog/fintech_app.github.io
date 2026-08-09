@@ -181,7 +181,7 @@ hr.fade {
   margin-bottom: 4px;
 }
 
-.field input, .field select {
+.field input, .field select, .field textarea {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -190,7 +190,7 @@ hr.fade {
   font-family: inherit;
 }
 
-.field input:focus, .field select:focus {
+.field input:focus, .field select:focus, .field textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);

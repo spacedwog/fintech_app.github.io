@@ -439,6 +439,8 @@ class DashboardController {
     this.budgetLayoutModalEl = null;
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
+    this.mpTransferModalEl = null;
+    this.mpTransferImporting = false;
 
     this.manualTxnModal = new ManualTransactionModal();
     this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
@@ -479,6 +481,7 @@ class DashboardController {
 
     this.manualTxnModal.setup();
     this.pixModal.setup();
+    this._setupMercadoPagoTransferModal();
     // Botão ⟳ ao lado do badge do Mercado Pago: só reconsulta o status
     // (Api.getMercadoPagoStatus), sem abrir nenhuma configuração.
     const mpRefreshBtn = document.getElementById("mp-refresh-btn");
@@ -636,6 +639,117 @@ class DashboardController {
       manualBtn.addEventListener("click", () => {
         this._promptManualTxnForExpense(null, document.getElementById("expense-receipt-status"));
       });
+    }
+  }
+
+  _setupMercadoPagoTransferModal() {
+    this.mpTransferModalEl = document.getElementById("mp-transfer-modal");
+    if (!this.mpTransferModalEl) return;
+
+    const openBtn = document.getElementById("mp-transfer-modal-open-btn");
+    const closeBtn = document.getElementById("mp-transfer-modal-close");
+    const cancelBtn = document.getElementById("mp-transfer-modal-cancel");
+    const importBtn = document.getElementById("mp-transfer-modal-import");
+
+    if (openBtn) openBtn.addEventListener("click", () => this._openMercadoPagoTransferModal());
+    if (closeBtn) closeBtn.addEventListener("click", () => this._closeMercadoPagoTransferModal());
+    if (cancelBtn) cancelBtn.addEventListener("click", () => this._closeMercadoPagoTransferModal());
+    if (importBtn) importBtn.addEventListener("click", () => this._importMercadoPagoTransfers());
+  }
+
+  _openMercadoPagoTransferModal() {
+    if (!this.mpTransferModalEl) return;
+    const status = document.getElementById("mp-transfer-status");
+    if (status) {
+      status.textContent = "";
+      status.style.color = "";
+    }
+    this.mpTransferModalEl.classList.remove("hidden");
+  }
+
+  _closeMercadoPagoTransferModal() {
+    if (!this.mpTransferModalEl) return;
+    if (this.mpTransferImporting) return;
+    this.mpTransferModalEl.classList.add("hidden");
+  }
+
+  _normalizeCategoryName(name) {
+    return String(name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  async _importMercadoPagoTransfers() {
+    if (this.mpTransferImporting) return;
+    const status = document.getElementById("mp-transfer-status");
+    const importBtn = document.getElementById("mp-transfer-modal-import");
+    const rawInput = document.getElementById("mp-transfer-input");
+    const holderInput = document.getElementById("mp-card-holder");
+    const brandInput = document.getElementById("mp-card-brand");
+    const last4Input = document.getElementById("mp-card-last4");
+    const periodInput = document.getElementById("mp-transfer-period");
+
+    if (!rawInput || !status) return;
+    if (!window.MercadoPagoAgentIA) {
+      status.textContent = "AgentIA indisponível neste navegador.";
+      status.style.color = "#b45309";
+      return;
+    }
+
+    const cardLast4 = String((last4Input && last4Input.value) || "").replace(/\D+/g, "").slice(-4);
+    if (!cardLast4) {
+      status.textContent = "Informe ao menos os 4 últimos dígitos do cartão.";
+      status.style.color = "#b45309";
+      return;
+    }
+
+    const period = String((periodInput && periodInput.value) || "").trim();
+    const transferText = rawInput.value || "";
+
+    this.mpTransferImporting = true;
+    if (importBtn) importBtn.disabled = true;
+    status.textContent = "AgentIA analisando transferências e preparando despesas...";
+    status.style.color = "";
+
+    try {
+      const result = window.MercadoPagoAgentIA.analyze(transferText, {
+        cardHolder: holderInput ? holderInput.value.trim() : "",
+        cardBrand: brandInput ? brandInput.value.trim() : "",
+        cardLast4,
+      });
+
+      const categories = await Api.listCategories();
+      const byName = new Map(categories.map((c) => [this._normalizeCategoryName(c.name), c.id]));
+      const fallbackCategoryId = byName.get(this._normalizeCategoryName("Outros")) || (categories[0] ? categories[0].id : null);
+
+      let imported = 0;
+      for (const row of result.rows) {
+        const categoryId = byName.get(this._normalizeCategoryName(row.categoryName)) || fallbackCategoryId;
+        const extraInfo = period ? ` (fatura ${period})` : "";
+        await Api.addExpense({
+          amount: row.amount,
+          date: row.date,
+          description: `${row.description}${extraInfo}`,
+          category_id: categoryId,
+        });
+        imported++;
+      }
+
+      status.textContent = `✅ ${imported} transferência(s) importada(s) para despesas` + (result.skipped ? ` · ${result.skipped} linha(s) ignorada(s).` : ".");
+      status.style.color = "var(--success)";
+
+      await this._refreshQuotaInfo();
+      await this._refreshExpenseTable();
+      await this._refreshExpenseCategoryBudgetInfo();
+      rawInput.value = "";
+    } catch (err) {
+      status.textContent = (err && err.message) || "Não foi possível importar as transferências.";
+      status.style.color = "#b45309";
+    } finally {
+      this.mpTransferImporting = false;
+      if (importBtn) importBtn.disabled = false;
     }
   }
 
