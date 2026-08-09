@@ -645,7 +645,7 @@ class MercadoPagoOAuthAccountAgent:
             f"payments={resumo['payments_count']} charges={resumo['charges_count']} "
             f"movements={resumo['movements_count']} expenses={resumo['expenses_created']}"
         )
-        print("\n✅ " + msg)
+        print("\n✅ sincronização OAuth concluída.")
 
         houve_dado = (
             resumo["payments_synced_created"]
