@@ -664,36 +664,34 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   margin-top: 6px;
 }
 
-.mp-transfer-preview {
+.google-ai-chat-messages {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px;
   margin-bottom: 10px;
-  text-align: left;
-}
-
-.mp-transfer-preview-wrap {
-  max-height: 220px;
+  max-height: 300px;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.mp-transfer-preview-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+.google-ai-msg {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
 }
 
-.mp-transfer-preview-table th,
-.mp-transfer-preview-table td {
-  padding: 6px 4px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
+.google-ai-msg.user {
+  background: rgba(59, 130, 246, 0.12);
+  align-self: flex-end;
 }
 
-.mp-transfer-preview-table th {
-  text-align: left;
-  color: var(--muted);
-  font-weight: 600;
+.google-ai-msg.bot {
+  background: rgba(16, 185, 129, 0.12);
+  align-self: flex-start;
 }
 
 /* ---------- Sidebar: seção "Conta" (Segurança/Privacidade/Configurações) ---------- */

@@ -442,9 +442,7 @@ class DashboardController {
     this.budgetLayoutModalEl = null;
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
-    this.mpTransferImporting = false;
-    this.mpTransferPreview = null;
-    this.mpTransferPreviewSignature = null;
+    this.googleChatLoading = false;
 
     this.manualTxnModal = new ManualTransactionModal();
     this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
@@ -485,7 +483,7 @@ class DashboardController {
 
     this.manualTxnModal.setup();
     this.pixModal.setup();
-    this._setupMercadoPagoTransferModal();
+    this._setupGoogleAIChatbot();
     // Botão ⟳ ao lado do badge do Mercado Pago: só reconsulta o status
     // (Api.getMercadoPagoStatus), sem abrir nenhuma configuração.
     const mpRefreshBtn = document.getElementById("mp-refresh-btn");
@@ -646,215 +644,100 @@ class DashboardController {
     }
   }
 
-  _setupMercadoPagoTransferModal() {
-    const previewBtn = document.getElementById("mp-transfer-modal-preview");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-    const rawInput = document.getElementById("mp-transfer-input");
-    const holderInput = document.getElementById("mp-card-holder");
-    const brandInput = document.getElementById("mp-card-brand");
-    const last4Input = document.getElementById("mp-card-last4");
-    const periodInput = document.getElementById("mp-transfer-period");
+  _setupGoogleAIChatbot() {
+    const sendBtn = document.getElementById("google-ai-chat-send");
+    const clearBtn = document.getElementById("google-ai-chat-clear");
+    const input = document.getElementById("google-ai-chat-input");
 
-    if (!previewBtn || !importBtn || !rawInput || !holderInput || !brandInput || !last4Input || !periodInput) return;
+    if (!sendBtn || !clearBtn || !input) return;
 
-    if (previewBtn) previewBtn.addEventListener("click", () => this._previewMercadoPagoTransfers());
-    if (importBtn) importBtn.addEventListener("click", () => this._importMercadoPagoTransfers());
-
-    [rawInput, holderInput, brandInput, last4Input, periodInput].forEach((el) => {
-      if (el) el.addEventListener("input", () => this._resetMercadoPagoTransferPreview());
-    });
-    const status = document.getElementById("mp-transfer-status");
-    if (status) {
-      status.textContent = "";
-      status.style.color = "";
-    }
-    this._resetMercadoPagoTransferPreview();
-  }
-
-  _normalizeCategoryName(name) {
-    return String(name || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim();
-  }
-
-  _getMercadoPagoTransferPreviewSignature() {
-    const rawInput = document.getElementById("mp-transfer-input");
-    const holderInput = document.getElementById("mp-card-holder");
-    const brandInput = document.getElementById("mp-card-brand");
-    const last4Input = document.getElementById("mp-card-last4");
-    const periodInput = document.getElementById("mp-transfer-period");
-
-    const cardLast4 = String((last4Input && last4Input.value) || "").replace(/\D+/g, "").slice(-4);
-    return JSON.stringify({
-      transferText: String((rawInput && rawInput.value) || "").trim(),
-      cardHolder: String((holderInput && holderInput.value) || "").trim(),
-      cardBrand: String((brandInput && brandInput.value) || "").trim(),
-      cardLast4,
-      period: String((periodInput && periodInput.value) || "").trim(),
-    });
-  }
-
-  _resetMercadoPagoTransferPreview() {
-    this.mpTransferPreview = null;
-    this.mpTransferPreviewSignature = null;
-
-    const previewEl = document.getElementById("mp-transfer-preview");
-    const previewBody = document.getElementById("mp-transfer-preview-body");
-    const previewSummary = document.getElementById("mp-transfer-preview-summary");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-
-    if (previewEl) previewEl.classList.add("hidden");
-    if (previewBody) previewBody.innerHTML = "";
-    if (previewSummary) previewSummary.textContent = "";
-    if (importBtn) importBtn.disabled = true;
-  }
-
-  async _previewMercadoPagoTransfers() {
-    if (this.mpTransferImporting) return;
-    const status = document.getElementById("mp-transfer-status");
-    const previewBtn = document.getElementById("mp-transfer-modal-preview");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-    const previewEl = document.getElementById("mp-transfer-preview");
-    const previewBody = document.getElementById("mp-transfer-preview-body");
-    const previewSummary = document.getElementById("mp-transfer-preview-summary");
-    const rawInput = document.getElementById("mp-transfer-input");
-    const holderInput = document.getElementById("mp-card-holder");
-    const brandInput = document.getElementById("mp-card-brand");
-    const last4Input = document.getElementById("mp-card-last4");
-
-    if (!rawInput || !status || !previewEl || !previewBody || !previewSummary) return;
-    if (!window.MercadoPagoAgentIA) {
-      status.textContent = "AgentIA indisponível neste navegador.";
-      status.style.color = "#b45309";
-      return;
-    }
-
-    const cardLast4 = String((last4Input && last4Input.value) || "").replace(/\D+/g, "").slice(-4);
-    if (!cardLast4) {
-      status.textContent = "Informe ao menos os 4 últimos dígitos do cartão.";
-      status.style.color = "#b45309";
-      return;
-    }
-
-    this.mpTransferImporting = true;
-    if (previewBtn) previewBtn.disabled = true;
-    if (importBtn) importBtn.disabled = true;
-    status.textContent = "AgentIA analisando transferências para pré-visualização...";
-    status.style.color = "";
-
-    try {
-      const result = window.MercadoPagoAgentIA.analyze(rawInput.value || "", {
-        cardHolder: holderInput ? holderInput.value.trim() : "",
-        cardBrand: brandInput ? brandInput.value.trim() : "",
-        cardLast4,
-      });
-
-      this.mpTransferPreview = result;
-      this.mpTransferPreviewSignature = this._getMercadoPagoTransferPreviewSignature();
-
-      previewBody.innerHTML = "";
-      result.rows.forEach((row) => {
-        const tr = document.createElement("tr");
-        const dateCell = document.createElement("td");
-        const descCell = document.createElement("td");
-        const categoryCell = document.createElement("td");
-        const amountCell = document.createElement("td");
-
-        dateCell.textContent = row.date;
-        descCell.textContent = row.description;
-        categoryCell.textContent = row.categoryName || "Outros";
-        amountCell.textContent = `R$ ${Number(row.amount || 0).toFixed(2)}`;
-
-        tr.appendChild(dateCell);
-        tr.appendChild(descCell);
-        tr.appendChild(categoryCell);
-        tr.appendChild(amountCell);
-        previewBody.appendChild(tr);
-      });
-
-      previewSummary.textContent =
-        `${result.rows.length} transferência(s) pronta(s) para importar` +
-        (result.skipped ? ` · ${result.skipped} linha(s) ignorada(s).` : ".");
-      previewEl.classList.remove("hidden");
-
-      status.textContent = "Pré-visualização pronta. Revise os dados e clique em “Importar despesas”.";
-      status.style.color = "var(--success)";
-      if (importBtn) importBtn.disabled = false;
-    } catch (err) {
-      this._resetMercadoPagoTransferPreview();
-      status.textContent = (err && err.message) || "Não foi possível gerar a pré-visualização.";
-      status.style.color = "#b45309";
-    } finally {
-      this.mpTransferImporting = false;
-      if (previewBtn) previewBtn.disabled = false;
-    }
-  }
-
-  async _importMercadoPagoTransfers() {
-    if (this.mpTransferImporting) return;
-    const status = document.getElementById("mp-transfer-status");
-    const previewBtn = document.getElementById("mp-transfer-modal-preview");
-    const importBtn = document.getElementById("mp-transfer-modal-import");
-    const rawInput = document.getElementById("mp-transfer-input");
-    const periodInput = document.getElementById("mp-transfer-period");
-
-    if (!rawInput || !status) return;
-    if (!this.mpTransferPreview || !this.mpTransferPreview.rows || !this.mpTransferPreview.rows.length) {
-      status.textContent = "Gere a pré-visualização antes de importar.";
-      status.style.color = "#b45309";
-      return;
-    }
-    if (this._getMercadoPagoTransferPreviewSignature() !== this.mpTransferPreviewSignature) {
-      status.textContent = "Os dados mudaram. Gere a pré-visualização novamente antes de importar.";
-      status.style.color = "#b45309";
-      return;
-    }
-
-    const period = String((periodInput && periodInput.value) || "").trim();
-
-    this.mpTransferImporting = true;
-    if (previewBtn) previewBtn.disabled = true;
-    if (importBtn) importBtn.disabled = true;
-    status.textContent = "Importando despesas a partir da pré-visualização...";
-    status.style.color = "";
-
-    try {
-      const categories = await Api.listCategories();
-      const byName = new Map(categories.map((c) => [this._normalizeCategoryName(c.name), c.id]));
-      const fallbackCategoryId = byName.get(this._normalizeCategoryName("Outros")) || (categories[0] ? categories[0].id : null);
-
-      let imported = 0;
-      for (const row of this.mpTransferPreview.rows) {
-        const categoryId = byName.get(this._normalizeCategoryName(row.categoryName)) || fallbackCategoryId;
-        const extraInfo = period ? ` (fatura ${period})` : "";
-        await Api.addExpense({
-          amount: row.amount,
-          date: row.date,
-          description: `${row.description}${extraInfo}`,
-          category_id: categoryId,
-        });
-        imported++;
+    sendBtn.addEventListener("click", () => this._sendGoogleAIChatMessage());
+    clearBtn.addEventListener("click", () => this._clearGoogleAIChat());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        this._sendGoogleAIChatMessage();
       }
+    });
+  }
 
-      status.textContent =
-        `✅ ${imported} transferência(s) importada(s) para despesas` +
-        (this.mpTransferPreview.skipped ? ` · ${this.mpTransferPreview.skipped} linha(s) ignorada(s).` : ".");
-      status.style.color = "var(--success)";
+  _appendGoogleAIChatMessage(type, text) {
+    const box = document.getElementById("google-ai-chat-messages");
+    if (!box) return;
+    const el = document.createElement("div");
+    el.className = `google-ai-msg ${type === "user" ? "user" : "bot"}`;
+    el.textContent = String(text || "");
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
 
-      await this._refreshQuotaInfo();
-      await this._refreshExpenseTable();
-      await this._refreshExpenseCategoryBudgetInfo();
-      rawInput.value = "";
-      this._resetMercadoPagoTransferPreview();
+  _setGoogleAIChatStatus(message, isError) {
+    const status = document.getElementById("google-ai-chat-status");
+    if (!status) return;
+    status.textContent = message || "";
+    status.style.color = isError ? "#b45309" : "";
+  }
+
+  _clearGoogleAIChat() {
+    const box = document.getElementById("google-ai-chat-messages");
+    if (box) {
+      box.innerHTML = "";
+      const welcome = document.createElement("div");
+      welcome.className = "google-ai-msg bot";
+      welcome.textContent = "Conversa limpa. Como posso ajudar agora?";
+      box.appendChild(welcome);
+    }
+    if (window.GoogleAIChatbot) window.GoogleAIChatbot.clear();
+    this._setGoogleAIChatStatus("Histórico limpo.", false);
+  }
+
+  async _sendGoogleAIChatMessage() {
+    if (this.googleChatLoading) return;
+
+    const apiKeyInput = document.getElementById("google-ai-api-key");
+    const modelInput = document.getElementById("google-ai-model");
+    const groundingInput = document.getElementById("google-ai-grounding");
+    const msgInput = document.getElementById("google-ai-chat-input");
+    const sendBtn = document.getElementById("google-ai-chat-send");
+
+    if (!apiKeyInput || !modelInput || !groundingInput || !msgInput || !sendBtn) return;
+    if (!window.GoogleAIChatbot) {
+      this._setGoogleAIChatStatus("Cliente Google AI indisponível neste navegador.", true);
+      return;
+    }
+
+    const message = String(msgInput.value || "").trim();
+    const apiKey = String(apiKeyInput.value || "").trim();
+    if (!apiKey) {
+      this._setGoogleAIChatStatus("Informe sua Google AI API Key.", true);
+      return;
+    }
+    if (!message) {
+      this._setGoogleAIChatStatus("Digite uma mensagem.", true);
+      return;
+    }
+
+    this._appendGoogleAIChatMessage("user", message);
+    msgInput.value = "";
+    this.googleChatLoading = true;
+    sendBtn.disabled = true;
+    this._setGoogleAIChatStatus("Consultando Google AI...", false);
+
+    try {
+      const result = await window.GoogleAIChatbot.sendMessage({
+        apiKey,
+        model: modelInput.value,
+        message,
+        grounding: !!groundingInput.checked,
+      });
+      this._appendGoogleAIChatMessage("bot", result.text);
+      this._setGoogleAIChatStatus("Resposta recebida.", false);
     } catch (err) {
-      status.textContent = (err && err.message) || "Não foi possível importar as transferências.";
-      status.style.color = "#b45309";
+      this._appendGoogleAIChatMessage("bot", "Não consegui responder agora. Verifique a chave/modelo e tente novamente.");
+      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar Google AI.", true);
     } finally {
-      this.mpTransferImporting = false;
-      if (previewBtn) previewBtn.disabled = false;
-      if (importBtn) importBtn.disabled = !(this.mpTransferPreview && this.mpTransferPreview.rows && this.mpTransferPreview.rows.length);
+      this.googleChatLoading = false;
+      sendBtn.disabled = false;
     }
   }
 
