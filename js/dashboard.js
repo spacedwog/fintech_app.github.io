@@ -759,7 +759,7 @@ class DashboardController {
 
     if (!msgInput || !sendBtn) return;
     if (!window.GoogleAIChatbot) {
-      this._setGoogleAIChatStatus("AgenteIA indisponível neste navegador.", true);
+      this._setGoogleAIChatStatus("SpaceHub indisponível neste navegador.", true);
       return;
     }
 
@@ -774,7 +774,7 @@ class DashboardController {
     msgInput.value = "";
     this.googleChatLoading = true;
     sendBtn.disabled = true;
-    this._setGoogleAIChatStatus("Consultando agenteIA GitHub...", false);
+    this._setGoogleAIChatStatus("Consultando SpaceHub - Chatbot de Financiamento...", false);
 
     try {
       const result = await window.GoogleAIChatbot.sendMessage({
@@ -791,7 +791,7 @@ class DashboardController {
       }
     } catch (err) {
       this._appendGoogleAIChatMessage("bot", "Não consegui responder agora. Tente novamente em instantes.");
-      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar o agenteIA GitHub.", true);
+      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar o SpaceHub - Chatbot de Financiamento.", true);
     } finally {
       this.googleChatLoading = false;
       sendBtn.disabled = false;

@@ -62,7 +62,7 @@ Código: `js/dashboard.js` (`loadBudgetView`, `handleBudgetFileUpload`, `showBud
 
 Registra despesas com valor, data, categoria e descrição — igual a antes, com um adicional: ao escolher a categoria, um aviso mostra o Previsto x Realizado **daquela categoria no mês atual**, puxado do que foi importado na Página 1 (`Api.getBudgetOverview`), inclusive avisando quando a categoria ainda não tem orçamento definido.
 
-- A página usa o **AgenteIA GitHub (chatbot sem token)** para gerar despesas e importar direto em "Minhas despesas". O campo "Usuário GitHub" é opcional e só adiciona contexto usando APIs públicas do GitHub.
+- A página usa o **SpaceHub - Chatbot de Financiamento (sem token)** para gerar despesas e importar direto em "Minhas despesas". O campo "Usuário GitHub" é opcional e só adiciona contexto usando APIs públicas do GitHub; o chatbot também expõe uma API interna de metodologias da linguagem portuguesa (verbos, adjetivos, provérbios e orações subordinadas).
 - O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — a 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
 - Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).
