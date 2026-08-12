@@ -13,7 +13,20 @@
   }
 
   function pickCategory(message) {
-    const text = String(message || "").toLowerCase();
+    const rawText = String(message || "");
+    const text = rawText.toLowerCase();
+    const explicitQuoted =
+      rawText.match(/categoria\s*(?:é|:|=|de)?\s*["“]([^"”]+)["”]/i) ||
+      rawText.match(/para\s+a\s+categoria\s*["“]([^"”]+)["”]/i);
+    if (explicitQuoted && explicitQuoted[1]) return explicitQuoted[1].trim().replace(/\s{2,}/g, " ");
+    const explicitPlain =
+      rawText.match(
+        /categoria\s*(?:é|:|=|de)?\s*([a-zà-úç][a-zà-úç\s/-]{1,40}?)(?=\s*(?:,|\.|;|!|\?|$|e\s+com|com\s+a|com\s+os?|entre))/i
+      ) ||
+      rawText.match(/para\s+a\s+categoria\s*([a-zà-úç][a-zà-úç\s/-]{1,40}?)(?=\s*(?:,|\.|;|!|\?|$|e\s+com|com\s+a|com\s+os?|entre))/i);
+    const explicit = explicitPlain;
+    if (explicit && explicit[1]) return explicit[1].trim().replace(/\s{2,}/g, " ");
+    if (/alimentaç|alimentacao/.test(text)) return "Alimentação";
     if (/mercado|supermercado|restaurante|comida|ifood/.test(text)) return "Alimentação";
     if (/uber|99|taxi|ônibus|metro|combust|gasolina|transporte/.test(text)) return "Transporte";
     if (/aluguel|condomínio|energia|água|internet|moradia/.test(text)) return "Moradia";
@@ -35,6 +48,39 @@
     return parsed;
   }
 
+  function inferAmountRange(message) {
+    const text = String(message || "");
+    const range = text.match(
+      /entre\s*(?:r\$\s*)?(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:e|a|até|-)\s*(?:r\$\s*)?(\d{1,5}(?:[.,]\d{1,2})?)/i
+    );
+    if (!range) return null;
+    const a = Number(String(range[1]).replace(",", "."));
+    const b = Number(String(range[2]).replace(",", "."));
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return null;
+    return { min: Math.min(a, b), max: Math.max(a, b) };
+  }
+
+  function inferDescription(message) {
+    const text = String(message || "");
+    const quoted = text.match(/descriç(?:ã|a)o\s*(?:é|:|=|de)?\s*["“]([^"”]+)["”]/i);
+    if (quoted && quoted[1]) return quoted[1].trim();
+    const plain = text.match(
+      /descriç(?:ã|a)o\s*(?:é|:|=|de)?\s*([^,.!?;\n]+?)(?=\s+com\s+os?\s+valores|\s+entre\s+(?:r\$\s*)?\d|\s+de\s+(?:r\$\s*)?\d|$)/i
+    );
+    if (!plain || !plain[1]) return "";
+    return plain[1].trim().replace(/\s{2,}/g, " ");
+  }
+
+  function amountForIndex(base, range, i, count) {
+    if (!range) {
+      const factor = 1 + ((i % 3) - 1) * 0.15;
+      return Number((base * factor).toFixed(2));
+    }
+    if (count <= 1) return Number((((range.min + range.max) / 2)).toFixed(2));
+    const ratio = i / (count - 1);
+    return Number((range.min + ratio * (range.max - range.min)).toFixed(2));
+  }
+
   function nextDate(offset) {
     const d = new Date();
     d.setDate(d.getDate() - offset);
@@ -44,15 +90,16 @@
   function buildExpenses(message, githubSummary) {
     const count = inferCount(message);
     const base = inferBaseAmount(message);
+    const range = inferAmountRange(message);
     const category = pickCategory(message);
+    const requestedDescription = inferDescription(message);
     const expenses = [];
 
     for (let i = 0; i < count; i++) {
-      const factor = 1 + ((i % 3) - 1) * 0.15;
       expenses.push({
-        amount: Number((base * factor).toFixed(2)),
+        amount: amountForIndex(base, range, i, count),
         date: nextDate(i),
-        description: `Despesa ${category.toLowerCase()} #${i + 1}`,
+        description: requestedDescription || `Despesa ${category.toLowerCase()} #${i + 1}`,
         category,
         transaction_number: githubSummary ? `GH-${githubSummary.publicEvents}-${i + 1}` : `AG-${Date.now()}-${i + 1}`,
       });
