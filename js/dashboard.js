@@ -435,6 +435,8 @@ class DashboardController {
     this.currentFlowPage = 1;
     this.expenseCategorySelectBound = false;
     this.budgetOverviewMonthBound = false;
+    this.budgetManageBound = false;
+    this.budgetGroupsBound = false;
 
     this.budgetInputBound = false;
     this.budgetSelectedFile = null;
@@ -758,6 +760,7 @@ class DashboardController {
     const sendBtn = document.getElementById("google-ai-chat-send");
 
     if (!msgInput || !sendBtn) return;
+    if (githubUserInput && !githubUserInput.reportValidity()) return;
     if (!window.GoogleAIChatbot) {
       this._setGoogleAIChatStatus("SpaceHub indisponível neste navegador.", true);
       return;
@@ -767,6 +770,10 @@ class DashboardController {
     const githubUser = String((githubUserInput && githubUserInput.value) || "").trim();
     if (!message) {
       this._setGoogleAIChatStatus("Digite uma mensagem.", true);
+      return;
+    }
+    if (!githubUser) {
+      this._setGoogleAIChatStatus("Informe o usuário GitHub.", true);
       return;
     }
 
@@ -799,7 +806,7 @@ class DashboardController {
   }
 
   _goToFlowPage(page) {
-    page = Math.min(3, Math.max(1, page));
+    page = Math.min(5, Math.max(1, page));
     this.currentFlowPage = page;
 
     document.querySelectorAll(".flow-page").forEach((el, idx) => {
@@ -809,11 +816,11 @@ class DashboardController {
       btn.classList.toggle("active", parseInt(btn.dataset.flowPage, 10) === page);
     });
     const indicator = document.getElementById("flow-page-indicator");
-    if (indicator) indicator.textContent = `Página ${page} de 3`;
+    if (indicator) indicator.textContent = `Página ${page} de 5`;
     const prevBtn = document.getElementById("flow-prev-btn");
     const nextBtn = document.getElementById("flow-next-btn");
     if (prevBtn) prevBtn.disabled = page === 1;
-    if (nextBtn) nextBtn.disabled = page === 3;
+    if (nextBtn) nextBtn.disabled = page === 5;
 
     // Cada página busca os dados mais recentes ao ser exibida: registrar uma
     // despesa na Página 2 e ir pra Página 3 já mostra o Realizado atualizado,
@@ -824,6 +831,8 @@ class DashboardController {
       this._loadAlertsView();
       this._loadBudgetOverview();
     }
+    if (page === 4) this._loadBudgetManageView();
+    if (page === 5) this._loadBudgetGroupsView();
   }
 
   // ---------- Registrar Despesa ----------
@@ -1118,8 +1127,12 @@ class DashboardController {
 
   async _handleBudgetFormSubmit(e) {
     e.preventDefault();
-    const limit_value = parseFloat(document.getElementById("budget-limit").value);
-    const month = document.getElementById("budget-month").value;
+    const limitInput = document.getElementById("budget-limit");
+    const monthInput = document.getElementById("budget-month");
+    if (!limitInput || !monthInput) return;
+    if (!limitInput.reportValidity() || !monthInput.reportValidity()) return;
+    const limit_value = parseFloat(limitInput.value);
+    const month = monthInput.value;
     await Api.setBudget({ limit_value, month });
     await this._loadAlertsView();
   }
@@ -1176,6 +1189,114 @@ class DashboardController {
           <td>R$ ${r.realizado.toFixed(2)}</td>
           <td>R$ ${r.saldo.toFixed(2)}</td>
           <td>${statusBadge[r.status] || ""}</td>
+        </tr>`
+      )
+      .join("");
+  }
+
+  async _loadBudgetManageView() {
+    const monthInput = document.getElementById("budget-manage-month");
+    const refreshBtn = document.getElementById("budget-manage-refresh-btn");
+    const tbody = document.getElementById("budget-manage-tbody");
+    if (!monthInput || !tbody) return;
+
+    if (!this.budgetManageBound) {
+      this.budgetManageBound = true;
+      monthInput.addEventListener("change", () => this._renderBudgetManageTable(monthInput.value));
+      if (refreshBtn) refreshBtn.addEventListener("click", () => this._renderBudgetManageTable(monthInput.value));
+      tbody.addEventListener("click", (e) => {
+        const btn = e.target && e.target.closest("button[data-budget-action]");
+        if (!btn) return;
+        const id = btn.dataset.budgetId;
+        if (!id) return;
+        if (btn.dataset.budgetAction === "save") this._saveCategoryBudgetFromRow(id);
+        if (btn.dataset.budgetAction === "delete") this._deleteCategoryBudgetFromRow(id);
+      });
+    }
+
+    if (!monthInput.value) monthInput.value = new Date().toISOString().slice(0, 7);
+    await this._renderBudgetManageTable(monthInput.value);
+  }
+
+  async _renderBudgetManageTable(month) {
+    const status = document.getElementById("budget-manage-status");
+    const tbody = document.getElementById("budget-manage-tbody");
+    if (!tbody) return;
+    if (!month) {
+      if (status) status.textContent = "Informe o mês.";
+      return;
+    }
+    const rows = await Api.listCategoryBudgets(month);
+    if (status) status.textContent = `${rows.length} orçamento(s) encontrado(s) para ${month}.`;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="3">Nenhum orçamento por categoria neste mês.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows
+      .map(
+        (r) => `
+        <tr>
+          <td>${r.category_name || "Sem categoria"}</td>
+          <td><input type="number" min="0" step="0.01" data-budget-previsto="${r.id}" data-category-id="${r.category_id}" value="${Number(r.previsto || 0).toFixed(2)}" required /></td>
+          <td>
+            <button type="button" class="secondary" data-budget-action="save" data-budget-id="${r.id}">Alterar</button>
+            <button type="button" class="secondary" data-budget-action="delete" data-budget-id="${r.id}">Excluir</button>
+          </td>
+        </tr>`
+      )
+      .join("");
+  }
+
+  async _saveCategoryBudgetFromRow(id) {
+    const monthInput = document.getElementById("budget-manage-month");
+    const input = document.querySelector(`input[data-budget-previsto="${id}"]`);
+    const status = document.getElementById("budget-manage-status");
+    if (!input || !monthInput) return;
+    if (!input.reportValidity() || !monthInput.reportValidity()) return;
+    const previsto = parseFloat(input.value);
+    const categoryId = input.dataset.categoryId;
+    const month = monthInput.value;
+    await Api.setCategoryBudget({ category_id: categoryId, month, previsto });
+    if (status) status.textContent = "Orçamento atualizado.";
+    await this._renderBudgetManageTable(month);
+  }
+
+  async _deleteCategoryBudgetFromRow(id) {
+    const monthInput = document.getElementById("budget-manage-month");
+    const status = document.getElementById("budget-manage-status");
+    if (!monthInput) return;
+    if (!confirm("Tem certeza que deseja excluir este orçamento?")) return;
+    await Api.deleteCategoryBudget(id);
+    if (status) status.textContent = "Orçamento excluído.";
+    await this._renderBudgetManageTable(monthInput.value);
+  }
+
+  async _loadBudgetGroupsView() {
+    const refreshBtn = document.getElementById("budget-groups-refresh-btn");
+    if (!this.budgetGroupsBound) {
+      this.budgetGroupsBound = true;
+      if (refreshBtn) refreshBtn.addEventListener("click", () => this._renderBudgetGroupsTable());
+    }
+    await this._renderBudgetGroupsTable();
+  }
+
+  async _renderBudgetGroupsTable() {
+    const tbody = document.getElementById("budget-groups-tbody");
+    const status = document.getElementById("budget-groups-status");
+    if (!tbody) return;
+    const groups = await Api.listBudgetGroups();
+    if (status) status.textContent = `${groups.length} grupo(s) criado(s) automaticamente.`;
+    if (!groups.length) {
+      tbody.innerHTML = '<tr><td colspan="3">Nenhum grupo criado ainda.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = groups
+      .map(
+        (g) => `
+        <tr>
+          <td>${g.name || "-"}</td>
+          <td>${g.budget_category_name || "-"}</td>
+          <td>${g.expense_category_name || "-"}</td>
         </tr>`
       )
       .join("");
@@ -1465,6 +1586,16 @@ class DashboardController {
     const format = checked ? checked.value : "largo";
     document.getElementById("layout-fields-largo").classList.toggle("hidden", format !== "largo");
     document.getElementById("layout-fields-longo").classList.toggle("hidden", format !== "longo");
+    const largoIds = ["layout-col-categoria-larga", "layout-month-row", "layout-subheader-row"];
+    const longoIds = ["layout-header-row", "layout-col-categoria", "layout-col-mes", "layout-col-previsto", "layout-col-realizado"];
+    largoIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.required = format === "largo";
+    });
+    longoIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.required = format === "longo";
+    });
   }
 
   _openBudgetLayoutModal(existingLayout) {
@@ -1530,6 +1661,14 @@ class DashboardController {
 
     const checked = document.querySelector('input[name="layout-format"]:checked');
     const format = checked ? checked.value : "largo";
+    const requiredByFormat = format === "largo"
+      ? ["layout-col-categoria-larga", "layout-month-row", "layout-subheader-row"]
+      : ["layout-header-row", "layout-col-categoria", "layout-col-mes", "layout-col-previsto", "layout-col-realizado"];
+    const allValid = requiredByFormat.every((id) => {
+      const el = document.getElementById(id);
+      return !!el && el.reportValidity();
+    });
+    if (!allValid) return;
 
     const layout = {
       id: this.budgetEditingLayoutId || undefined,

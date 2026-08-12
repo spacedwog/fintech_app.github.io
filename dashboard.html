@@ -90,10 +90,12 @@
             <button type="button" class="flow-page-dot" data-flow-page="1">1. Importar Orçamento</button>
             <button type="button" class="flow-page-dot" data-flow-page="2">2. Registrar Despesas</button>
             <button type="button" class="flow-page-dot" data-flow-page="3">3. Alertas / Orçamento</button>
+            <button type="button" class="flow-page-dot" data-flow-page="4">4. Gerenciar Orçamentos</button>
+            <button type="button" class="flow-page-dot" data-flow-page="5">5. Grupo</button>
           </div>
           <button type="button" class="secondary" id="flow-next-btn">Próxima ›</button>
         </div>
-        <p class="small-muted text-center mt-4 mb-18" id="flow-page-indicator">Página 1 de 3</p>
+        <p class="small-muted text-center mt-4 mb-18" id="flow-page-indicator">Página 1 de 5</p>
 
         <!-- Página 1: Importar Orçamento -->
         <div class="flow-page" id="flow-page-1">
@@ -171,8 +173,8 @@
             </p>
 
             <div class="field">
-              <label>Usuário GitHub (opcional)</label>
-              <input type="text" id="github-agent-username" placeholder="ex: octocat" autocomplete="off" />
+              <label>Usuário GitHub</label>
+              <input type="text" id="github-agent-username" placeholder="ex: octocat" autocomplete="off" required />
             </div>
 
             <div id="google-ai-chat-messages" class="google-ai-chat-messages" aria-live="polite">
@@ -208,7 +210,7 @@
         <!-- Página 3: Alertas / Orçamento -->
         <div class="flow-page hidden" id="flow-page-3">
           <div class="card">
-            <h3 class="mt-0">Limite geral do mês (opcional)</h3>
+            <h3 class="mt-0">Limite geral do mês</h3>
             <p class="small-muted mt-0">Um único valor total por mês, independente de categoria — mais simples, mas menos detalhado que a comparação por categoria abaixo.</p>
             <div id="alerts-box" class="alert-ok">Carregando...</div>
           </div>
@@ -231,7 +233,7 @@
             <div class="row-between">
               <h3 class="m-0">Previsto x Realizado por categoria</h3>
               <div class="field m-0 min-w-160">
-                <input type="text" id="budget-overview-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+                <input type="text" id="budget-overview-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
               </div>
             </div>
             <p class="small-muted">
@@ -248,6 +250,44 @@
                 <tr><th>Categoria</th><th>Previsto</th><th>Realizado</th><th>Saldo</th><th>Status</th></tr>
               </thead>
               <tbody id="budget-overview-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flow-page hidden" id="flow-page-4">
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Gerenciar orçamentos por categoria</h3>
+              <button type="button" class="secondary" id="budget-manage-refresh-btn">Atualizar</button>
+            </div>
+            <div class="field min-w-160">
+              <label>Mês (AAAA-MM)</label>
+              <input type="text" id="budget-manage-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
+            </div>
+            <p class="small-muted mt-0 mb-10" id="budget-manage-status"></p>
+            <table>
+              <thead>
+                <tr><th>Categoria</th><th>Previsto (R$)</th><th>Ações</th></tr>
+              </thead>
+              <tbody id="budget-manage-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flow-page hidden" id="flow-page-5">
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Grupo</h3>
+              <button type="button" class="secondary" id="budget-groups-refresh-btn">Atualizar</button>
+            </div>
+            <p class="small-muted mt-0 mb-10" id="budget-groups-status">
+              Grupos são criados automaticamente quando a categoria de despesa se assemelha ao item de orçamento.
+            </p>
+            <table>
+              <thead>
+                <tr><th>Grupo</th><th>Categoria de orçamento</th><th>Categoria de despesa</th></tr>
+              </thead>
+              <tbody id="budget-groups-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -676,16 +716,16 @@
               <input type="text" id="layout-col-categoria" placeholder="Ex: A" />
             </div>
             <div class="field">
-              <label>Coluna do Mês (opcional)</label>
-              <input type="text" id="layout-col-mes" placeholder="Ex: B" />
+              <label>Coluna do Mês</label>
+              <input type="text" id="layout-col-mes" placeholder="Ex: B" required />
             </div>
             <div class="field">
               <label>Coluna do Previsto</label>
               <input type="text" id="layout-col-previsto" placeholder="Ex: C" />
             </div>
             <div class="field">
-              <label>Coluna do Realizado (opcional)</label>
-              <input type="text" id="layout-col-realizado" placeholder="Ex: D" />
+              <label>Coluna do Realizado</label>
+              <input type="text" id="layout-col-realizado" placeholder="Ex: D" required />
             </div>
           </div>
 
