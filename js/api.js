@@ -221,6 +221,78 @@ class TenantRepository {
   }
 }
 
+function normalizeGroupText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function areCategoriesSimilar(a, b) {
+  const left = normalizeGroupText(a);
+  const right = normalizeGroupText(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  if (left.includes(right) || right.includes(left)) return true;
+
+  const leftTokens = new Set(left.split(" ").filter(Boolean));
+  const rightTokens = new Set(right.split(" ").filter(Boolean));
+  if (!leftTokens.size || !rightTokens.size) return false;
+
+  let common = 0;
+  leftTokens.forEach((t) => {
+    if (rightTokens.has(t)) common += 1;
+  });
+  const overlap = common / Math.max(leftTokens.size, rightTokens.size);
+  return overlap >= 0.5;
+}
+
+function ensureBudgetGroupsForTenant(db, tenantId) {
+  if (!Array.isArray(db.budgetGroups)) db.budgetGroups = [];
+  const categoriesById = new Map(
+    db.categories.filter((c) => c.tenant_id === tenantId).map((c) => [c.id, c])
+  );
+  const budgetCategoryIds = new Set(
+    db.categoryBudgets.filter((b) => b.tenant_id === tenantId).map((b) => b.category_id).filter(Boolean)
+  );
+  const expenseCategoryIds = new Set(
+    db.expenses
+      .filter((e) => e.tenant_id === tenantId)
+      .map((e) => e.category_id)
+      .filter(Boolean)
+  );
+  const existing = new Set(
+    db.budgetGroups
+      .filter((g) => g.tenant_id === tenantId)
+      .map((g) => `${g.budget_category_id}::${g.expense_category_id}`)
+  );
+
+  budgetCategoryIds.forEach((budgetCategoryId) => {
+    const budgetCategory = categoriesById.get(budgetCategoryId);
+    if (!budgetCategory) return;
+    expenseCategoryIds.forEach((expenseCategoryId) => {
+      const expenseCategory = categoriesById.get(expenseCategoryId);
+      if (!expenseCategory) return;
+      if (!areCategoriesSimilar(budgetCategory.name, expenseCategory.name)) return;
+      const key = `${budgetCategoryId}::${expenseCategoryId}`;
+      if (existing.has(key)) return;
+      db.budgetGroups.push({
+        id: nextId(db, "budgetGroups"),
+        tenant_id: tenantId,
+        name: `${budgetCategory.name} ↔ ${expenseCategory.name}`,
+        budget_category_id: budgetCategoryId,
+        expense_category_id: expenseCategoryId,
+        auto_created: true,
+        created_at: nowIso(),
+      });
+      existing.add(key);
+    });
+  });
+}
+
 // ---------- AuthService: signup/login/me ----------
 
 class AuthService {
@@ -543,6 +615,7 @@ class ExpenseService {
       extra_charge: extraCharge,
     };
     db.expenses.push(expense);
+    ensureBudgetGroupsForTenant(db, session.tenant_id);
     await saveDb(db);
     return { id: expense.id, is_extra: isExtra, extra_charge: extraCharge, plan: tenant.plan };
   }
@@ -569,6 +642,7 @@ class ExpenseService {
     expense.category_id = category_id || null;
     if (transaction_number !== undefined) expense.transaction_number = transaction_number || null;
 
+    ensureBudgetGroupsForTenant(db, session.tenant_id);
     await saveDb(db);
     return { ok: true };
   }
@@ -580,6 +654,8 @@ class BudgetService {
   async setBudget({ limit_value, month }) {
     const session = Auth.requireSession();
     const db = await loadDb();
+    if (!month) throw new Error("Mês é obrigatório.");
+    if (!isFinite(limit_value)) throw new Error("Limite é obrigatório.");
     let budget = db.budgets.find(
       (b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id && b.month === month
     );
@@ -595,6 +671,27 @@ class BudgetService {
       });
     }
     await saveDb(db);
+    return { ok: true };
+  }
+
+  async listBudgets() {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    return db.budgets
+      .filter((b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id)
+      .slice()
+      .sort((a, b) => (a.month < b.month ? 1 : -1));
+  }
+
+  async deleteBudget(id) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const before = db.budgets.length;
+    db.budgets = db.budgets.filter(
+      (b) => !(b.id === id && b.tenant_id === session.tenant_id && b.user_id === session.user_id)
+    );
+    await saveDb(db);
+    if (db.budgets.length === before) throw new Error("Orçamento não encontrado");
     return { ok: true };
   }
 
@@ -641,11 +738,15 @@ class CategoryBudgetService {
       .map((b) => {
         const category = db.categories.find((c) => c.id === b.category_id);
         return { id: b.id, category_id: b.category_id, category_name: category ? category.name : null, month: b.month, previsto: b.previsto };
-      });
+      })
+      .sort((a, b) => (a.month === b.month ? a.category_name.localeCompare(b.category_name) : (a.month < b.month ? -1 : 1)));
   }
 
   async setCategoryBudget({ category_id, month, previsto }) {
     const session = Auth.requireSession();
+    if (!category_id) throw new Error("Categoria é obrigatória.");
+    if (!month) throw new Error("Mês é obrigatório.");
+    if (!isFinite(previsto)) throw new Error("Previsto é obrigatório.");
     const db = await loadDb();
     let record = db.categoryBudgets.find(
       (b) => b.tenant_id === session.tenant_id && b.category_id === category_id && b.month === month
@@ -656,8 +757,23 @@ class CategoryBudgetService {
       record = { id: nextId(db, "categoryBudgets"), tenant_id: session.tenant_id, category_id, month, previsto };
       db.categoryBudgets.push(record);
     }
+    ensureBudgetGroupsForTenant(db, session.tenant_id);
     await saveDb(db);
     return record;
+  }
+
+  async deleteCategoryBudget(id) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const toDelete = db.categoryBudgets.find((b) => b.id === id && b.tenant_id === session.tenant_id);
+    if (!toDelete) throw new Error("Orçamento por categoria não encontrado.");
+    db.categoryBudgets = db.categoryBudgets.filter((b) => b.id !== id);
+    db.budgetGroups = (db.budgetGroups || []).filter(
+      (g) => !(g.tenant_id === session.tenant_id && g.budget_category_id === toDelete.category_id)
+    );
+    ensureBudgetGroupsForTenant(db, session.tenant_id);
+    await saveDb(db);
+    return { ok: true };
   }
 
   // Fecha o fluxo Importar Orçamento -> Previsto por categoria: recebe as
@@ -712,6 +828,7 @@ class CategoryBudgetService {
       applied.push({ category_id: category.id, category_name: category.name, previsto });
     });
 
+    ensureBudgetGroupsForTenant(db, session.tenant_id);
     await saveDb(db);
     return { month, created_categories: createdCategories, categories_count: applied.length, rows: applied };
   }
@@ -775,6 +892,34 @@ class CategoryBudgetService {
       overBudget: alerts.length > 0,
       hasAnyBudget: budgets.length > 0,
     };
+  }
+}
+
+// ---------- BudgetGroupService: relacionamento automático entre itens ----------
+
+class BudgetGroupService {
+  async listBudgetGroups() {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    ensureBudgetGroupsForTenant(db, session.tenant_id);
+    await saveDb(db);
+    return (db.budgetGroups || [])
+      .filter((g) => g.tenant_id === session.tenant_id)
+      .map((g) => {
+        const budgetCategory = db.categories.find((c) => c.id === g.budget_category_id);
+        const expenseCategory = db.categories.find((c) => c.id === g.expense_category_id);
+        return {
+          id: g.id,
+          name: g.name,
+          budget_category_id: g.budget_category_id,
+          budget_category_name: budgetCategory ? budgetCategory.name : null,
+          expense_category_id: g.expense_category_id,
+          expense_category_name: expenseCategory ? expenseCategory.name : null,
+          auto_created: !!g.auto_created,
+          created_at: g.created_at || null,
+        };
+      })
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   }
 }
 
@@ -842,6 +987,16 @@ class BudgetLayoutService {
     if (!name) throw new Error("Dê um nome para o layout.");
     if (layout.format !== "longo" && layout.format !== "largo") {
       throw new Error("Formato de layout inválido.");
+    }
+    if (layout.format === "longo") {
+      if (!layout.headerRow || !layout.colCategoria || !layout.colMes || !layout.colPrevisto || !layout.colRealizado) {
+        throw new Error("No formato longo, todos os campos são obrigatórios.");
+      }
+    }
+    if (layout.format === "largo") {
+      if (!layout.colCategoriaLarga || !layout.monthRow || !layout.subHeaderRow) {
+        throw new Error("No formato largo, todos os campos são obrigatórios.");
+      }
     }
 
     const fields = {
@@ -1038,6 +1193,7 @@ class ProfileService {
     const expenses = db.expenses.filter((e) => e.tenant_id === session.tenant_id && e.user_id === session.user_id);
     const budgets = db.budgets.filter((b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id);
     const categoryBudgets = db.categoryBudgets.filter((b) => b.tenant_id === session.tenant_id);
+    const budgetGroups = (db.budgetGroups || []).filter((g) => g.tenant_id === session.tenant_id);
     const payments = db.payments.filter((p) => p.tenant_id === session.tenant_id && p.user_id === session.user_id);
 
     return {
@@ -1050,6 +1206,7 @@ class ProfileService {
       despesas: expenses,
       orcamentos_mensais: budgets,
       orcamentos_por_categoria: categoryBudgets,
+      grupos_orcamento: budgetGroups,
       pagamentos: payments,
       controlador_dos_dados: COMPANY_PROFILE,
     };
@@ -1077,6 +1234,7 @@ class ProfileService {
       db.payments = db.payments.filter((p) => p.tenant_id !== session.tenant_id);
       db.budgetLayouts = db.budgetLayouts.filter((l) => l.tenant_id !== session.tenant_id);
       db.categoryBudgets = db.categoryBudgets.filter((b) => b.tenant_id !== session.tenant_id);
+      db.budgetGroups = (db.budgetGroups || []).filter((g) => g.tenant_id !== session.tenant_id);
     } else {
       db.users = db.users.filter((u) => u.id !== session.user_id);
     }
@@ -1099,6 +1257,7 @@ class ApiFacade {
     this.expenseService = new ExpenseService();
     this.budgetService = new BudgetService();
     this.categoryBudgetService = new CategoryBudgetService();
+    this.budgetGroupService = new BudgetGroupService();
     this.reportService = new ReportService();
     this.budgetLayoutService = new BudgetLayoutService();
     this.paymentService = new PaymentService();
@@ -1161,6 +1320,12 @@ class ApiFacade {
   setBudget(payload) {
     return this.budgetService.setBudget(payload);
   }
+  listBudgets() {
+    return this.budgetService.listBudgets();
+  }
+  deleteBudget(id) {
+    return this.budgetService.deleteBudget(id);
+  }
   getAlerts(month) {
     return this.budgetService.getAlerts(month);
   }
@@ -1172,11 +1337,17 @@ class ApiFacade {
   setCategoryBudget(payload) {
     return this.categoryBudgetService.setCategoryBudget(payload);
   }
+  deleteCategoryBudget(id) {
+    return this.categoryBudgetService.deleteCategoryBudget(id);
+  }
   importCategoryBudgets(payload) {
     return this.categoryBudgetService.importCategoryBudgets(payload);
   }
   getBudgetOverview(month) {
     return this.categoryBudgetService.getBudgetOverview(month);
+  }
+  listBudgetGroups() {
+    return this.budgetGroupService.listBudgetGroups();
   }
 
   // ---------- Reports ----------

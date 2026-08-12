@@ -37,7 +37,7 @@ const DB_SEED_JSON_URL = "db.json"; // banco "de fábrica", só para o 1º carre
 
 const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros"];
 const DB_COLLECTIONS = [
-  "tenants", "users", "categories", "expenses", "budgets", "payments", "budgetLayouts", "categoryBudgets",
+  "tenants", "users", "categories", "expenses", "budgets", "payments", "budgetLayouts", "categoryBudgets", "budgetGroups",
 ];
 
 // Campos que guardam um id (próprio ou de outra coleção/"FK"), por
@@ -51,6 +51,7 @@ const ID_FIELDS_BY_COLLECTION = {
   payments: ["id", "tenant_id", "user_id"],
   budgetLayouts: ["id", "tenant_id"],
   categoryBudgets: ["id", "tenant_id", "category_id"],
+  budgetGroups: ["id", "tenant_id", "budget_category_id", "expense_category_id"],
 };
 
 // ---------- Schema: forma dos dados (schema vazio + normalização) ----------
@@ -76,6 +77,7 @@ class Schema {
       // da conta, não de uma pessoa só. O Realizado NÃO é guardado aqui: é
       // calculado na hora a partir de "expenses" (ver Api.getBudgetOverview).
       categoryBudgets: [], // { id, tenant_id, category_id, month, previsto }
+      budgetGroups: [], // { id, tenant_id, name, budget_category_id, expense_category_id, created_at, auto_created }
       // Resumo (contagens + horário) da última execução de cada agente
       // Mercado Pago (orcamento_agent/mp_reconcile.py, mp_expenses.py),
       // gravado por eles mesmos via StatusTracker (Python) direto no
@@ -87,7 +89,7 @@ class Schema {
       // execução de algum dos agentes.
       mercado_pago_status: null,
       _seq: {
-        tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, budgetLayouts: 0, categoryBudgets: 0,
+        tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, budgetLayouts: 0, categoryBudgets: 0, budgetGroups: 0,
       },
     };
   }

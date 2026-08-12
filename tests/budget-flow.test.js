@@ -20,6 +20,8 @@
 //   4) categoria com Previsto e Realizado além dele fica ESTOURADO;
 //   5) reimportar o mesmo orçamento (mesmo mês) atualiza o Previsto em vez
 //      de duplicar a categoria ou o registro de orçamento.
+//   6) orçamento por categoria pode ser alterado/excluído e grupos automáticos
+//      são criados quando categorias de despesa se assemelham ao orçamento.
 //
 // Como rodar:
 //   node tests/budget-flow.test.js
@@ -193,6 +195,28 @@ function check(name, cond) {
   check("Previsto de Transporte foi atualizado para 500", reimportResult.transporteBudgets[0].previsto === 500);
   const transporteRow2 = reimportResult.overview.rows.find((r) => r.category_name === "Transporte");
   check("depois de reimportar com Previsto maior, Transporte volta a ficar DENTRO_DO_ORCAMENTO (250 <= 500)", transporteRow2.status === "DENTRO_DO_ORCAMENTO");
+
+  // ---------- 6) alteração/deleção de orçamento por categoria + grupos ----------
+  const manageBudgets = await run(
+    dev,
+    `
+    const before = await Api.listCategoryBudgets("2026-08");
+    const transporte = before.find((b) => b.category_name === "Transporte");
+    await Api.setCategoryBudget({ category_id: transporte.category_id, month: "2026-08", previsto: 333 });
+    const afterSet = await Api.listCategoryBudgets("2026-08");
+    const groups = await Api.listBudgetGroups();
+    const transporteUpdated = afterSet.find((b) => b.category_name === "Transporte");
+    await Api.deleteCategoryBudget(transporteUpdated.id);
+    const afterDelete = await Api.listCategoryBudgets("2026-08");
+    return { transporteUpdated, afterDelete, groups };
+  `
+  );
+  check("setCategoryBudget permite alterar orçamento por categoria existente", manageBudgets.transporteUpdated.previsto === 333);
+  check("listBudgetGroups cria grupos automáticos para categorias semelhantes", manageBudgets.groups.length > 0);
+  check(
+    "deleteCategoryBudget remove orçamento por categoria",
+    !manageBudgets.afterDelete.some((b) => b.category_name === "Transporte")
+  );
 
   // ---------- mês sem nenhum orçamento importado ----------
   const overviewMesVazio = await run(dev, `const overview = await Api.getBudgetOverview("2099-01"); return { overview };`);
