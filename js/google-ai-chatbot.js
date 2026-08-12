@@ -1,12 +1,87 @@
 /* =============================================================
    js/google-ai-chatbot.js
-   AgenteIA de despesas sem token, com contexto opcional via API pública do GitHub.
+   SpaceHub - Chatbot de Financiamento (sem token), com contexto
+   opcional via API pública do GitHub e API interna de metodologias
+   da linguagem portuguesa.
    ============================================================= */
 
 (function (global) {
   "use strict";
 
   const GITHUB_API = "https://api.github.com";
+
+  class PortugueseLanguageMethodologyApi {
+    constructor() {
+      this.catalog = {
+        verbos: ["Planeje", "Organize", "Priorize", "Monitore", "Ajuste", "Revise"],
+        adjetivos: ["consciente", "estratégico", "equilibrado", "sustentável", "eficiente", "disciplinado"],
+        proverbios: [
+          "De grão em grão, a reserva cresce.",
+          "Quem poupa hoje investe melhor amanhã.",
+          "Devagar se vai ao equilíbrio financeiro.",
+          "Mais vale um gasto planejado do que dois impulsivos.",
+        ],
+        oracoes_subordinadas: [
+          "para que o fluxo de caixa permaneça saudável",
+          "embora existam variações no orçamento mensal",
+          "quando surgir uma despesa inesperada",
+          "a fim de que suas metas financeiras sejam cumpridas",
+        ],
+      };
+    }
+
+    list(opts) {
+      const requested = Array.isArray(opts && opts.tipos)
+        ? opts.tipos
+        : typeof (opts && opts.tipo) === "string"
+          ? [opts.tipo]
+          : [];
+      const map = {
+        verbos: "verbos",
+        verbo: "verbos",
+        adjetivos: "adjetivos",
+        adjetivo: "adjetivos",
+        proverbios: "proverbios",
+        provérbios: "proverbios",
+        provérbio: "proverbios",
+        proverbio: "proverbios",
+        oracoes_subordinadas: "oracoes_subordinadas",
+        orações_subordinadas: "oracoes_subordinadas",
+        "orações subordinadas": "oracoes_subordinadas",
+        "oracoes subordinadas": "oracoes_subordinadas",
+        oracao_subordinada: "oracoes_subordinadas",
+        oração_subordinada: "oracoes_subordinadas",
+      };
+
+      const keys = requested.length
+        ? requested
+            .map((item) => map[String(item || "").trim().toLowerCase()])
+            .filter(Boolean)
+        : Object.keys(this.catalog);
+
+      const uniqueKeys = Array.from(new Set(keys));
+      const output = {};
+      uniqueKeys.forEach((key) => {
+        output[key] = this.catalog[key].slice();
+      });
+      return output;
+    }
+
+    pick(key, seed) {
+      const list = this.catalog[key] || [];
+      if (!list.length) return "";
+      return list[Math.abs(seed) % list.length];
+    }
+
+    getTokens(seed) {
+      return {
+        verbo: this.pick("verbos", seed),
+        adjetivo: this.pick("adjetivos", seed + 1),
+        proverbio: this.pick("proverbios", seed + 2),
+        oracao_subordinada: this.pick("oracoes_subordinadas", seed + 3),
+      };
+    }
+  }
 
   function clamp(n, min, max) {
     return Math.max(min, Math.min(max, n));
@@ -87,7 +162,23 @@
     return d.toISOString().slice(0, 10);
   }
 
-  function buildExpenses(message, githubSummary) {
+  function resolveMethodologyRequestTypes(message) {
+    const text = String(message || "").toLowerCase();
+    if (!text.includes("api")) return null;
+
+    const types = [];
+    if (/verbos?/.test(text)) types.push("verbos");
+    if (/adjetivos?/.test(text)) types.push("adjetivos");
+    if (/(prov[eé]rbios?|proverbios?)/.test(text)) types.push("proverbios");
+    if (/(ora[cç][aã]o(?:es)?\s+subordinadas?|ora[cç][oõ]es\s+subordinadas?)/.test(text)) {
+      types.push("oracoes_subordinadas");
+    }
+    if (types.length) return Array.from(new Set(types));
+    if (/linguagem portuguesa|metodologias?/.test(text)) return [];
+    return null;
+  }
+
+  function buildExpenses(message, githubSummary, languageApi) {
     const count = inferCount(message);
     const base = inferBaseAmount(message);
     const range = inferAmountRange(message);
@@ -96,12 +187,15 @@
     const expenses = [];
 
     for (let i = 0; i < count; i++) {
+      const languageTokens = languageApi.getTokens(i + count + category.length);
+      const generatedDescription = `${languageTokens.verbo} gastos de ${category.toLowerCase()} de forma ${languageTokens.adjetivo}, ${languageTokens.oracao_subordinada}.`;
       expenses.push({
         amount: amountForIndex(base, range, i, count),
         date: nextDate(i),
-        description: requestedDescription || `Despesa ${category.toLowerCase()} #${i + 1}`,
+        description: requestedDescription || generatedDescription,
         category,
         transaction_number: githubSummary ? `GH-${githubSummary.publicEvents}-${i + 1}` : `AG-${Date.now()}-${i + 1}`,
+        language_metadata: languageTokens,
       });
     }
 
@@ -142,6 +236,7 @@
   class GitHubExpenseAgentClient {
     constructor() {
       this.history = [];
+      this.languageApi = new PortugueseLanguageMethodologyApi();
     }
 
     clear() {
@@ -153,6 +248,15 @@
       const githubUser = String((opts && opts.githubUser) || "").trim();
       if (!message) throw new Error("Digite uma mensagem para conversar com o agente.");
 
+      const methodologyTypes = resolveMethodologyRequestTypes(message);
+      if (methodologyTypes !== null) {
+        const payload = this.languageApi.list({ tipos: methodologyTypes });
+        const text = `SpaceHub API de metodologias da linguagem portuguesa:\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+        this.history.push({ role: "user", content: message });
+        this.history.push({ role: "assistant", content: text });
+        return { text };
+      }
+
       let githubSummary = null;
       let githubLine = "";
       if (githubUser) {
@@ -160,7 +264,7 @@
         githubLine = `Contexto GitHub: @${githubSummary.login} · ${githubSummary.repos} repositórios públicos · ${githubSummary.followers} seguidores · ${githubSummary.publicEvents} eventos recentes.\n\n`;
       }
 
-      const expenses = buildExpenses(message, githubSummary);
+      const expenses = buildExpenses(message, githubSummary, this.languageApi);
       const intro = "Sugeri despesas com base no seu pedido para importar direto na tela de despesas.";
       const text = `${githubLine}${intro}\n\n\`\`\`json\n${JSON.stringify(expenses, null, 2)}\n\`\`\``;
 
@@ -172,5 +276,6 @@
   }
 
   global.GitHubExpenseAgent = new GitHubExpenseAgentClient();
+  global.SpaceHubLanguageApi = global.GitHubExpenseAgent.languageApi;
   global.GoogleAIChatbot = global.GitHubExpenseAgent;
 })(window);
