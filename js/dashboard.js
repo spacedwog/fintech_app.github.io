@@ -617,31 +617,6 @@ class DashboardController {
     const nextBtn = document.getElementById("flow-next-btn");
     if (prevBtn) prevBtn.addEventListener("click", () => this._goToFlowPage(this.currentFlowPage - 1));
     if (nextBtn) nextBtn.addEventListener("click", () => this._goToFlowPage(this.currentFlowPage + 1));
-
-    this._bindExpenseReceiptUpload();
-  }
-
-  // Upload de comprovante de pagamento, visível no topo das 3 páginas do
-  // fluxo Orçamento & Despesas (entre o indicador de página e os cards).
-  // Reaproveita a IA de OCR local (js/receipt-ai.js) só para extrair o
-  // valor do comprovante — sem expectedAmount/expectedType, não há
-  // validação de recebedor (isto não é um comprovante de pagamento ao
-  // SPACECWORP, e sim um comprovante qualquer do gasto do usuário) — e usa
-  // o valor lido para pré-preencher o formulário de "Registrar Despesas".
-  _bindExpenseReceiptUpload() {
-    const input = document.getElementById("expense-receipt-input");
-    if (input) {
-      input.addEventListener("change", () => {
-        this._handleExpenseReceiptUpload(input.files && input.files[0]);
-      });
-    }
-
-    const manualBtn = document.getElementById("expense-receipt-manual-btn");
-    if (manualBtn) {
-      manualBtn.addEventListener("click", () => {
-        this._promptManualTxnForExpense(null, document.getElementById("expense-receipt-status"));
-      });
-    }
   }
 
   _setupGoogleAIChatbot() {
@@ -778,23 +753,18 @@ class DashboardController {
   async _sendGoogleAIChatMessage() {
     if (this.googleChatLoading) return;
 
-    const apiKeyInput = document.getElementById("google-ai-api-key");
-    const modelInput = document.getElementById("google-ai-model");
+    const githubUserInput = document.getElementById("github-agent-username");
     const msgInput = document.getElementById("google-ai-chat-input");
     const sendBtn = document.getElementById("google-ai-chat-send");
 
-    if (!apiKeyInput || !modelInput || !msgInput || !sendBtn) return;
+    if (!msgInput || !sendBtn) return;
     if (!window.GoogleAIChatbot) {
-      this._setGoogleAIChatStatus("Cliente ChatGPT indisponível neste navegador.", true);
+      this._setGoogleAIChatStatus("AgenteIA indisponível neste navegador.", true);
       return;
     }
 
     const message = String(msgInput.value || "").trim();
-    const apiKey = String(apiKeyInput.value || "").trim();
-    if (!apiKey) {
-      this._setGoogleAIChatStatus("Informe seu token da OpenAI.", true);
-      return;
-    }
+    const githubUser = String((githubUserInput && githubUserInput.value) || "").trim();
     if (!message) {
       this._setGoogleAIChatStatus("Digite uma mensagem.", true);
       return;
@@ -804,13 +774,12 @@ class DashboardController {
     msgInput.value = "";
     this.googleChatLoading = true;
     sendBtn.disabled = true;
-    this._setGoogleAIChatStatus("Consultando ChatGPT...", false);
+    this._setGoogleAIChatStatus("Consultando agenteIA GitHub...", false);
 
     try {
       const result = await window.GoogleAIChatbot.sendMessage({
-        token: apiKey,
-        model: modelInput.value,
         message,
+        githubUser,
       });
       this._appendGoogleAIChatMessage("bot", result.text);
       const imported = await this._importExpensesFromChatbotText(result.text);
@@ -821,68 +790,12 @@ class DashboardController {
         this._setGoogleAIChatStatus("Resposta recebida.", false);
       }
     } catch (err) {
-      this._appendGoogleAIChatMessage("bot", "Não consegui responder agora. Verifique a chave/modelo e tente novamente.");
-      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar ChatGPT.", true);
+      this._appendGoogleAIChatMessage("bot", "Não consegui responder agora. Tente novamente em instantes.");
+      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar o agenteIA GitHub.", true);
     } finally {
       this.googleChatLoading = false;
       sendBtn.disabled = false;
     }
-  }
-
-  _handleExpenseReceiptUpload(file) {
-    const status = document.getElementById("expense-receipt-status");
-    if (!status) return;
-
-    if (!file) {
-      status.textContent = "";
-      return;
-    }
-
-    status.textContent = "Lendo comprovante com IA (OCR local no navegador)...";
-    status.style.color = "";
-
-    if (!window.ReceiptAI) {
-      const reason = "IA de leitura indisponível neste navegador.";
-      status.textContent = `${reason} Informe o número da transação para completar manualmente.`;
-      status.style.color = "#b45309";
-      this._promptManualTxnForExpense(reason, status);
-      return;
-    }
-
-    ReceiptAI.analyze(file, {})
-      .then((result) => {
-        if (result.detectedAmount != null) {
-          const amountInput = document.getElementById("expense-amount");
-          if (amountInput) amountInput.value = result.detectedAmount.toFixed(2);
-          status.textContent = `✅ Valor identificado: R$ ${result.detectedAmount.toFixed(2)} — confira e complete a despesa na Página 2.`;
-          status.style.color = "var(--success)";
-        } else {
-          status.textContent = "Não foi possível identificar o valor no comprovante. Preencha a despesa manualmente.";
-          status.style.color = "#b45309";
-        }
-      })
-      .catch((err) => {
-        const reason = (err && err.message) || "Não foi possível ler o comprovante automaticamente.";
-        status.textContent = `${reason} Informe o número da transação para completar manualmente.`;
-        status.style.color = "#b45309";
-        this._promptManualTxnForExpense(reason, status);
-      });
-  }
-
-  // Abre o ManualTransactionModal quando a leitura do comprovante de
-  // despesa não é possível.
-  _promptManualTxnForExpense(reason, status) {
-    if (!this.manualTxnModal) return;
-    this.manualTxnModal.open({
-      reason,
-      onConfirm: (txnNumber) => {
-        this.pendingExpenseTxnNumber = String(txnNumber || "").trim() || null;
-        if (status) {
-          status.textContent = `📝 Nº da transação informado: ${txnNumber}. Confira o valor e a categoria da despesa.`;
-          status.style.color = "#b45309";
-        }
-      },
-    });
   }
 
   _goToFlowPage(page) {
@@ -1106,7 +1019,7 @@ class DashboardController {
           date,
           description,
           category_id,
-          transaction_number: this.pendingExpenseTxnNumber || null,
+          transaction_number: null,
         });
         successBox.textContent = result.is_extra
           ? `Pagamento confirmado! Despesa extra registrada (R$ ${result.extra_charge.toFixed(2)}).`
@@ -1114,7 +1027,6 @@ class DashboardController {
         successBox.classList.remove("hidden");
         document.getElementById("expense-form").reset();
         document.getElementById("expense-date").value = new Date().toISOString().slice(0, 10);
-        this.pendingExpenseTxnNumber = null;
         if (result.is_extra) {
           await this._recordPayment({
             type: "despesa_extra",
