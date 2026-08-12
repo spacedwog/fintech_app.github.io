@@ -260,8 +260,13 @@
       let githubSummary = null;
       let githubLine = "";
       if (githubUser) {
-        githubSummary = await loadGithubSummary(githubUser);
-        githubLine = `Contexto GitHub: @${githubSummary.login} · ${githubSummary.repos} repositórios públicos · ${githubSummary.followers} seguidores · ${githubSummary.publicEvents} eventos recentes.\n\n`;
+        try {
+          githubSummary = await loadGithubSummary(githubUser);
+          githubLine = `Contexto GitHub: @${githubSummary.login} · ${githubSummary.repos} repositórios públicos · ${githubSummary.followers} seguidores · ${githubSummary.publicEvents} eventos recentes.\n\n`;
+        } catch (_err) {
+          githubSummary = null;
+          githubLine = "Não consegui carregar o contexto do GitHub agora, então gerei as despesas sem esse complemento.\n\n";
+        }
       }
 
       const expenses = buildExpenses(message, githubSummary, this.languageApi);

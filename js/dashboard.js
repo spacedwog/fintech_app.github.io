@@ -760,7 +760,6 @@ class DashboardController {
     const sendBtn = document.getElementById("google-ai-chat-send");
 
     if (!msgInput || !sendBtn) return;
-    if (githubUserInput && !githubUserInput.reportValidity()) return;
     if (!window.GoogleAIChatbot) {
       this._setGoogleAIChatStatus("SpaceHub indisponível neste navegador.", true);
       return;
@@ -772,11 +771,6 @@ class DashboardController {
       this._setGoogleAIChatStatus("Digite uma mensagem.", true);
       return;
     }
-    if (!githubUser) {
-      this._setGoogleAIChatStatus("Informe o usuário GitHub.", true);
-      return;
-    }
-
     this._appendGoogleAIChatMessage("user", message);
     msgInput.value = "";
     this.googleChatLoading = true;
