@@ -62,15 +62,14 @@ Código: `js/dashboard.js` (`loadBudgetView`, `handleBudgetFileUpload`, `showBud
 
 Registra despesas com valor, data, categoria e descrição — igual a antes, com um adicional: ao escolher a categoria, um aviso mostra o Previsto x Realizado **daquela categoria no mês atual**, puxado do que foi importado na Página 1 (`Api.getBudgetOverview`), inclusive avisando quando a categoria ainda não tem orçamento definido.
 
-- O bloco "Transferências do cartão Mercado Pago" foi removido desta página e substituído por um **chatbot de IA ChatGPT** para apoio em orçamento e despesas, usando token da OpenAI informado pelo próprio usuário.
-- Para obter o token: OpenAI Platform → API keys → Create new secret key. Para CI/GitHub Actions, salve o token em **Settings → Secrets and variables → Actions → New repository secret**.
+- A página usa o **AgenteIA GitHub (chatbot sem token)** para gerar despesas e importar direto em "Minhas despesas". O campo "Usuário GitHub" é opcional e só adiciona contexto usando APIs públicas do GitHub.
 - O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — a 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
 - Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).
 - Despesas com o selo **Mercado Pago (API)** na tabela não foram digitadas por ninguém — foram geradas automaticamente a partir de um pagamento real no Mercado Pago via API (`orcamento_agent/mp_expenses.py`, com Access Token, fora do navegador) — e não contam para o limite diário do plano Free (é importação de histórico, não uma ação em tempo real do usuário). Ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
 - Além do selo por linha, a **sidebar do painel** (todas as telas, não só esta) mostra um badge **Mercado Pago** único e sempre visível, logo abaixo do indicador de sincronização: resume quantas despesas foram geradas e quantos pagamentos foram confirmados via Mercado Pago, com a data da atualização mais recente (tudo por conta/tenant). Cinza/apagado quando nenhum dado do Mercado Pago chegou ainda; colorido quando há pelo menos uma despesa gerada ou um pagamento confirmado. Ver `MercadoPagoStatusIndicator`/`Api.getMercadoPagoStatus()` abaixo.
 
-Código: `js/dashboard.js` (`loadExpensesView`, `refreshExpenseCategoryBudgetInfo`, `refreshQuotaInfo`, `refreshExpenseTable`, `_setupGoogleAIChatbot`, `MercadoPagoStatusIndicator`), `js/google-ai-chatbot.js`, lógica de negócio em `js/api.js` (`addExpense`, `getMercadoPagoStatus`).
+Código: `js/dashboard.js` (`_loadExpensesView`, `_refreshExpenseCategoryBudgetInfo`, `_refreshQuotaInfo`, `_refreshExpenseTable`, `_setupGoogleAIChatbot`, `MercadoPagoStatusIndicator`), `js/google-ai-chatbot.js`, lógica de negócio em `js/api.js` (`addExpense`, `getMercadoPagoStatus`).
 </details>
 
 <details>
@@ -273,14 +272,12 @@ python3 mp_list_activities.py --config mp_expenses_config.json
 python3 mp_list_activities.py --export atividades.csv   # também salva um CSV (ou .json, pela extensão)
 ```
 
-Reaproveita o mesmo Access Token já configurado em `config.json`, `mp_reconcile_config.json` ou `mp_expenses_config.json` (o modal "Conectar Mercado Pago" do painel, ver abaixo, gera esses arquivos a partir do token digitado ali). Depois de qualquer alteração no script: `python3 test_mp_list_activities.py`.
+Reaproveita o mesmo Access Token já configurado em `config.json`, `mp_reconcile_config.json` ou `mp_expenses_config.json`. Depois de qualquer alteração no script: `python3 test_mp_list_activities.py`.
 </details>
 
-### Automatizando de verdade: GitHub Actions + modal "Conectar Mercado Pago"
+### Automatizando de verdade: GitHub Actions
 
 Os agentes de sincronização (`mp_reconcile.py`, `mp_expenses.py` e opcionalmente `mp_open_finance_sync.py`) podem rodar **sozinhos, sem depender do seu computador ligado**, via `.github/workflows/mercado-pago-sync.yml` — um workflow do GitHub Actions agendado (diário, ajustável) que roda num runner temporário do GitHub, lendo os segredos (Access Token, e-mail da conta, chave do Firebase e, para Open Finance, credenciais OAuth) de **Secrets** do repositório (Settings → Secrets and variables → Actions) — nunca do código, nunca do navegador. Pode também ser disparado manualmente em Actions → "Mercado Pago — sincronização automática" → Run workflow. Os nomes dos Secrets esperados estão documentados nos comentários do próprio arquivo do workflow.
-
-No painel web, o botão **🔗 Conectar Mercado Pago** (Página 2 → Registrar Despesas) abre um modal que: (1) mostra o status real da última execução de cada agente — horário e contagens, gravados por eles mesmos (`mercado_pago_status`, via `Api.getMercadoPagoStatus()`); e (2) ajuda a gerar `mp_expenses_config.json`/`mp_reconcile_config.json` prontos para download a partir do Access Token e e-mail digitados ali. Por segurança — e porque a API do Mercado Pago não libera CORS para chamadas com Access Token vindas do navegador de qualquer forma — **o modal nunca chama a API do Mercado Pago nem salva o token em lugar nenhum** (nem localStorage): o token só existe na memória do formulário até o download ser gerado, e é limpo da tela logo em seguida.
 
 <details>
 <summary>⚠️ Segurança — leia antes de usar</summary>
