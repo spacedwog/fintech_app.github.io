@@ -62,7 +62,8 @@ Código: `js/dashboard.js` (`loadBudgetView`, `handleBudgetFileUpload`, `showBud
 
 Registra despesas com valor, data, categoria e descrição — igual a antes, com um adicional: ao escolher a categoria, um aviso mostra o Previsto x Realizado **daquela categoria no mês atual**, puxado do que foi importado na Página 1 (`Api.getBudgetOverview`), inclusive avisando quando a categoria ainda não tem orçamento definido.
 
-- O bloco "Transferências do cartão Mercado Pago" foi removido desta página e substituído por um **chatbot de IA Google (Gemini)** para apoio em orçamento e despesas, usando Google AI API Key informada pelo próprio usuário.
+- O bloco "Transferências do cartão Mercado Pago" foi removido desta página e substituído por um **chatbot de IA ChatGPT** para apoio em orçamento e despesas, usando token da OpenAI informado pelo próprio usuário.
+- Para obter o token: OpenAI Platform → API keys → Create new secret key. Para CI/GitHub Actions, salve o token em **Settings → Secrets and variables → Actions → New repository secret**.
 - O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — a 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
 - Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).

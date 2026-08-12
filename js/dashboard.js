@@ -780,20 +780,19 @@ class DashboardController {
 
     const apiKeyInput = document.getElementById("google-ai-api-key");
     const modelInput = document.getElementById("google-ai-model");
-    const groundingInput = document.getElementById("google-ai-grounding");
     const msgInput = document.getElementById("google-ai-chat-input");
     const sendBtn = document.getElementById("google-ai-chat-send");
 
-    if (!apiKeyInput || !modelInput || !groundingInput || !msgInput || !sendBtn) return;
+    if (!apiKeyInput || !modelInput || !msgInput || !sendBtn) return;
     if (!window.GoogleAIChatbot) {
-      this._setGoogleAIChatStatus("Cliente Google AI indisponível neste navegador.", true);
+      this._setGoogleAIChatStatus("Cliente ChatGPT indisponível neste navegador.", true);
       return;
     }
 
     const message = String(msgInput.value || "").trim();
     const apiKey = String(apiKeyInput.value || "").trim();
     if (!apiKey) {
-      this._setGoogleAIChatStatus("Informe sua Google AI API Key.", true);
+      this._setGoogleAIChatStatus("Informe seu token da OpenAI.", true);
       return;
     }
     if (!message) {
@@ -805,14 +804,13 @@ class DashboardController {
     msgInput.value = "";
     this.googleChatLoading = true;
     sendBtn.disabled = true;
-    this._setGoogleAIChatStatus("Consultando Google AI...", false);
+    this._setGoogleAIChatStatus("Consultando ChatGPT...", false);
 
     try {
       const result = await window.GoogleAIChatbot.sendMessage({
-        apiKey,
+        token: apiKey,
         model: modelInput.value,
         message,
-        grounding: !!groundingInput.checked,
       });
       this._appendGoogleAIChatMessage("bot", result.text);
       const imported = await this._importExpensesFromChatbotText(result.text);
@@ -824,7 +822,7 @@ class DashboardController {
       }
     } catch (err) {
       this._appendGoogleAIChatMessage("bot", "Não consegui responder agora. Verifique a chave/modelo e tente novamente.");
-      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar Google AI.", true);
+      this._setGoogleAIChatStatus((err && err.message) || "Falha ao consultar ChatGPT.", true);
     } finally {
       this.googleChatLoading = false;
       sendBtn.disabled = false;

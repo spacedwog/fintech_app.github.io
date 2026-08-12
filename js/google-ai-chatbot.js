@@ -1,22 +1,25 @@
 /* =============================================================
    js/google-ai-chatbot.js
-   Cliente simples para conversar com modelos Gemini via API do Google.
+   Cliente simples para conversar com modelos ChatGPT via API da OpenAI.
    ============================================================= */
 
 (function (global) {
   "use strict";
 
-  const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
+  const API_URL = "https://api.openai.com/v1/chat/completions";
 
-  function getTextFromCandidate(candidate) {
-    if (!candidate || !candidate.content || !Array.isArray(candidate.content.parts)) return "";
-    return candidate.content.parts
-      .map((part) => (typeof part.text === "string" ? part.text : ""))
+  function getTextFromChoice(choice) {
+    if (!choice || !choice.message) return "";
+    const content = choice.message.content;
+    if (typeof content === "string") return content.trim();
+    if (!Array.isArray(content)) return "";
+    return content
+      .map((part) => (part && typeof part.text === "string" ? part.text : ""))
       .join("\n")
       .trim();
   }
 
-  class GoogleAIChatbotClient {
+  class ChatGPTChatbotClient {
     constructor() {
       this.history = [];
     }
@@ -26,35 +29,32 @@
     }
 
     async sendMessage(opts) {
-      const apiKey = String((opts && opts.apiKey) || "").trim();
-      const model = String((opts && opts.model) || "gemini-2.5-flash").trim();
+      const token = String((opts && opts.token) || "").trim();
+      const model = String((opts && opts.model) || "gpt-4.1-mini").trim();
       const message = String((opts && opts.message) || "").trim();
-      const grounding = !!(opts && opts.grounding);
 
-      if (!apiKey) throw new Error("Informe sua Google AI API Key.");
+      if (!token) throw new Error("Informe seu token da OpenAI (ChatGPT).");
       if (!message) throw new Error("Digite uma mensagem para conversar com o agente.");
 
       const body = {
-        systemInstruction: {
-          parts: [
-            {
-              text:
-                "Você é um assistente financeiro para usuários brasileiros focado em gerar despesas para o app. Seja objetivo, claro, seguro e prático. Não invente dados. Quando o usuário pedir para criar/lançar despesas, sempre inclua no fim da resposta um bloco ```json``` contendo um array de objetos de despesas com os campos: amount (número), date (YYYY-MM-DD), description (texto), category (texto), transaction_number (texto, opcional).",
-            },
-          ],
-        },
-        contents: this.history.concat([{ role: "user", parts: [{ text: message }] }]),
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1024,
-        },
+        model,
+        temperature: 0.3,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Você é um assistente financeiro para usuários brasileiros focado em gerar despesas para o app. Seja objetivo, claro, seguro e prático. Não invente dados. Quando o usuário pedir para criar/lançar despesas, sempre inclua no fim da resposta um bloco ```json``` contendo um array de objetos de despesas com os campos: amount (número), date (YYYY-MM-DD), description (texto), category (texto), transaction_number (texto, opcional).",
+          },
+        ].concat(this.history, [{ role: "user", content: message }]),
       };
 
-      if (grounding) body.tools = [{ google_search: {} }];
-
-      const res = await fetch(`${API_BASE}${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      const res = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: ["Bearer", token].join(" "),
+        },
         body: JSON.stringify(body),
       });
 
@@ -64,20 +64,21 @@
       } catch (_err) {}
 
       if (!res.ok) {
-        const msg = data && data.error && data.error.message ? data.error.message : "Falha ao consultar a API do Google AI.";
+        const msg = data && data.error && data.error.message ? data.error.message : "Falha ao consultar a API da OpenAI.";
         throw new Error(msg);
       }
 
-      const candidate = data && data.candidates && data.candidates[0];
-      const responseText = getTextFromCandidate(candidate);
+      const choice = data && data.choices && data.choices[0];
+      const responseText = getTextFromChoice(choice);
       if (!responseText) throw new Error("A IA não retornou texto nesta resposta.");
 
-      this.history.push({ role: "user", parts: [{ text: message }] });
-      this.history.push({ role: "model", parts: [{ text: responseText }] });
+      this.history.push({ role: "user", content: message });
+      this.history.push({ role: "assistant", content: responseText });
 
       return { text: responseText };
     }
   }
 
-  global.GoogleAIChatbot = new GoogleAIChatbotClient();
+  global.ChatGPTChatbot = new ChatGPTChatbotClient();
+  global.GoogleAIChatbot = global.ChatGPTChatbot;
 })(window);
