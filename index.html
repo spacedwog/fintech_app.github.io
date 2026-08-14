@@ -165,9 +165,33 @@
     <div class="lp-section-inner">
       <span class="lp-kicker">Patrocinado</span>
       <h2 class="lp-h2 lp-h2-ad">Ofertas e parceiros relevantes para sua rotina financeira</h2>
+      <div class="lp-ad-consent" role="group" aria-label="Consentimento de anúncios">
+        <p>Usamos Google AdSense para exibir ofertas patrocinadas. Só carregamos anúncios após seu consentimento.</p>
+        <div class="lp-ad-consent-actions">
+          <button type="button" class="lp-btn lp-btn-primary" id="lp-ads-consent-accept">Permitir anúncios</button>
+          <button type="button" class="lp-btn lp-btn-ghost" id="lp-ads-consent-deny">Manter bloqueado</button>
+        </div>
+        <p id="lp-ads-consent-status" class="lp-ad-consent-status"></p>
+      </div>
       <div class="lp-ad-grid">
-        <div class="lp-ad-slot" aria-hidden="true"></div>
-        <div class="lp-ad-slot" aria-hidden="true"></div>
+        <div class="lp-ad-slot-wrap">
+          <ins class="adsbygoogle lp-ad-slot"
+               style="display:block"
+               data-ad-client="ca-pub-3940256099942544"
+               data-ad-slot="6300978111"
+               data-ad-format="auto"
+               data-full-width-responsive="true"></ins>
+          <p class="lp-ad-placeholder">Ative anúncios para carregar este espaço patrocinado.</p>
+        </div>
+        <div class="lp-ad-slot-wrap">
+          <ins class="adsbygoogle lp-ad-slot"
+               style="display:block"
+               data-ad-client="ca-pub-3940256099942544"
+               data-ad-slot="6300978111"
+               data-ad-format="auto"
+               data-full-width-responsive="true"></ins>
+          <p class="lp-ad-placeholder">Ative anúncios para carregar este espaço patrocinado.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -522,6 +546,106 @@
       toggle.addEventListener('click', function () {
         mobile.classList.toggle('open');
       });
+    })();
+
+    // Google AdSense (com consentimento explícito)
+    (function () {
+      var CONSENT_KEY = 'lp_marketing_consent_v1';
+      var adClientMeta = document.querySelector('meta[name="google-adsense-account"]');
+      var adClient = adClientMeta && adClientMeta.content ? adClientMeta.content : '';
+      var section = document.querySelector('.lp-section-ad');
+      var statusEl = document.getElementById('lp-ads-consent-status');
+      var acceptBtn = document.getElementById('lp-ads-consent-accept');
+      var denyBtn = document.getElementById('lp-ads-consent-deny');
+      var slots = document.querySelectorAll('.lp-ad-slot');
+
+      if (!section || !statusEl || !acceptBtn || !denyBtn || !slots.length) return;
+
+      function updateGtagConsent(granted) {
+        if (typeof gtag !== 'function') return;
+        gtag('consent', 'update', {
+          ad_storage: granted ? 'granted' : 'denied',
+          analytics_storage: granted ? 'granted' : 'denied',
+          ad_user_data: granted ? 'granted' : 'denied',
+          ad_personalization: granted ? 'granted' : 'denied',
+        });
+      }
+
+      function setUiState(granted, customText) {
+        section.classList.toggle('lp-ads-enabled', !!granted);
+        statusEl.textContent = customText || (granted
+          ? 'Anúncios liberados. Você pode revogar essa permissão a qualquer momento na sua privacidade do painel.'
+          : 'Anúncios bloqueados até você permitir o consentimento.');
+      }
+
+      function renderAdSlots() {
+        slots.forEach(function (slot) {
+          if (slot.dataset.adsRendered === '1') return;
+          slot.dataset.adsRendered = '1';
+          try {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+          } catch (_err) {
+            slot.dataset.adsRendered = '0';
+          }
+        });
+      }
+
+      function loadAdSenseScript() {
+        return new Promise(function (resolve, reject) {
+          var existing = document.getElementById('lp-adsense-script');
+          if (existing) {
+            if (existing.dataset.ready === '1') return resolve();
+            existing.addEventListener('load', function () { resolve(); }, { once: true });
+            existing.addEventListener('error', function () { reject(new Error('adsense_script_error')); }, { once: true });
+            return;
+          }
+          if (!adClient) return reject(new Error('adsense_client_missing'));
+          var script = document.createElement('script');
+          script.id = 'lp-adsense-script';
+          script.async = true;
+          script.crossOrigin = 'anonymous';
+          script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(adClient);
+          script.addEventListener('load', function () {
+            script.dataset.ready = '1';
+            resolve();
+          }, { once: true });
+          script.addEventListener('error', function () {
+            reject(new Error('adsense_script_error'));
+          }, { once: true });
+          document.head.appendChild(script);
+        });
+      }
+
+      function persistConsent(granted) {
+        localStorage.setItem(CONSENT_KEY, granted ? 'granted' : 'denied');
+        updateGtagConsent(granted);
+      }
+
+      function enableAds() {
+        persistConsent(true);
+        setUiState(true);
+        loadAdSenseScript()
+          .then(function () {
+            renderAdSlots();
+          })
+          .catch(function () {
+            setUiState(false, 'Não foi possível carregar anúncios agora. Tente novamente em instantes.');
+          });
+      }
+
+      function disableAds() {
+        persistConsent(false);
+        setUiState(false);
+      }
+
+      acceptBtn.addEventListener('click', enableAds);
+      denyBtn.addEventListener('click', disableAds);
+
+      if (localStorage.getItem(CONSENT_KEY) === 'granted') {
+        enableAds();
+      } else {
+        disableAds();
+      }
     })();
 
   </script>

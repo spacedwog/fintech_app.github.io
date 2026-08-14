@@ -403,6 +403,34 @@ a { text-decoration: none; }
 
 .lp-h2-ad { margin-bottom: 28px; }
 
+.lp-ad-consent {
+  max-width: 960px;
+  margin: 0 auto 20px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.lp-ad-consent p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.lp-ad-consent-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lp-ad-consent-status {
+  margin-top: 10px !important;
+  min-height: 1.2rem;
+}
+
 .lp-ad-grid {
   max-width: 960px;
   margin: 0 auto;
@@ -411,11 +439,28 @@ a { text-decoration: none; }
   gap: 16px;
 }
 
-.lp-ad-slot {
+.lp-ad-slot-wrap {
   min-height: 110px;
   border: 1px dashed #cbd5e1;
   border-radius: 12px;
   background: #fff;
+  padding: 8px;
+}
+
+.lp-ad-slot {
+  min-height: 94px;
+}
+
+.lp-ad-placeholder {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 8px 6px 6px;
+}
+
+.lp-section-ad.lp-ads-enabled .lp-ad-placeholder {
+  display: none;
 }
 
 /* ---------- Feature grid ---------- */
