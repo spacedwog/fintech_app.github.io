@@ -16,9 +16,7 @@ Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor p
   - [📊 Resumo Mensal](#-resumo-mensal)
   - [👥 Equipe](#-equipe)
   - [💳 Plano](#-plano)
-  - [🔒 Segurança](#-segurança)
-  - [🕵️ Privacidade (LGPD)](#️-privacidade-lgpd)
-  - [📜 Certificação](#-certificação)
+  - [🔒 Segurança e Privacidade (LGPD)](#-segurança-e-privacidade-lgpd)
   - [⚙️ Configurações](#️-configurações)
 - [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)
 - [Nota Fiscal (NFS-e): emissão real via Focus NFe](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe)
@@ -34,7 +32,7 @@ Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor p
 
 ## Navegue pelo painel (`dashboard.html`)
 
-Depois do login, o painel tem oito seções na barra lateral (as quatro primeiras são o app em si; as quatro últimas, em "Conta", são segurança/privacidade/certificação/dados institucionais). Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
+Depois do login, o painel tem sete seções na barra lateral (as quatro primeiras são o app em si; as três últimas, em "Conta", são Segurança e Privacidade em menu único paginado + Configurações). Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
 
 ### 🔄 Orçamento & Despesas (fluxo em 3 páginas)
 
@@ -126,34 +124,22 @@ Se nenhum dos dois bater, o pagamento fica com **⚠ confirmação manual** — 
 Código: `js/dashboard.js` (`loadPlanView`, `selectPlan`, `openPixPayment`, `renderPaymentsHistory`), `js/pix.js` (payload BR Code), `js/plans.js` (regras dos planos), `Api.addPayment`/`Api.listPayments`/`Api.changePlan` em `js/api.js`.
 </details>
 
-### 🔒 Segurança
+### 🔒 Segurança e Privacidade (LGPD)
 
 <details>
 <summary>O que é e como funciona</summary>
 
-Status da sessão OAuth atual (token, validade, escopo), lista dos controles de segurança realmente implementados (hash PBKDF2, OAuth 2.0 próprio com PKCE, bloqueio após tentativas de login erradas, CSP, isolamento por conta), o modelo CIA Triad e uma tabela de ameaças — conteúdo baseado no [W3Schools Cyber Security Tutorial](https://www.w3schools.com/cybersecurity/) — e uma seção "Conformidade com normas ISO" listando as normas usadas como referência (não uma certificação — ver [📜 Certificação](#-certificação)).
+A tela agora é paginada em 2 páginas dentro do mesmo menu: **Página 1 (Segurança)** e **Página 2 (Privacidade)**, com botões "Anterior/Próxima" e atalhos diretos.
 
-Código: `js/dashboard.js` (`_loadSecurityView`, getters estáticos `SECURITY_CONTROLS`/`CIA_TRIAD`/`SECURITY_THREATS`/`ISO_STANDARDS`), `js/oauth.js` (ver seção própria abaixo).
+Na Página 1, há status da sessão OAuth atual (token, validade, escopo), lista dos controles de segurança realmente implementados (hash PBKDF2, OAuth 2.0 próprio com PKCE, bloqueio após tentativas de login erradas, CSP, isolamento por conta), modelo CIA Triad e tabela de ameaças, além das normas ISO usadas como referência de boas práticas.
 </details>
 
-### 🕵️ Privacidade (LGPD)
-
 <details>
-<summary>O que é e como funciona</summary>
+<summary>Página 2 — Privacidade (LGPD)</summary>
 
 Identifica o controlador dos dados (dados da empresa, extraídos do CNPJ/CMC/Alvará), lista o que é coletado e a base legal (LGPD, Lei 13.709/2018), controla o consentimento de cookies de analytics/anúncios via **Google Consent Mode v2** (bloqueado por padrão, `gtag('consent', 'default', {...denied})` no `<head>` de `login.html`/`dashboard.html`, antes de qualquer script do Google carregar), lista os direitos do titular (art. 18) e oferece duas ações reais: **baixar meus dados** (exporta um JSON com tudo que a conta tem no sistema) e **excluir minha conta** (remove o usuário e, se for o único da conta, a conta inteira).
 
-Código: `js/dashboard.js` (`_loadPrivacyView`), `Api.getPrivacyConsent`/`setPrivacyConsent`/`exportMyData`/`deleteAccount` em `js/api.js`.
-</details>
-
-### 📜 Certificação
-
-<details>
-<summary>O que é e como funciona</summary>
-
-**Não é um certificado.** Certificação ISO só é emitida por um organismo certificador acreditado, depois de auditoria paga — nenhum software "obtém" isso sozinho. Esta tela mostra uma autoavaliação honesta e informal (0–100%, sem validade de auditoria) de quanto os controles já implementados cobrem cada norma, o que falta, o roteiro real (gap assessment → documentação → auditoria interna → organismo certificador acreditado pelo Cgcre/INMETRO ou IAF → correção de não conformidades → certificado, com manutenção anual) e os artefatos formais criados em `compliance/` (política de segurança, matriz de riscos, gestão de incidentes, SoA, ROPA, DPIA, DPO, retenção, SGQ, etc.).
-
-Código: `js/dashboard.js` (`_loadCertificationView`, getters `CERTIFICATION_READINESS`/`COMPLIANCE_ARTIFACTS`/`CERTIFICATION_ROADMAP`) e diretório `compliance/`.
+Código: `js/dashboard.js` (`_loadSecurityPrivacyView`, `_goToSecurityPrivacyPage`, `_loadSecurityView`, `_loadPrivacyView`, getters estáticos `SECURITY_CONTROLS`/`CIA_TRIAD`/`SECURITY_THREATS`/`ISO_STANDARDS`), `Api.getPrivacyConsent`/`setPrivacyConsent`/`exportMyData`/`deleteAccount` em `js/api.js`, e `js/oauth.js` (ver seção própria abaixo).
 </details>
 
 ### ⚙️ Configurações
@@ -664,7 +650,7 @@ Rode de novo sempre que alterar `mp_open_finance_sync.py`.
 - Conectar outros bancos além do Mercado Pago: para bancos sem API pública para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX).
 - ~~Emitir nota fiscal dos pagamentos~~ — feito com `orcamento_agent/nfse_issuer.py` (Focus NFe, roda localmente, exige conta real + certificado digital do usuário). Ver [Nota Fiscal (NFS-e)](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe).
 - Emissão de NFS-e **automática logo após o pagamento** (hoje depende de rodar/agendar `nfse_issuer.py`, como os agentes do Mercado Pago) — daria para incluir no mesmo workflow do GitHub Actions que já roda `mp_reconcile.py`/`mp_expenses.py`.
-- Perseguir certificação ISO de verdade (27001 é a mais natural, dado o produto) — ver roteiro na tela [📜 Certificação](#-certificação); depende de trabalho fora do código (políticas, auditoria externa paga).
+- Perseguir certificação ISO de verdade (27001 é a mais natural, dado o produto); depende de trabalho fora do código (políticas, auditoria externa paga).
 
 ## Limitações
 
@@ -678,4 +664,4 @@ Rode de novo sempre que alterar `mp_open_finance_sync.py`.
 - Para um SaaS real, com múltiplos usuários acessando de dispositivos diferentes e dados protegidos de verdade, o próximo passo seria adicionar Firebase Authentication e regras de segurança do Firestore por usuário (ver [Roadmap](#roadmap)).
 - **OAuth 2.0 próprio (`js/oauth.js`):** implementa o protocolo corretamente (Authorization Code + PKCE, tokens JWT assinados, revogação/rotação — ver [Autenticação](#como-o-sistema-funciona-por-baixo-dos-panos)), mas a chave de assinatura mora no mesmo navegador do "banco" — não é uma fronteira de segurança real contra quem tem acesso a este dispositivo, e não interopera com apps terceiros (não é "Entrar com..." nenhum provedor externo).
 - **Nota Fiscal (NFS-e):** `nfse_issuer.py` só emite nota real depois que você contrata uma conta própria num provedor (Focus NFe, referência usada aqui) com certificado digital e-CNPJ — nada disso é fornecido por este repositório. Sem essa configuração, pagamentos ficam com `nfseStatus` pendente/aguardando documento, nunca uma nota fantasma.
-- **Certificação ISO:** a tela [📜 Certificação](#-certificação) é uma autoavaliação informal — não substitui um gap assessment feito por profissional, nem uma auditoria externa. Nenhuma norma está certificada hoje.
+- **Certificação ISO:** este repositório mantém artefatos de conformidade em `compliance/`, mas isso não substitui um gap assessment profissional nem uma auditoria externa. Nenhuma norma está certificada hoje.
