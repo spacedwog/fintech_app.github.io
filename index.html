@@ -549,6 +549,8 @@
     // Google AdSense (com consentimento explícito)
     (function () {
       var CONSENT_KEY = 'lp_marketing_consent_v1';
+      var CONSENT_COOKIE = 'lp_marketing_consent';
+      var COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
       var adClientMeta = document.querySelector('meta[name="google-adsense-account"]');
       var adClient = adClientMeta && adClientMeta.content ? adClientMeta.content : '';
       var section = document.querySelector('.lp-section-ad');
@@ -558,6 +560,19 @@
       var slots = document.querySelectorAll('.lp-ad-slot');
 
       if (!section || !statusEl || !acceptBtn || !denyBtn || !slots.length) return;
+
+      function readCookie(name) {
+        var cookie = document.cookie.split('; ').find(function (entry) {
+          return entry.indexOf(name + '=') === 0;
+        });
+        return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
+      }
+
+      function writeCookie(name, value) {
+        document.cookie = name + '=' + encodeURIComponent(value) +
+          '; Max-Age=' + COOKIE_MAX_AGE_SECONDS +
+          '; Path=/; SameSite=Lax';
+      }
 
       function updateGtagConsent(granted) {
         if (typeof gtag !== 'function') return;
@@ -624,8 +639,16 @@
       }
 
       function persistConsent(granted) {
-        localStorage.setItem(CONSENT_KEY, granted ? 'granted' : 'denied');
+        var value = granted ? 'granted' : 'denied';
+        localStorage.setItem(CONSENT_KEY, value);
+        writeCookie(CONSENT_COOKIE, value);
         updateGtagConsent(granted);
+      }
+
+      function getStoredConsent() {
+        var cookieValue = readCookie(CONSENT_COOKIE);
+        if (cookieValue === 'granted' || cookieValue === 'denied') return cookieValue;
+        return localStorage.getItem(CONSENT_KEY) === 'granted' ? 'granted' : 'denied';
       }
 
       function enableAds() {
@@ -652,7 +675,8 @@
       acceptBtn.addEventListener('click', enableAds);
       denyBtn.addEventListener('click', disableAds);
 
-      if (localStorage.getItem(CONSENT_KEY) === 'granted') {
+      var storedConsent = getStoredConsent();
+      if (storedConsent === 'granted') {
         enableAds();
       } else {
         disableAds();
