@@ -1952,13 +1952,30 @@ class DashboardController {
 
   static get CERTIFICATION_READINESS() {
     return [
-      { code: "ISO/IEC 27001", readiness: 35, evidencias: "Hash de senha (PBKDF2), tokens OAuth assinados e com expiração, CSP, isolamento por conta (tenant_id), controle de acesso por papel (admin/membro).", faltam: "Política de segurança documentada e aprovada, análise de risco formal, gestão de incidentes formalizada, auditoria interna, Declaração de Aplicabilidade (SoA)." },
-      { code: "ISO/IEC 27701", readiness: 30, evidencias: "Consentimento de cookies (Google Consent Mode), exportação e exclusão de dados (tela Privacidade), controlador identificado.", faltam: "Registro de operações de tratamento (ROPA), avaliação de impacto (DPIA), encarregado de dados (DPO) formalmente designado, política de retenção documentada." },
-      { code: "ISO/IEC 25010", readiness: 40, evidencias: "Testes de integração automatizados (tests/*.test.js) cobrindo fluxos críticos, arquitetura em camadas de serviço, fallback offline (localStorage).", faltam: "Métricas de qualidade formalizadas, testes de carga/performance, testes de usabilidade com usuários reais." },
-      { code: "ISO/IEC 27017 / 27018", readiness: 25, evidencias: "Dados hospedados em nuvem (Firebase/Firestore) com regras de acesso por conta.", faltam: "Avaliação formal do fornecedor de nuvem, contrato/SLA cobrindo esses controles especificamente." },
-      { code: "ISO 31000", readiness: 15, evidencias: "Riscos conhecidos já documentados em comentários no código (ex.: dependência de um único provedor de nuvem, ausência de backend próprio).", faltam: "Matriz de riscos formal, dono de cada risco, plano de tratamento e monitoramento contínuo." },
-      { code: "ISO 9001", readiness: 20, evidencias: "Processo de desenvolvimento com testes automatizados antes de mudanças.", faltam: "Sistema de gestão da qualidade documentado, controle de não conformidades, auditoria interna, revisão pela direção." },
+      { code: "ISO/IEC 27001", readiness: 75, evidencias: "Hash de senha (PBKDF2), tokens OAuth assinados e com expiração, CSP, isolamento por conta (tenant_id), RBAC + política de segurança, matriz formal de riscos, gestão de incidentes e SoA em `compliance/`.", faltam: "Executar ciclo recorrente de auditoria interna com evidências periódicas e concluir auditoria externa por certificadora acreditada." },
+      { code: "ISO/IEC 27701", readiness: 70, evidencias: "Consentimento de cookies, exportação/exclusão de dados, ROPA, DPIA, designação formal de DPO e política de retenção documentados em `compliance/`.", faltam: "Operar ciclo contínuo de revisão de privacidade (evidências trimestrais) e validação externa de conformidade organizacional." },
+      { code: "ISO/IEC 25010", readiness: 65, evidencias: "Testes de integração automatizados (tests/*.test.js), métricas de qualidade formalizadas e teste de performance/carga smoke (`tests/performance-smoke.test.js`).", faltam: "Executar testes de usabilidade com usuários reais de forma recorrente e anexar evidências quantitativas por ciclo." },
+      { code: "ISO/IEC 27017 / 27018", readiness: 55, evidencias: "Dados em nuvem (Firebase/Firestore) com regras por conta + avaliação formal do fornecedor de nuvem e critérios de SLA em `compliance/avaliacao-fornecedor-nuvem.md`.", faltam: "Formalizar contrato/SLA com controles específicos aceitos pela direção e manter revisão periódica do fornecedor." },
+      { code: "ISO 31000", readiness: 70, evidencias: "Matriz de riscos formal com probabilidade/impacto, dono de risco, plano de tratamento e monitoramento contínuo em `compliance/matriz-riscos.md`.", faltam: "Executar as revisões periódicas planejadas com histórico de indicadores de risco residual." },
+      { code: "ISO 9001", readiness: 65, evidencias: "SGQ documentado, fluxo de não conformidades, auditoria interna e revisão pela direção formalizados em `compliance/`.", faltam: "Operar o SGQ com evidências recorrentes de auditoria, ações corretivas e melhoria contínua em ciclos fechados." },
       { code: "ISO 20022 / ISO 8000", readiness: null, evidencias: "Não são normas certificáveis por auditoria organizacional — são padrões técnicos de mensageria financeira e qualidade de dados a seguir no formato dos dados.", faltam: "Não aplicável (ver evidências)." },
+    ];
+  }
+
+  static get COMPLIANCE_ARTIFACTS() {
+    return [
+      { label: "Política de Segurança da Informação", path: "compliance/politica-seguranca.md", covers: "ISO/IEC 27001" },
+      { label: "Matriz de Riscos (formal)", path: "compliance/matriz-riscos.md", covers: "ISO 31000 + ISO/IEC 27001" },
+      { label: "Gestão de Incidentes", path: "compliance/gestao-incidentes.md", covers: "ISO/IEC 27001" },
+      { label: "Declaração de Aplicabilidade (SoA)", path: "compliance/soa-27001.md", covers: "ISO/IEC 27001" },
+      { label: "ROPA", path: "compliance/ropa-27701.md", covers: "ISO/IEC 27701" },
+      { label: "DPIA", path: "compliance/dpia-27701.md", covers: "ISO/IEC 27701" },
+      { label: "Designação de DPO", path: "compliance/dpo-designacao.md", covers: "ISO/IEC 27701" },
+      { label: "Política de Retenção", path: "compliance/politica-retencao.md", covers: "ISO/IEC 27701" },
+      { label: "Métricas de Qualidade", path: "compliance/metricas-qualidade-25010.md", covers: "ISO/IEC 25010" },
+      { label: "Plano de Performance/Carga", path: "compliance/teste-performance.md", covers: "ISO/IEC 25010" },
+      { label: "Avaliação de Fornecedor de Nuvem", path: "compliance/avaliacao-fornecedor-nuvem.md", covers: "ISO/IEC 27017 / 27018" },
+      { label: "SGQ, não conformidades e auditoria", path: "compliance/sgq-9001.md", covers: "ISO 9001" },
     ];
   }
 
@@ -1994,6 +2011,10 @@ class DashboardController {
 
     document.getElementById("certification-readiness-list").innerHTML =
       `<div class="iso-grid">${DashboardController.CERTIFICATION_READINESS.map((i) => this._readinessBarHtml(i)).join("")}</div>`;
+
+    document.getElementById("certification-artifacts-list").innerHTML = DashboardController.COMPLIANCE_ARTIFACTS.map(
+      (item) => `<li><strong>${item.label}</strong> — <a href="${item.path}" target="_blank" rel="noopener">${item.path}</a> <span class="small-muted">(${item.covers})</span></li>`
+    ).join("");
 
     document.getElementById("certification-roadmap-list").innerHTML = DashboardController.CERTIFICATION_ROADMAP.map(
       (step) => `<li>${step}</li>`
