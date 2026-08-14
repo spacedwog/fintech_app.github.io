@@ -439,6 +439,7 @@ class DashboardController {
     this.budgetOverviewMonthBound = false;
     this.budgetManageBound = false;
     this.budgetGroupsBound = false;
+    this.feedBound = false;
 
     this.budgetInputBound = false;
     this.pixKeyPaymentBound = false;
@@ -572,6 +573,7 @@ class DashboardController {
     document.getElementById(`view-${viewName}`).classList.remove("hidden");
 
     if (viewName === "budget-flow") this._loadBudgetFlowView();
+    if (viewName === "feed") this._loadFeedView();
     if (viewName === "reports") this._loadReportsView();
     if (viewName === "team") this._loadTeamView();
     if (viewName === "plan") this._loadPlanView();
@@ -1239,6 +1241,101 @@ class DashboardController {
   }
 
   // ---------- Resumo Mensal ----------
+
+  _formatFeedDate(isoDate) {
+    const dt = new Date(isoDate || "");
+    if (isNaN(dt.getTime())) return "Data indisponível";
+    return `${dt.toLocaleDateString("pt-BR")} ${dt.toLocaleTimeString("pt-BR").slice(0, 5)}`;
+  }
+
+  _renderFeedEmptyState(box, message) {
+    box.innerHTML = "";
+    const empty = document.createElement("p");
+    empty.className = "small-muted";
+    empty.textContent = message;
+    box.appendChild(empty);
+  }
+
+  async _loadFeedView() {
+    const box = document.getElementById("feed-events");
+    const refreshBtn = document.getElementById("feed-refresh-btn");
+    if (!box) return;
+
+    if (!this.feedBound && refreshBtn) {
+      this.feedBound = true;
+      refreshBtn.addEventListener("click", () => this._loadFeedView());
+    }
+
+    this._renderFeedEmptyState(box, "Carregando feed...");
+    const events = [];
+    try {
+      const [expenses, payments] = await Promise.all([Api.listExpenses(true), Api.listPayments(true)]);
+
+      expenses.forEach((expense) => {
+        events.push({
+          type: "expense",
+          date: expense.created_at || expense.date,
+          amount: Number(expense.amount) || 0,
+          title: `Despesa · ${expense.category_name || "Sem categoria"}`,
+          subtitle: `${this._formatFeedDate(expense.created_at || expense.date)} · ${expense.description || "Sem descrição"}`,
+        });
+      });
+
+      payments.forEach((payment) => {
+        const label =
+          payment.type === "plano"
+            ? `Pagamento de plano · ${payment.plan === "premium" ? "Premium" : payment.plan || "Plano"}`
+            : "Pagamento de despesa extra";
+        events.push({
+          type: "payment",
+          date: payment.date,
+          amount: Number(payment.amount) || 0,
+          title: label,
+          subtitle: `${this._formatFeedDate(payment.date)} · txid ${payment.txid || "-"}`,
+        });
+      });
+    } catch (_err) {
+      this._renderFeedEmptyState(box, "Não foi possível carregar o feed agora.");
+      return;
+    }
+
+    events.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+
+    if (!events.length) {
+      this._renderFeedEmptyState(box, "Nenhuma movimentação encontrada ainda.");
+      return;
+    }
+
+    box.innerHTML = "";
+    events.forEach((event) => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.justifyContent = "space-between";
+      row.style.alignItems = "center";
+      row.style.padding = "8px 0";
+      row.style.borderBottom = "1px solid var(--border)";
+
+      const left = document.createElement("div");
+      const title = document.createElement("p");
+      title.style.margin = "0";
+      title.style.fontSize = "14px";
+      title.textContent = event.title;
+      const subtitle = document.createElement("p");
+      subtitle.className = "small-muted";
+      subtitle.style.margin = "2px 0 0";
+      subtitle.textContent = event.subtitle;
+      left.appendChild(title);
+      left.appendChild(subtitle);
+
+      const amount = document.createElement("strong");
+      amount.style.color = event.type === "payment" ? "var(--success)" : "var(--danger)";
+      amount.textContent = `${event.type === "payment" ? "+" : "-"}R$ ${event.amount.toFixed(2)}`;
+
+      row.appendChild(left);
+      row.appendChild(amount);
+      box.appendChild(row);
+    });
+  }
 
   async _loadReportsView() {
     const monthly = await Api.monthlyReport();

@@ -14,7 +14,7 @@ Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor p
 - [Navegue pelo painel (`dashboard.html`)](#navegue-pelo-painel-dashboardhtml)
   - [🔄 Orçamento & Despesas (fluxo em 3 páginas)](#-orçamento--despesas-fluxo-em-3-páginas)
   - [📊 Resumo Mensal](#-resumo-mensal)
-  - [📰 Feeds](#-feeds)
+  - [📰 Feed](#-feed)
   - [👥 Equipe](#-equipe)
   - [💳 Plano](#-plano)
   - [🔒 Segurança e Privacidade (LGPD)](#-segurança-e-privacidade-lgpd)
@@ -127,7 +127,7 @@ Dois gráficos (Chart.js): gasto total por mês (barras) e gasto por categoria n
 Código: `js/dashboard.js` (`loadReportsView`), dados vindos de `Api.monthlyReport()`/`Api.categoryReport()` em `js/api.js`.
 </details>
 
-### 📰 Feeds
+### 📰 Feed
 
 <details>
 <summary>O que é e como funciona</summary>
@@ -139,7 +139,7 @@ Uma visão cronológica das últimas movimentações da conta no painel, juntand
 
 O feed ordena os eventos do mais recente para o mais antigo e pode ser atualizado manualmente pelo botão **Atualizar**.
 
-Código: `dashboard.html` (`view-feeds`), `js/dashboard.js` (`_loadFeedsView`) e `Api.listExpenses()`/`Api.listPayments()` em `js/api.js`.
+Código: `dashboard.html` (`view-feed`), `js/dashboard.js` (`_loadFeedView`) e `Api.listExpenses()`/`Api.listPayments()` em `js/api.js`.
 </details>
 
 ### 👥 Equipe
