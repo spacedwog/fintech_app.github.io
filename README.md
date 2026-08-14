@@ -19,6 +19,7 @@ Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor p
   - [🔒 Segurança e Privacidade (LGPD)](#-segurança-e-privacidade-lgpd)
   - [⚙️ Configurações](#️-configurações)
 - [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)
+- [Landing page: anúncios Google (AdSense x Google Ads)](#landing-page-anúncios-google-adsense-x-google-ads)
 - [Nota Fiscal (NFS-e): emissão real via Focus NFe](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe)
 - [Como o sistema funciona por baixo dos panos](#como-o-sistema-funciona-por-baixo-dos-panos)
 - [Conectando ao Firebase](#conectando-ao-firebase)
@@ -29,6 +30,39 @@ Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor p
 - [Limitações](#limitações)
 
 ---
+
+## Landing page: anúncios Google (AdSense x Google Ads)
+
+A landing (`index.html`) já está preparada com dois slots na seção **Patrocinado**, carregados somente após consentimento explícito do usuário.
+
+### Passo a passo para publicar anúncios na landing
+
+1. **Escolha a plataforma certa**
+   - **AdSense**: monetiza o seu site exibindo anúncios de terceiros.
+   - **Google Ads**: você paga para anunciar seu produto em outros sites.
+2. **Configure e aprove sua conta no AdSense**
+   - Crie/configure a conta.
+   - Adicione o domínio e conclua a validação.
+   - Aguarde aprovação do site nas políticas do Google.
+3. **Troque o publisher ID de teste pelo seu**
+   - Em `index.html`, ajuste `<meta name="google-adsense-account" content="ca-pub-...">` para o seu `ca-pub` real.
+4. **Troque os slots de anúncio**
+   - Na seção `lp-ad-grid` de `index.html`, substitua `data-ad-slot` pelos IDs reais criados no painel do AdSense.
+5. **Respeite consentimento**
+   - A landing só carrega o script do AdSense após clique em **Permitir anúncios**.
+   - Se negado, os espaços patrocinados ficam bloqueados.
+6. **Publicação e validação**
+   - Publique no domínio aprovado.
+   - Confira no navegador se os blocos renderizam.
+   - Valide no painel do AdSense se há requisições/impressões.
+7. **Otimização**
+   - Ajuste posições e formatos com base em CTR e conversão da landing.
+   - Teste blocos manuais vs Auto Ads.
+
+### Posso obter anúncios de Google Ads e/ou Google AdSense?
+
+- **Google AdSense**: sim — é o produto para exibir anúncios de terceiros no seu site.
+- **Google Ads**: não para monetizar a sua página; ele serve para você comprar tráfego para seu produto.
 
 ## Navegue pelo painel (`dashboard.html`)
 
