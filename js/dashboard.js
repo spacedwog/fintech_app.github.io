@@ -703,33 +703,33 @@ class DashboardController {
         e.preventDefault();
         this._sendGoogleAIChatMessage();
       }
-
-      _setupPixKeyPayment() {
-        if (this.pixKeyPaymentBound) return;
-        const form = document.getElementById("pix-key-payment-form");
-        if (!form) return;
-        this.pixKeyPaymentBound = true;
-
-        const dateInput = document.getElementById("pix-key-date");
-        if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
-
-        const copyBtn = document.getElementById("pix-key-copy-btn");
-        if (copyBtn) {
-          copyBtn.addEventListener("click", () => {
-            const codeEl = document.getElementById("pix-key-copy-code");
-            const code = String((codeEl && codeEl.textContent) || "").trim();
-            if (!code) return;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(code);
-            }
-          });
-        }
-      }
-
-      _getCopilotChatAgent() {
-        return window.GitHubCopilotAgent || window.GoogleAIChatbot || window.GitHubExpenseAgent || null;
-      }
     });
+  }
+
+  _setupPixKeyPayment() {
+    if (this.pixKeyPaymentBound) return;
+    const form = document.getElementById("pix-key-payment-form");
+    if (!form) return;
+    this.pixKeyPaymentBound = true;
+
+    const dateInput = document.getElementById("pix-key-date");
+    if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+
+    const copyBtn = document.getElementById("pix-key-copy-btn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", () => {
+        const codeEl = document.getElementById("pix-key-copy-code");
+        const code = String((codeEl && codeEl.textContent) || "").trim();
+        if (!code) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code);
+        }
+      });
+    }
+  }
+
+  _getCopilotChatAgent() {
+    return window.GitHubCopilotAgent || window.GoogleAIChatbot || window.GitHubExpenseAgent || null;
   }
 
   _appendGoogleAIChatMessage(type, text) {
