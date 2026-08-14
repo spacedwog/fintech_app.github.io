@@ -49,9 +49,8 @@ A landing (`index.html`) já está preparada com dois slots na seção **Patroci
    - Esse valor também é aplicado automaticamente como `data-ad-client` em cada slot da landing.
 4. **Troque os slots de anúncio**
    - Na seção `lp-ad-grid` de `index.html`, substitua `data-ad-slot` pelos IDs reais criados no painel do AdSense.
-5. **Respeite consentimento e regra de pagamento**
+5. **Respeite consentimento**
    - A landing só carrega o script do AdSense após clique em **Permitir anúncios**.
-   - Mesmo com consentimento, os blocos patrocinados ficam bloqueados até existir confirmação de pagamento Pix via QR Code (cookie `lp_ads_pix_paid=paid`).
    - Se negado, os espaços patrocinados ficam bloqueados.
 6. **Publicação e validação**
    - Publique no domínio aprovado.

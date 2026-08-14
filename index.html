@@ -166,7 +166,7 @@
       <span class="lp-kicker">Patrocinado</span>
       <h2 class="lp-h2 lp-h2-ad">Ofertas e parceiros relevantes para sua rotina financeira</h2>
       <div class="lp-ad-consent" role="group" aria-label="Consentimento de anúncios">
-        <p>Usamos Google AdSense para exibir ofertas patrocinadas. A liberação só acontece após consentimento e confirmação de pagamento Pix via QR Code.</p>
+        <p>Usamos Google AdSense para exibir ofertas patrocinadas. Só carregamos anúncios após seu consentimento.</p>
         <div class="lp-ad-consent-actions">
           <button type="button" class="lp-btn lp-btn-primary" id="lp-ads-consent-accept">Permitir anúncios</button>
           <button type="button" class="lp-btn lp-btn-ghost" id="lp-ads-consent-deny">Manter bloqueado</button>
@@ -550,7 +550,6 @@
     (function () {
       var CONSENT_KEY = 'lp_marketing_consent_v1';
       var CONSENT_COOKIE = 'lp_marketing_consent';
-      var PIX_GATE_COOKIE = 'lp_ads_pix_paid';
       var COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
       var adClientMeta = document.querySelector('meta[name="google-adsense-account"]');
       var adClient = adClientMeta && adClientMeta.content ? adClientMeta.content : '';
@@ -646,10 +645,6 @@
         updateGtagConsent(granted);
       }
 
-      function hasPaidPixGate() {
-        return readCookie(PIX_GATE_COOKIE) === 'paid';
-      }
-
       function getStoredConsent() {
         var cookieValue = readCookie(CONSENT_COOKIE);
         if (cookieValue === 'granted' || cookieValue === 'denied') return cookieValue;
@@ -657,11 +652,6 @@
       }
 
       function enableAds() {
-        if (!hasPaidPixGate()) {
-          persistConsent(true);
-          setUiState(false, 'Permissão salva. Anúncios seguem bloqueados até confirmar um pagamento Pix via QR Code no painel.');
-          return;
-        }
         if (!hasValidConfig()) {
           setUiState(false, 'Configuração de anúncios incompleta. Defina seu ca-pub e slots reais para liberar os blocos patrocinados.');
           return;

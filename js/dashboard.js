@@ -1963,11 +1963,6 @@ class DashboardController {
 
   async _recordPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber }) {
     await Api.addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber });
-    if (type === "plano") this._markAdsPixPayment();
-  }
-
-  _markAdsPixPayment() {
-    document.cookie = "lp_ads_pix_paid=paid; Max-Age=31536000; Path=/; SameSite=Lax";
   }
 
   // Status da Nota Fiscal de Serviço (NFS-e) real deste pagamento -- gerada
@@ -2005,7 +2000,6 @@ class DashboardController {
     const container = document.getElementById("payments-history");
     if (!container) return;
     const payments = await Api.listPayments();
-    if (payments.some((p) => p.type === "plano")) this._markAdsPixPayment();
     if (payments.length === 0) {
       container.innerHTML = '<p class="small-muted">Nenhum pagamento registrado ainda.</p>';
       return;
