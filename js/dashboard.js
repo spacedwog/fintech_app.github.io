@@ -439,7 +439,6 @@ class DashboardController {
     this.budgetOverviewMonthBound = false;
     this.budgetManageBound = false;
     this.budgetGroupsBound = false;
-    this.feedsBound = false;
 
     this.budgetInputBound = false;
     this.pixKeyPaymentBound = false;
@@ -574,7 +573,6 @@ class DashboardController {
 
     if (viewName === "budget-flow") this._loadBudgetFlowView();
     if (viewName === "reports") this._loadReportsView();
-    if (viewName === "feeds") this._loadFeedsView();
     if (viewName === "team") this._loadTeamView();
     if (viewName === "plan") this._loadPlanView();
     if (viewName === "settings") this._loadSettingsView();
@@ -1272,122 +1270,6 @@ class DashboardController {
   }
 
   // ---------- Alertas / Orçamento ----------
-
-  _bindFeedsView() {
-    if (this.feedsBound) return;
-    this.feedsBound = true;
-    const refreshBtn = document.getElementById("feeds-refresh-btn");
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", () => this._loadFeedsView());
-    }
-  }
-
-  _formatFeedMoment(isoLike) {
-    if (!isoLike) return "data não informada";
-    const raw = String(isoLike);
-    const parsed = new Date(raw);
-    if (!isNaN(parsed.getTime())) {
-      const hasTime = raw.includes("T");
-      return hasTime
-        ? parsed.toLocaleString("pt-BR")
-        : parsed.toLocaleDateString("pt-BR");
-    }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-      const [y, m, d] = raw.split("-");
-      return `${d}/${m}/${y}`;
-    }
-    return raw;
-  }
-
-  async _loadFeedsView() {
-    this._bindFeedsView();
-    const listEl = document.getElementById("feeds-list");
-    const emptyEl = document.getElementById("feeds-empty");
-    if (!listEl || !emptyEl) return;
-
-    listEl.innerHTML = "";
-    emptyEl.classList.add("hidden");
-
-    try {
-      const canSeeAll = this.currentUser && this.currentUser.role === "admin";
-      const [expenses, payments] = await Promise.all([Api.listExpenses(!!canSeeAll), Api.listPayments(!!canSeeAll)]);
-      const items = [];
-
-      expenses.forEach((e) => {
-        const when = e.created_at || e.date || "";
-        items.push({
-          type: "expense",
-          orderAt: new Date(when).getTime() || 0,
-          when,
-          title: "Despesa registrada",
-          amount: e.amount || 0,
-          detail: `${e.category_name || "Sem categoria"}${e.description ? ` • ${e.description}` : ""}`,
-          actor: e.user_name || null,
-        });
-      });
-
-      payments.forEach((p) => {
-        const when = p.date || "";
-        const paymentType = p.type === "upgrade" ? "upgrade de plano" : "cobrança avulsa";
-        items.push({
-          type: "payment",
-          orderAt: new Date(when).getTime() || 0,
-          when,
-          title: "Pagamento confirmado",
-          amount: p.amount || 0,
-          detail: `${paymentType}${p.plan ? ` • ${p.plan}` : ""}`,
-          actor: p.user_name || null,
-        });
-      });
-
-      items.sort((a, b) => b.orderAt - a.orderAt);
-
-      if (!items.length) {
-        emptyEl.classList.remove("hidden");
-        return;
-      }
-
-      const frag = document.createDocumentFragment();
-      items.slice(0, 80).forEach((item) => {
-        const row = document.createElement("div");
-        row.className = "feed-item";
-
-        const meta = document.createElement("div");
-        meta.className = "feed-item-meta";
-        meta.textContent = this._formatFeedMoment(item.when);
-
-        const title = document.createElement("div");
-        title.className = "feed-item-title";
-        title.textContent = item.title;
-
-        const typeBadge = document.createElement("span");
-        typeBadge.className = `badge ${item.type === "expense" ? "free" : "premium"}`;
-        typeBadge.textContent = item.type === "expense" ? "Despesa" : "Pagamento";
-        title.appendChild(document.createTextNode(" "));
-        title.appendChild(typeBadge);
-
-        const detail = document.createElement("div");
-        detail.className = "feed-item-detail";
-        const actorSuffix = item.actor ? ` • por ${item.actor}` : "";
-        detail.textContent = `${item.detail}${actorSuffix}`;
-
-        const amount = document.createElement("div");
-        amount.className = "feed-item-amount";
-        amount.textContent = `R$ ${Number(item.amount || 0).toFixed(2)}`;
-
-        row.appendChild(meta);
-        row.appendChild(title);
-        row.appendChild(detail);
-        row.appendChild(amount);
-        frag.appendChild(row);
-      });
-
-      listEl.appendChild(frag);
-    } catch (err) {
-      emptyEl.textContent = (err && err.message) || "Não foi possível carregar o feed.";
-      emptyEl.classList.remove("hidden");
-    }
-  }
 
   async _loadAlertsView() {
     const alertData = await Api.getAlerts();
