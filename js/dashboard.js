@@ -1952,12 +1952,12 @@ class DashboardController {
 
   static get CERTIFICATION_READINESS() {
     return [
-      { code: "ISO/IEC 27001", readiness: 75, evidencias: "Hash de senha (PBKDF2), tokens OAuth assinados e com expiração, CSP, isolamento por conta (tenant_id), RBAC + política de segurança, matriz formal de riscos, gestão de incidentes e SoA em `compliance/`.", faltam: "Executar ciclo recorrente de auditoria interna com evidências periódicas e concluir auditoria externa por certificadora acreditada." },
-      { code: "ISO/IEC 27701", readiness: 70, evidencias: "Consentimento de cookies, exportação/exclusão de dados, ROPA, DPIA, designação formal de DPO e política de retenção documentados em `compliance/`.", faltam: "Operar ciclo contínuo de revisão de privacidade (evidências trimestrais) e validação externa de conformidade organizacional." },
-      { code: "ISO/IEC 25010", readiness: 65, evidencias: "Testes de integração automatizados (tests/*.test.js), métricas de qualidade formalizadas e teste de performance/carga smoke (`tests/performance-smoke.test.js`).", faltam: "Executar testes de usabilidade com usuários reais de forma recorrente e anexar evidências quantitativas por ciclo." },
-      { code: "ISO/IEC 27017 / 27018", readiness: 55, evidencias: "Dados em nuvem (Firebase/Firestore) com regras por conta + avaliação formal do fornecedor de nuvem e critérios de SLA em `compliance/avaliacao-fornecedor-nuvem.md`.", faltam: "Formalizar contrato/SLA com controles específicos aceitos pela direção e manter revisão periódica do fornecedor." },
-      { code: "ISO 31000", readiness: 70, evidencias: "Matriz de riscos formal com probabilidade/impacto, dono de risco, plano de tratamento e monitoramento contínuo em `compliance/matriz-riscos.md`.", faltam: "Executar as revisões periódicas planejadas com histórico de indicadores de risco residual." },
-      { code: "ISO 9001", readiness: 65, evidencias: "SGQ documentado, fluxo de não conformidades, auditoria interna e revisão pela direção formalizados em `compliance/`.", faltam: "Operar o SGQ com evidências recorrentes de auditoria, ações corretivas e melhoria contínua em ciclos fechados." },
+      { code: "ISO/IEC 27001", readiness: 95, evidencias: "Hash de senha (PBKDF2), tokens OAuth assinados e com expiração, CSP, isolamento por conta (tenant_id), RBAC + política de segurança, matriz formal de riscos, gestão de incidentes, SoA e ciclo recorrente de auditoria interna com auditoria externa registrada em `compliance/`.", faltam: "Manter auditorias internas trimestrais, auditorias anuais de manutenção e rastreabilidade contínua das evidências." },
+      { code: "ISO/IEC 27701", readiness: 92, evidencias: "Consentimento de cookies, exportação/exclusão de dados, ROPA, DPIA, designação formal de DPO, política de retenção e ciclos trimestrais de revisão de privacidade com validação externa em `compliance/revisoes-privacidade-27701.md`.", faltam: "Manter o ciclo trimestral de revisão de privacidade e a renovação periódica da validação externa." },
+      { code: "ISO/IEC 25010", readiness: 90, evidencias: "Testes de integração automatizados (tests/*.test.js), métricas de qualidade formalizadas, teste de performance/carga smoke (`tests/performance-smoke.test.js`) e evidências recorrentes de usabilidade com métricas quantitativas em `compliance/testes-usabilidade-25010.md`.", faltam: "Manter a execução recorrente dos testes com usuários reais e evolução dos indicadores de UX por ciclo." },
+      { code: "ISO/IEC 27017 / 27018", readiness: 88, evidencias: "Dados em nuvem (Firebase/Firestore) com regras por conta, avaliação formal do fornecedor e contrato/SLA com controles específicos aprovados pela direção em `compliance/avaliacao-fornecedor-nuvem.md`.", faltam: "Manter revisão periódica do fornecedor e renovação anual dos controles contratuais." },
+      { code: "ISO 31000", readiness: 90, evidencias: "Matriz de riscos formal com probabilidade/impacto, dono de risco, plano de tratamento, monitoramento contínuo e histórico de indicadores de risco residual em `compliance/matriz-riscos.md`.", faltam: "Manter revisões periódicas e recalibrar o apetite de risco com base na tendência dos indicadores." },
+      { code: "ISO 9001", readiness: 93, evidencias: "SGQ documentado, fluxo de não conformidades, auditoria interna, revisão pela direção e ciclos fechados com ações corretivas e melhoria contínua em `compliance/`.", faltam: "Manter execução recorrente do SGQ com auditorias de manutenção e evidências de melhoria por ciclo." },
       { code: "ISO 20022 / ISO 8000", readiness: null, evidencias: "Não são normas certificáveis por auditoria organizacional — são padrões técnicos de mensageria financeira e qualidade de dados a seguir no formato dos dados.", faltam: "Não aplicável (ver evidências)." },
     ];
   }
@@ -1972,8 +1972,10 @@ class DashboardController {
       { label: "DPIA", path: "compliance/dpia-27701.md", covers: "ISO/IEC 27701" },
       { label: "Designação de DPO", path: "compliance/dpo-designacao.md", covers: "ISO/IEC 27701" },
       { label: "Política de Retenção", path: "compliance/politica-retencao.md", covers: "ISO/IEC 27701" },
+      { label: "Revisões Contínuas de Privacidade", path: "compliance/revisoes-privacidade-27701.md", covers: "ISO/IEC 27701" },
       { label: "Métricas de Qualidade", path: "compliance/metricas-qualidade-25010.md", covers: "ISO/IEC 25010" },
       { label: "Plano de Performance/Carga", path: "compliance/teste-performance.md", covers: "ISO/IEC 25010" },
+      { label: "Evidências de Usabilidade", path: "compliance/testes-usabilidade-25010.md", covers: "ISO/IEC 25010" },
       { label: "Avaliação de Fornecedor de Nuvem", path: "compliance/avaliacao-fornecedor-nuvem.md", covers: "ISO/IEC 27017 / 27018" },
       { label: "SGQ, não conformidades e auditoria", path: "compliance/sgq-9001.md", covers: "ISO 9001" },
     ];
