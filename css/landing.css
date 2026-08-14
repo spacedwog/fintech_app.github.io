@@ -395,6 +395,29 @@ a { text-decoration: none; }
   color: var(--text);
 }
 
+.lp-section-ad {
+  padding-top: 64px;
+  padding-bottom: 64px;
+  background: #f8fafc;
+}
+
+.lp-h2-ad { margin-bottom: 28px; }
+
+.lp-ad-grid {
+  max-width: 960px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lp-ad-slot {
+  min-height: 110px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+
 /* ---------- Feature grid ---------- */
 .lp-grid {
   display: grid;
@@ -498,6 +521,44 @@ a { text-decoration: none; }
 }
 
 .lp-plan li i { color: var(--primary); margin-top: 3px; }
+
+/* ---------- Mapa completo de funcionalidades ---------- */
+.lp-system-map {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  text-align: left;
+}
+
+.lp-system-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.lp-system-card h3 {
+  margin: 0 0 14px;
+  font-size: 17px;
+}
+
+.lp-system-card h3 i {
+  color: var(--primary);
+  margin-right: 8px;
+}
+
+.lp-system-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+
+.lp-system-card li {
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
 
 /* ---------- Security ---------- */
 .lp-security {
@@ -626,8 +687,21 @@ a { text-decoration: none; }
   .lp-nav-links { display: none; }
   .lp-nav-toggle { display: block; }
   .lp-jumbo { font-size: 34px; }
-  .lp-grid, .lp-steps, .lp-security, .lp-tab-panel, .lp-stats-inner { grid-template-columns: 1fr; }
+  .lp-grid, .lp-steps, .lp-security, .lp-tab-panel, .lp-stats-inner, .lp-system-map { grid-template-columns: 1fr; }
   .lp-plans { grid-template-columns: 1fr; }
+  .lp-ad-grid { grid-template-columns: 1fr; }
   .lp-strip-inner { gap: 16px; }
   .lp-footer-top { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .lp-nav-inner { padding: 14px 16px; gap: 12px; }
+  .lp-topbar { font-size: 12px; }
+  .lp-hero { padding: 68px 16px; }
+  .lp-jumbo { font-size: 30px; }
+  .lp-section { padding: 64px 16px; }
+  .lp-h2 { font-size: 26px; margin-bottom: 30px; }
+  .lp-card, .lp-plan, .lp-security-item, .lp-tab-item, .lp-system-card { padding: 18px 16px; }
+  .lp-tabs-nav { width: 100%; display: grid; grid-template-columns: 1fr; border-radius: 14px; }
+  .lp-tab-btn { width: 100%; border-radius: 10px; }
 }
