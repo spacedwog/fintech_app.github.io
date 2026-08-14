@@ -151,9 +151,9 @@ Código: `js/dashboard.js` (`_loadPrivacyView`), `Api.getPrivacyConsent`/`setPri
 <details>
 <summary>O que é e como funciona</summary>
 
-**Não é um certificado.** Certificação ISO só é emitida por um organismo certificador acreditado, depois de auditoria paga — nenhum software "obtém" isso sozinho. Esta tela mostra uma autoavaliação honesta e informal (0–100%, sem validade de auditoria) de quanto os controles já implementados cobrem cada norma, o que falta, e o roteiro real (gap assessment → documentação → auditoria interna → organismo certificador acreditado pelo Cgcre/INMETRO ou IAF → correção de não conformidades → certificado, com manutenção anual).
+**Não é um certificado.** Certificação ISO só é emitida por um organismo certificador acreditado, depois de auditoria paga — nenhum software "obtém" isso sozinho. Esta tela mostra uma autoavaliação honesta e informal (0–100%, sem validade de auditoria) de quanto os controles já implementados cobrem cada norma, o que falta, o roteiro real (gap assessment → documentação → auditoria interna → organismo certificador acreditado pelo Cgcre/INMETRO ou IAF → correção de não conformidades → certificado, com manutenção anual) e os artefatos formais criados em `compliance/` (política de segurança, matriz de riscos, gestão de incidentes, SoA, ROPA, DPIA, DPO, retenção, SGQ, etc.).
 
-Código: `js/dashboard.js` (`_loadCertificationView`, getters `CERTIFICATION_READINESS`/`CERTIFICATION_ROADMAP`).
+Código: `js/dashboard.js` (`_loadCertificationView`, getters `CERTIFICATION_READINESS`/`COMPLIANCE_ARTIFACTS`/`CERTIFICATION_ROADMAP`) e diretório `compliance/`.
 </details>
 
 ### ⚙️ Configurações
@@ -370,6 +370,9 @@ tests/
   mercado-pago-badge.test.js -> teste de integração (Node) do badge Mercado
                             Pago da sidebar (Api.getMercadoPagoStatus) —
                             conectado/desconectado, isolamento por conta
+  performance-smoke.test.js -> smoke test de performance local para apoiar
+                            métricas da ISO/IEC 25010 (cadastro/login, lote
+                            de despesas e visão de orçamento)
 orcamento_agent/
   mp_reconcile.py        -> confirma automaticamente pagamentos do painel web
                             cruzando com o Mercado Pago (ver seção própria acima)
@@ -582,6 +585,18 @@ node tests/mercado-pago-badge.test.js
 ```
 
 Rode de novo sempre que alterar `Api.getMercadoPagoStatus()` (`js/api.js`) ou `MercadoPagoStatusIndicator` (`js/dashboard.js`).
+</details>
+
+<details>
+<summary><strong>Performance smoke (ISO/IEC 25010) — <code>tests/performance-smoke.test.js</code></strong></summary>
+
+Executa `js/plans.js`/`js/db.js`/`js/oauth.js`/`js/api.js` de verdade em memória (sem Firebase/rede) e valida limites amplos de tempo para detectar regressões grosseiras em três operações críticas: cadastro + login, inserção em lote de despesas e cálculo da visão mensal de orçamento.
+
+```bash
+node tests/performance-smoke.test.js
+```
+
+Este teste não substitui teste de carga em produção nem teste de usabilidade com usuários reais, mas formaliza uma verificação periódica de eficiência.
 </details>
 
 <details>
