@@ -207,6 +207,62 @@
     return expenses;
   }
 
+  class ChatbotVirtualMachine {
+    constructor(languageApi) {
+      this.languageApi = languageApi;
+    }
+
+    async run(program, context) {
+      const state = {
+        message: "",
+        githubUser: "",
+        methodologyTypes: null,
+        githubSummary: null,
+        githubLine: "",
+        expenses: [],
+        text: "",
+        vm_trace: [],
+        ...(context || {}),
+      };
+      const instructions = Array.isArray(program) ? program : [];
+      for (const instruction of instructions) {
+        await this._exec(instruction, state);
+      }
+      return state;
+    }
+
+    async _exec(instruction, state) {
+      const op = String((instruction && instruction.op) || "").trim().toUpperCase();
+      state.vm_trace.push(op);
+      if (op === "LIST_LANGUAGE_API") {
+        const payload = this.languageApi.list({ tipos: state.methodologyTypes });
+        state.text = `SpaceHub API de metodologias da linguagem portuguesa:\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+        return;
+      }
+      if (op === "FETCH_GITHUB_SUMMARY") {
+        if (!state.githubUser) return;
+        try {
+          state.githubSummary = await loadGithubSummary(state.githubUser);
+          state.githubLine =
+            `Contexto GitHub: @${state.githubSummary.login} · ${state.githubSummary.repos} repositórios públicos · ` +
+            `${state.githubSummary.followers} seguidores · ${state.githubSummary.publicEvents} eventos recentes.\n\n`;
+        } catch (_err) {
+          state.githubSummary = null;
+          state.githubLine = "Não consegui carregar o contexto do GitHub agora, então gerei as despesas sem esse complemento.\n\n";
+        }
+        return;
+      }
+      if (op === "GENERATE_EXPENSES") {
+        state.expenses = buildExpenses(state.message, state.githubSummary, this.languageApi);
+        return;
+      }
+      if (op === "FORMAT_EXPENSES_RESPONSE") {
+        const intro = "Sugeri despesas com base no seu pedido para importar direto na tela de despesas.";
+        state.text = `${state.githubLine}${intro}\n\n\`\`\`json\n${JSON.stringify(state.expenses, null, 2)}\n\`\`\``;
+      }
+    }
+  }
+
   async function loadGithubSummary(username) {
     const user = String(username || "").trim();
     if (!user) return null;
@@ -237,6 +293,7 @@
     constructor() {
       this.history = [];
       this.languageApi = new PortugueseLanguageMethodologyApi();
+      this.vm = new ChatbotVirtualMachine(this.languageApi);
     }
 
     clear() {
@@ -250,28 +307,20 @@
 
       const methodologyTypes = resolveMethodologyRequestTypes(message);
       if (methodologyTypes !== null) {
-        const payload = this.languageApi.list({ tipos: methodologyTypes });
-        const text = `SpaceHub API de metodologias da linguagem portuguesa:\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+        const vmResult = await this.vm.run([{ op: "LIST_LANGUAGE_API" }], { message, methodologyTypes });
+        const text = vmResult.text;
         this.history.push({ role: "user", content: message });
         this.history.push({ role: "assistant", content: text });
         return { text };
       }
 
-      let githubSummary = null;
-      let githubLine = "";
-      if (githubUser) {
-        try {
-          githubSummary = await loadGithubSummary(githubUser);
-          githubLine = `Contexto GitHub: @${githubSummary.login} · ${githubSummary.repos} repositórios públicos · ${githubSummary.followers} seguidores · ${githubSummary.publicEvents} eventos recentes.\n\n`;
-        } catch (_err) {
-          githubSummary = null;
-          githubLine = "Não consegui carregar o contexto do GitHub agora, então gerei as despesas sem esse complemento.\n\n";
-        }
-      }
-
-      const expenses = buildExpenses(message, githubSummary, this.languageApi);
-      const intro = "Sugeri despesas com base no seu pedido para importar direto na tela de despesas.";
-      const text = `${githubLine}${intro}\n\n\`\`\`json\n${JSON.stringify(expenses, null, 2)}\n\`\`\``;
+      const program = [
+        ...(githubUser ? [{ op: "FETCH_GITHUB_SUMMARY" }] : []),
+        { op: "GENERATE_EXPENSES" },
+        { op: "FORMAT_EXPENSES_RESPONSE" },
+      ];
+      const vmResult = await this.vm.run(program, { message, githubUser });
+      const text = vmResult.text;
 
       this.history.push({ role: "user", content: message });
       this.history.push({ role: "assistant", content: text });

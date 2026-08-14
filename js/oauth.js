@@ -321,6 +321,104 @@ class RevocationList {
   }
 }
 
+// ---------- OAuthTraceStore: trilha de rastreabilidade de eventos OAuth ----------
+//
+// Armazena um histórico enxuto dos eventos críticos do fluxo OAuth (authorize,
+// emissão/refresh/revogação de tokens e bloqueios de proteção), com trace_id
+// para correlação. Persistência local por navegador (mesma limitação do app
+// 100% client-side), suficiente para auditoria operacional e troubleshooting.
+
+class OAuthTraceStore {
+  constructor(storageKey, { maxEntries = 200 } = {}) {
+    this.storageKey = storageKey;
+    this.maxEntries = maxEntries;
+  }
+
+  _read() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
+      return Array.isArray(raw) ? raw : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  _write(list) {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(list));
+    } catch (e) {
+      // não crítico
+    }
+  }
+
+  append(event, payload = {}) {
+    const list = this._read();
+    const trace_id = String(payload.trace_id || OAuthCrypto.randomString(10));
+    const next = {
+      trace_id,
+      event: String(event || "oauth.event"),
+      at: new Date().toISOString(),
+      ...payload,
+      trace_id, // garante que não será sobrescrito por spread anterior
+    };
+    list.push(next);
+    const trimmed = list.length > this.maxEntries ? list.slice(list.length - this.maxEntries) : list;
+    this._write(trimmed);
+    return next;
+  }
+
+  list(limit = 50) {
+    const n = Math.max(1, Number(limit) || 50);
+    const rows = this._read();
+    return rows.slice(Math.max(0, rows.length - n)).reverse();
+  }
+}
+
+// ---------- OAuthTcpIpPolicy: proteção de transporte ----------
+//
+// Em ambiente browser, exige canal protegido para fluxos sensíveis de OAuth.
+// Aceita HTTPS em produção e também localhost/file:// para desenvolvimento
+// local deste projeto estático.
+
+class OAuthTcpIpPolicy {
+  constructor({ requireSecureTransport = true } = {}) {
+    this.requireSecureTransport = !!requireSecureTransport;
+  }
+
+  _location() {
+    if (typeof globalThis === "undefined" || !globalThis.location) return null;
+    return globalThis.location;
+  }
+
+  _isLoopback(hostname) {
+    const host = String(hostname || "").toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
+  }
+
+  evaluateContext() {
+    const loc = this._location();
+    const protocol = String((loc && loc.protocol) || "unknown:");
+    const hostname = String((loc && loc.hostname) || "");
+    const isSecureTransport = protocol === "https:" || protocol === "file:" || this._isLoopback(hostname) || !loc;
+    const nav = typeof globalThis !== "undefined" ? globalThis.navigator : null;
+    const conn = nav && nav.connection ? nav.connection : null;
+    return {
+      protocol,
+      hostname,
+      is_secure_transport: isSecureTransport,
+      network_hint: conn && conn.effectiveType ? String(conn.effectiveType) : "unknown",
+    };
+  }
+
+  assertProtectedChannel() {
+    const ctx = this.evaluateContext();
+    if (this.requireSecureTransport && !ctx.is_secure_transport) {
+      throw new Error("invalid_request: transporte inseguro (use HTTPS)");
+    }
+    return ctx;
+  }
+}
+
 // ---------- LoginRateLimiter: mitigação de força bruta no login ----------
 //
 // Boa prática de "CS Passwords" (W3Schools Cyber Security): travar
@@ -398,10 +496,12 @@ const OAUTH_CLIENT = {
 // ---------- OAuthAuthorizationServer: endpoints /authorize e /token (RFC 6749) ----------
 
 class OAuthAuthorizationServer {
-  constructor(jwtService, codeStore, revocationList, client) {
+  constructor(jwtService, codeStore, revocationList, traceStore, tcpIpPolicy, client) {
     this.jwt = jwtService;
     this.codes = codeStore;
     this.revocations = revocationList;
+    this.trace = traceStore;
+    this.tcpIpPolicy = tcpIpPolicy;
     this.client = client;
   }
 
@@ -420,6 +520,8 @@ class OAuthAuthorizationServer {
   }
 
   authorize({ client_id, redirect_uri, response_type, scope, state, code_challenge, code_challenge_method }, identity) {
+    const transport = this.tcpIpPolicy.assertProtectedChannel();
+    if (!identity || !identity.oauth_consent_at) throw new Error("access_denied: consentimento OAuth é obrigatório");
     if (response_type !== "code") throw new Error("unsupported_response_type");
     if (client_id !== this.client.client_id) throw new Error("invalid_client");
     if (redirect_uri !== this.client.redirect_uri) throw new Error("invalid_request: redirect_uri não confere");
@@ -430,6 +532,19 @@ class OAuthAuthorizationServer {
 
     const grantedScope = this._normalizeScope(scope).filter((s) => this.client.allowed_scopes.includes(s));
     const code = this.codes.put(identity, { code_challenge, code_challenge_method, scope: grantedScope, state, client_id, redirect_uri });
+    const trace = this.trace.append("oauth.authorize.success", {
+      user_id: identity.user_id || null,
+      tenant_id: identity.tenant_id || null,
+      scope: grantedScope,
+      protocol: transport.protocol,
+      network_hint: transport.network_hint,
+      consent_at: identity.oauth_consent_at,
+    });
+    const codePreview = typeof code === "string" ? `${code.slice(0, 8)}...` : null;
+    this.trace.append("oauth.authorization_code.issued", {
+      trace_id: trace.trace_id,
+      code_preview: codePreview,
+    });
     return { code, state };
   }
 
@@ -442,6 +557,7 @@ class OAuthAuthorizationServer {
   }
 
   async _exchangeCode({ code, redirect_uri, client_id, code_verifier }) {
+    const transport = this.tcpIpPolicy.assertProtectedChannel();
     const entry = this.codes.consume(code);
     if (entry.params.client_id !== client_id) throw new Error("invalid_grant: client_id não confere");
     if (entry.params.redirect_uri !== redirect_uri) throw new Error("invalid_grant: redirect_uri não confere");
@@ -452,10 +568,20 @@ class OAuthAuthorizationServer {
       throw new Error("invalid_grant: code_verifier não confere com o code_challenge (PKCE)");
     }
 
-    return this._issueTokenSet(entry.identity, entry.params.scope);
+    const tokenSet = await this._issueTokenSet(entry.identity, entry.params.scope, transport);
+    this.trace.append("oauth.token.exchange.success", {
+      user_id: entry.identity.user_id || null,
+      tenant_id: entry.identity.tenant_id || null,
+      protocol: transport.protocol,
+      scope: entry.params.scope,
+      access_jti: tokenSet.access_jti,
+      refresh_jti: tokenSet.refresh_jti,
+    });
+    return tokenSet;
   }
 
   async _refresh({ refresh_token, client_id }) {
+    const transport = this.tcpIpPolicy.assertProtectedChannel();
     if (client_id !== this.client.client_id) throw new Error("invalid_client");
     const claims = await this.jwt.verify(refresh_token);
     if (claims.token_type !== "refresh") throw new Error("invalid_grant: token informado não é um refresh_token");
@@ -472,10 +598,20 @@ class OAuthAuthorizationServer {
       role: claims.role,
       email: claims.email,
     };
-    return this._issueTokenSet(identity, claims.scope || []);
+    const tokenSet = await this._issueTokenSet(identity, claims.scope || [], transport);
+    this.trace.append("oauth.token.refresh.success", {
+      user_id: identity.user_id || null,
+      tenant_id: identity.tenant_id || null,
+      protocol: transport.protocol,
+      prior_refresh_jti: claims.jti || null,
+      access_jti: tokenSet.access_jti,
+      refresh_jti: tokenSet.refresh_jti,
+    });
+    return tokenSet;
   }
 
-  async _issueTokenSet(identity, scope) {
+  async _issueTokenSet(identity, scope, transportContext) {
+    const transport = transportContext || this.tcpIpPolicy.evaluateContext();
     const basePayload = {
       iss: "fintech-spacecworp-oauth",
       aud: this.client.client_id,
@@ -485,10 +621,25 @@ class OAuthAuthorizationServer {
       role: identity.role,
       email: identity.email,
       oauth_consent_at: identity.oauth_consent_at || null,
+      tcpip_protection: {
+        transport: transport.protocol,
+        secure: !!transport.is_secure_transport,
+      },
       scope,
     };
     const access_token = await this.jwt.sign(basePayload, { expiresInSeconds: 60 * 60, tokenType: "access" }); // 1h
     const refresh_token = await this.jwt.sign(basePayload, { expiresInSeconds: 60 * 60 * 24 * 30, tokenType: "refresh" }); // 30d
+    const accessClaims = this.jwt.decodeUnsafe(access_token);
+    const refreshClaims = this.jwt.decodeUnsafe(refresh_token);
+    const trace = this.trace.append("oauth.token.issued", {
+      user_id: identity.user_id || null,
+      tenant_id: identity.tenant_id || null,
+      protocol: transport.protocol,
+      access_jti: accessClaims.jti || null,
+      refresh_jti: refreshClaims.jti || null,
+      scope,
+      consent_at: identity.oauth_consent_at || null,
+    });
     return {
       access_token,
       refresh_token,
@@ -496,6 +647,10 @@ class OAuthAuthorizationServer {
       expires_in: 3600,
       scope: scope.join(" "),
       scope_list: scope.slice(),
+      access_jti: accessClaims.jti || null,
+      refresh_jti: refreshClaims.jti || null,
+      trace_id: trace.trace_id,
+      oauth_transport: transport.protocol,
     };
   }
 
@@ -503,8 +658,15 @@ class OAuthAuthorizationServer {
     try {
       const claims = this.jwt.decodeUnsafe(token);
       this.revocations.revoke(claims.jti, claims.exp);
+      this.trace.append("oauth.token.revoked", {
+        user_id: claims.sub || null,
+        tenant_id: claims.tenant_id || null,
+        token_type: claims.token_type || null,
+        jti: claims.jti || null,
+      });
     } catch (e) {
       // token já inválido/mal formado — nada a revogar
+      this.trace.append("oauth.token.revoke.ignored_invalid_token", {});
     }
   }
 }
@@ -519,7 +681,9 @@ class OAuthFacade {
     this.jwt = new JwtService(this.secretStore);
     this.codes = new AuthorizationCodeStore();
     this.revocations = new RevocationList("fintech_oauth_revoked_v1");
-    this.server = new OAuthAuthorizationServer(this.jwt, this.codes, this.revocations, this.client);
+    this.trace = new OAuthTraceStore("fintech_oauth_trace_v1");
+    this.tcpIpPolicy = new OAuthTcpIpPolicy({ requireSecureTransport: true });
+    this.server = new OAuthAuthorizationServer(this.jwt, this.codes, this.revocations, this.trace, this.tcpIpPolicy, this.client);
     this.loginRateLimiter = new LoginRateLimiter("fintech_oauth_login_attempts_v1");
   }
 
@@ -578,6 +742,10 @@ class OAuthFacade {
 
   revoke(token) {
     this.server.revokeToken(token);
+  }
+
+  getAuditTrail(limit = 50) {
+    return this.trace.list(limit);
   }
 }
 
