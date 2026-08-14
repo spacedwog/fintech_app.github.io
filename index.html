@@ -9,7 +9,7 @@
 
   <!-- Segurança (ver tela "Segurança" no painel, pós-login): restringe de quais
        domínios o navegador pode carregar script/estilo/fonte/imagem. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com https://pagead2.googlesyndication.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://*.google.com https://*.google-analytics.com https://pagead2.googlesyndication.com; frame-src https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://*.google.com https://*.google-analytics.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; frame-src https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
 
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
@@ -17,10 +17,10 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('consent', 'default', {
-      ad_storage: 'denied',
-      analytics_storage: 'denied',
-      ad_user_data: 'denied',
-      ad_personalization: 'denied',
+      ad_storage: 'granted',
+      analytics_storage: 'granted',
+      ad_user_data: 'granted',
+      ad_personalization: 'granted',
     });
     gtag('js', new Date());
     gtag('config', 'AW-10926256695');
@@ -538,10 +538,21 @@
 
     // Inicializa blocos Google AdSense
     (function () {
-      var slots = document.querySelectorAll('.adsbygoogle');
-      slots.forEach(function () {
-        try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch (err) {}
-      });
+      function initAdSlots() {
+        var slots = document.querySelectorAll('.adsbygoogle');
+        slots.forEach(function (slot) {
+          if (slot.getAttribute('data-ads-initialized') === 'true') return;
+          try {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+            slot.setAttribute('data-ads-initialized', 'true');
+          } catch (err) {}
+        });
+      }
+      if (document.readyState === 'complete') {
+        initAdSlots();
+      } else {
+        window.addEventListener('load', initAdSlots);
+      }
     })();
   </script>
 
