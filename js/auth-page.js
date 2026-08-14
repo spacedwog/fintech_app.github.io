@@ -14,6 +14,11 @@ class AuthPageController {
     this.showLogin = document.getElementById("show-login");
     this.loginBox = document.getElementById("login-box");
     this.signupBox = document.getElementById("signup-box");
+    this.oauthConsentModal = document.getElementById("oauth-consent-modal");
+    this.oauthConsentContinueBtn = document.getElementById("oauth-consent-continue");
+    this.oauthConsentCancelBtn = document.getElementById("oauth-consent-cancel");
+    this.oauthConsentError = document.getElementById("oauth-consent-error");
+    this.pendingLogin = null;
   }
 
   init() {
@@ -26,6 +31,12 @@ class AuthPageController {
     this.showLogin.addEventListener("click", (e) => this._handleShowLogin(e));
     this.loginForm.addEventListener("submit", (e) => this._handleLoginSubmit(e));
     this.signupForm.addEventListener("submit", (e) => this._handleSignupSubmit(e));
+    if (this.oauthConsentContinueBtn) {
+      this.oauthConsentContinueBtn.addEventListener("click", () => this._confirmOAuthConsent());
+    }
+    if (this.oauthConsentCancelBtn) {
+      this.oauthConsentCancelBtn.addEventListener("click", () => this._closeOAuthConsentModal());
+    }
   }
 
   _handleShowSignup(e) {
@@ -45,16 +56,52 @@ class AuthPageController {
     const errorBox = document.getElementById("login-error");
     errorBox.classList.add("hidden");
 
-    const email = document.getElementById("login-email").value.trim();
-    const password = document.getElementById("login-password").value;
+    this.pendingLogin = {
+      email: document.getElementById("login-email").value.trim(),
+      password: document.getElementById("login-password").value,
+    };
+    this._openOAuthConsentModal();
+  }
+
+  _openOAuthConsentModal() {
+    if (!this.oauthConsentModal) return;
+    if (this.oauthConsentError) this.oauthConsentError.classList.add("hidden");
+    this.oauthConsentModal.classList.remove("hidden");
+  }
+
+  _closeOAuthConsentModal() {
+    if (!this.oauthConsentModal) return;
+    this.oauthConsentModal.classList.add("hidden");
+    if (this.oauthConsentError) this.oauthConsentError.classList.add("hidden");
+  }
+
+  async _confirmOAuthConsent() {
+    if (!this.pendingLogin) return;
+    const errorBox = document.getElementById("login-error");
+    errorBox.classList.add("hidden");
+    if (this.oauthConsentError) this.oauthConsentError.classList.add("hidden");
+    if (this.oauthConsentContinueBtn) this.oauthConsentContinueBtn.disabled = true;
 
     try {
-      const { token } = await Api.login({ email, password });
+      const { token } = await Api.login({
+        email: this.pendingLogin.email,
+        password: this.pendingLogin.password,
+        oauth_consent: true,
+      });
+      this.pendingLogin = null;
+      this._closeOAuthConsentModal();
       Auth.setToken(token);
       window.location.href = "dashboard.html";
     } catch (err) {
-      errorBox.textContent = err.message;
-      errorBox.classList.remove("hidden");
+      if (this.oauthConsentError) {
+        this.oauthConsentError.textContent = err.message;
+        this.oauthConsentError.classList.remove("hidden");
+      } else {
+        errorBox.textContent = err.message;
+        errorBox.classList.remove("hidden");
+      }
+    } finally {
+      if (this.oauthConsentContinueBtn) this.oauthConsentContinueBtn.disabled = false;
     }
   }
 
