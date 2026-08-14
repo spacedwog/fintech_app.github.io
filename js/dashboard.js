@@ -1976,6 +1976,7 @@ class DashboardController {
       { label: "Métricas de Qualidade", path: "compliance/metricas-qualidade-25010.md", covers: "ISO/IEC 25010" },
       { label: "Plano de Performance/Carga", path: "compliance/teste-performance.md", covers: "ISO/IEC 25010" },
       { label: "Evidências de Usabilidade", path: "compliance/testes-usabilidade-25010.md", covers: "ISO/IEC 25010" },
+      { label: "Calendário 2026-Q3/Q4 + Rastreabilidade", path: "compliance/calendario-rastreabilidade-2026.md", covers: "ISO/IEC 27001, 27701, 25010, 27017/27018, ISO 31000, ISO 9001" },
       { label: "Avaliação de Fornecedor de Nuvem", path: "compliance/avaliacao-fornecedor-nuvem.md", covers: "ISO/IEC 27017 / 27018" },
       { label: "SGQ, não conformidades e auditoria", path: "compliance/sgq-9001.md", covers: "ISO 9001" },
     ];

@@ -17,6 +17,7 @@ Este diretório reúne os artefatos formais que suportam a evolução de conform
 - [Métricas de Qualidade + ISO/IEC 25010](./metricas-qualidade-25010.md)
 - [Teste de Performance/Carga](./teste-performance.md)
 - [Evidências de Usabilidade (ISO/IEC 25010)](./testes-usabilidade-25010.md)
+- [Calendário 2026-Q3/Q4 + Rastreabilidade por Ciclo](./calendario-rastreabilidade-2026.md)
 - [Avaliação de Fornecedor de Nuvem + SLA](./avaliacao-fornecedor-nuvem.md)
 - [Sistema de Gestão da Qualidade (QMS)](./sgq-9001.md)
 - [Controle de Não Conformidades](./nao-conformidades-9001.md)
