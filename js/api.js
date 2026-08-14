@@ -19,6 +19,7 @@
 // ===============================
 
 const SESSION_KEY = "fintech_saas_session_v1";
+const SESSION_MASK_KEY = "fintech_saas_session_mask_v1";
 
 // SessionManager guarda, sob SESSION_KEY, o PAR DE TOKENS OAuth emitido por
 // OAuth.issueSessionTokens (js/oauth.js) — não mais um JSON "cru" com o
@@ -31,12 +32,51 @@ class SessionManager {
     this._claimsCache = null; // cache em memória das claims já decodificadas (evita re-decodificar a cada chamada síncrona)
   }
 
+  _getMaskKey() {
+    let key = localStorage.getItem(SESSION_MASK_KEY);
+    if (!key) {
+      key = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(SESSION_MASK_KEY, key);
+    }
+    return key;
+  }
+
+  _encodeToken(rawToken) {
+    const plain = String(rawToken || "");
+    if (!plain) return plain;
+    const key = this._getMaskKey();
+    let masked = "";
+    for (let i = 0; i < plain.length; i++) {
+      masked += String.fromCharCode(plain.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return `enc:${btoa(masked)}`;
+  }
+
+  _decodeToken(storedValue) {
+    const value = String(storedValue || "");
+    if (!value.startsWith("enc:")) return value;
+    const key = this._getMaskKey();
+    let masked = "";
+    try {
+      masked = atob(value.slice(4));
+    } catch (_err) {
+      return null;
+    }
+    let plain = "";
+    for (let i = 0; i < masked.length; i++) {
+      plain += String.fromCharCode(masked.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return plain;
+  }
+
   getToken() {
-    return localStorage.getItem(SESSION_KEY);
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return stored;
+    return this._decodeToken(stored);
   }
 
   setToken(token) {
-    localStorage.setItem(SESSION_KEY, token);
+    localStorage.setItem(SESSION_KEY, this._encodeToken(token));
     this._claimsCache = null;
   }
 
