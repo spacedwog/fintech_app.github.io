@@ -165,9 +165,9 @@
         <!-- Página 2: Registrar Despesas -->
         <div class="flow-page hidden" id="flow-page-2">
           <div class="card">
-            <h3 class="mt-0">SpaceHub - Chatbot de Financiamento</h3>
+            <h3 class="mt-0">SpaceHub + GitHub Copilot Agent</h3>
             <p class="small-muted mt-0 mb-12">
-              Converse com o agente para gerar despesas e importar direto em Minhas despesas. Ele usa APIs públicas do GitHub e não precisa de token.
+              Converse com o agente para gerar despesas e importar direto em Minhas despesas. Ele combina o chatbot do app com contexto público do GitHub.
             </p>
 
             <div class="field">
@@ -176,7 +176,7 @@
             </div>
 
             <div id="google-ai-chat-messages" class="google-ai-chat-messages" aria-live="polite">
-              <div class="google-ai-msg bot">Olá! Sou o SpaceHub - Chatbot de Financiamento. Posso gerar despesas para você e adicioná-las em Minhas despesas.</div>
+              <div class="google-ai-msg bot">Olá! Sou o SpaceHub com agente GitHub Copilot. Posso gerar despesas para você e adicioná-las em Minhas despesas.</div>
             </div>
 
             <div class="field mb-10">
@@ -189,6 +189,55 @@
             <div class="button-row">
               <button type="button" id="google-ai-chat-send" class="primary flex-1 mt-0">Enviar</button>
               <button type="button" id="google-ai-chat-clear" class="secondary flex-1">Limpar conversa</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="mt-0">Pagamento de despesa via Pix por chave</h3>
+            <p class="small-muted mt-0 mb-12">
+              Informe a chave Pix do destinatário para gerar QR Code e código copia-e-cola da despesa.
+            </p>
+            <div id="pix-key-payment-error" class="error-box hidden"></div>
+            <form id="pix-key-payment-form">
+              <div class="grid-2">
+                <div class="field">
+                  <label>Valor da despesa (R$)</label>
+                  <input type="number" id="pix-key-amount" step="0.01" min="0.01" required />
+                </div>
+                <div class="field">
+                  <label>Data</label>
+                  <input type="date" id="pix-key-date" required />
+                </div>
+              </div>
+              <div class="field">
+                <label>Chave Pix do recebedor</label>
+                <input type="text" id="pix-key-value" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória" required />
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label>Nome do recebedor</label>
+                  <input type="text" id="pix-key-merchant-name" placeholder="Nome (máx. 25)" required />
+                </div>
+                <div class="field">
+                  <label>Cidade do recebedor</label>
+                  <input type="text" id="pix-key-merchant-city" placeholder="Cidade (máx. 15)" required />
+                </div>
+              </div>
+              <div class="field">
+                <label>Descrição da despesa</label>
+                <input type="text" id="pix-key-description" placeholder="Ex: Pagamento da conta de energia" />
+              </div>
+              <button type="submit" class="primary">Gerar pagamento Pix</button>
+            </form>
+
+            <div id="pix-key-payment-result" class="hidden mt-16">
+              <p class="small-muted text-left mb-4">QR Code Pix</p>
+              <div id="pix-key-qrcode" class="qr-wrap"></div>
+              <p class="small-muted text-left mb-4 mt-12">Pix Copia e Cola</p>
+              <div id="pix-key-copy-code" class="pix-code-box"></div>
+              <div class="button-row mt-10">
+                <button type="button" id="pix-key-copy-btn" class="secondary flex-1">Copiar código</button>
+              </div>
             </div>
           </div>
 

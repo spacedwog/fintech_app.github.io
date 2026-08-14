@@ -343,11 +343,11 @@ class AuthService {
       name: user.name,
       role: user.role,
       email: user.email,
-    });
+    }, { oauth_consent: true });
     return { token: JSON.stringify(tokens) };
   }
 
-  async login({ email, password }) {
+  async login({ email, password, oauth_consent }) {
     // Mitigação de força bruta (RFC 6749 não trata disso — é uma prática de
     // segurança de aplicação, ver W3Schools Cyber Security > Passwords):
     // trava temporariamente o e-mail depois de várias senhas erradas
@@ -389,7 +389,7 @@ class AuthService {
       name: user.name,
       role: user.role,
       email: user.email,
-    });
+    }, { oauth_consent: oauth_consent !== false });
     return { token: JSON.stringify(tokens) };
   }
 
@@ -399,11 +399,11 @@ class AuthService {
   // js/oauth.js não estiver carregado por algum motivo, cai para um
   // "token" simples (mesmo formato de antes desta versão) em vez de
   // quebrar login/signup — degradação graciosa, nunca bloqueia o usuário.
-  async _issueOAuthTokens(identity) {
+  async _issueOAuthTokens(identity, opts = {}) {
     if (typeof OAuth === "undefined") {
-      return { access_token: null, refresh_token: null, ...identity, legacy: true };
+      return { access_token: null, refresh_token: null, ...identity, legacy: true, oauth_consent: !!opts.oauth_consent };
     }
-    return OAuth.issueSessionTokens(identity);
+    return OAuth.issueSessionTokens(identity, opts);
   }
 
   async me() {

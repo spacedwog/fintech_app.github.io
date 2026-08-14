@@ -233,7 +233,7 @@
     };
   }
 
-  class GitHubExpenseAgentClient {
+  class GitHubCopilotExpenseAgentClient {
     constructor() {
       this.history = [];
       this.languageApi = new PortugueseLanguageMethodologyApi();
@@ -280,7 +280,8 @@
     }
   }
 
-  global.GitHubExpenseAgent = new GitHubExpenseAgentClient();
-  global.SpaceHubLanguageApi = global.GitHubExpenseAgent.languageApi;
-  global.GoogleAIChatbot = global.GitHubExpenseAgent;
+  global.GitHubCopilotAgent = new GitHubCopilotExpenseAgentClient();
+  global.GitHubExpenseAgent = global.GitHubCopilotAgent;
+  global.SpaceHubLanguageApi = global.GitHubCopilotAgent.languageApi;
+  global.GoogleAIChatbot = global.GitHubCopilotAgent;
 })(window);

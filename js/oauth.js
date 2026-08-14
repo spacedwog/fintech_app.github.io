@@ -390,6 +390,8 @@ class LoginRateLimiter {
 const OAUTH_CLIENT = {
   client_id: "fintech-spacecworp-dashboard",
   redirect_uri: "dashboard.html",
+  authorize_endpoint: "/login/oauth/authorize",
+  token_endpoint: "/login/oauth/access_token",
   allowed_scopes: ["profile", "expenses:read", "expenses:write", "reports:read", "payments:read", "team:manage"],
 };
 
@@ -408,17 +410,27 @@ class OAuthAuthorizationServer {
   // AuthService.login/signup em js/api.js): aqui apenas emite um
   // authorization code de uso único amarrado às claims da identidade já
   // autenticada + ao code_challenge (PKCE) informado.
-  authorize({ client_id, redirect_uri, response_type, scope, code_challenge, code_challenge_method }, identity) {
+  _normalizeScope(scope) {
+    const list = Array.isArray(scope)
+      ? scope
+      : typeof scope === "string"
+        ? scope.split(/\s+/)
+        : [];
+    return list.map((s) => String(s || "").trim()).filter(Boolean);
+  }
+
+  authorize({ client_id, redirect_uri, response_type, scope, state, code_challenge, code_challenge_method }, identity) {
     if (response_type !== "code") throw new Error("unsupported_response_type");
     if (client_id !== this.client.client_id) throw new Error("invalid_client");
     if (redirect_uri !== this.client.redirect_uri) throw new Error("invalid_request: redirect_uri não confere");
+    if (!state) throw new Error("invalid_request: state é obrigatório");
     if (!code_challenge || code_challenge_method !== "S256") {
       throw new Error("invalid_request: PKCE (code_challenge com S256) é obrigatório");
     }
 
-    const grantedScope = (scope || []).filter((s) => this.client.allowed_scopes.includes(s));
-    const code = this.codes.put(identity, { code_challenge, code_challenge_method, scope: grantedScope, client_id, redirect_uri });
-    return { code };
+    const grantedScope = this._normalizeScope(scope).filter((s) => this.client.allowed_scopes.includes(s));
+    const code = this.codes.put(identity, { code_challenge, code_challenge_method, scope: grantedScope, state, client_id, redirect_uri });
+    return { code, state };
   }
 
   // Equivalente ao endpoint POST /token — troca um authorization_code (+
@@ -472,11 +484,19 @@ class OAuthAuthorizationServer {
       name: identity.name,
       role: identity.role,
       email: identity.email,
+      oauth_consent_at: identity.oauth_consent_at || null,
       scope,
     };
     const access_token = await this.jwt.sign(basePayload, { expiresInSeconds: 60 * 60, tokenType: "access" }); // 1h
     const refresh_token = await this.jwt.sign(basePayload, { expiresInSeconds: 60 * 60 * 24 * 30, tokenType: "refresh" }); // 30d
-    return { access_token, refresh_token, token_type: "Bearer", expires_in: 3600, scope };
+    return {
+      access_token,
+      refresh_token,
+      token_type: "Bearer",
+      expires_in: 3600,
+      scope: scope.join(" "),
+      scope_list: scope.slice(),
+    };
   }
 
   revokeToken(token) {
@@ -509,31 +529,39 @@ class OAuthFacade {
   // tokens — exatamente as duas trocas de um cliente OAuth "de verdade"
   // (aqui, sem backend, acontecem no mesmo processo, mas seguindo o mesmo
   // contrato do protocolo).
-  async issueSessionTokens(identity) {
+  async issueSessionTokens(identity, opts = {}) {
+    if (opts.oauth_consent === false) {
+      throw new Error("access_denied: consentimento OAuth não concedido");
+    }
     const codeVerifier = OAuthCrypto.generateCodeVerifier();
     const codeChallenge = await OAuthCrypto.codeChallengeFromVerifier(codeVerifier);
+    const state = String(opts.state || OAuthCrypto.randomString(16));
+    const identityWithConsent = { ...identity, oauth_consent_at: new Date().toISOString() };
 
     const scope = this.client.allowed_scopes.filter((s) => identity.role === "admin" || s !== "team:manage");
 
-    const { code } = this.server.authorize(
+    const { code, state: returnedState } = this.server.authorize(
       {
         client_id: this.client.client_id,
         redirect_uri: this.client.redirect_uri,
         response_type: "code",
-        scope,
+        scope: scope.join(" "),
+        state,
         code_challenge: codeChallenge,
         code_challenge_method: "S256",
       },
-      identity
+      identityWithConsent
     );
+    if (returnedState !== state) throw new Error("invalid_request: state do OAuth não confere");
 
-    return this.server.token({
+    const tokenSet = await this.server.token({
       grant_type: "authorization_code",
       code,
       redirect_uri: this.client.redirect_uri,
       client_id: this.client.client_id,
       code_verifier: codeVerifier,
     });
+    return { ...tokenSet, state, authorization_endpoint: this.client.authorize_endpoint, token_endpoint: this.client.token_endpoint };
   }
 
   refreshSessionTokens(refresh_token) {

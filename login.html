@@ -164,6 +164,30 @@
 
   </div>
 
+  <div id="oauth-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="oauth-consent-title">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="oauth-consent-title" class="m-0 fs-18">Permissões do login OAuth</h2>
+      </div>
+      <p class="small-muted mt-0">
+        Para entrar, vamos obter e usar os dados abaixo nesta conta:
+      </p>
+      <ul class="small-muted mt-0 mb-16">
+        <li>Identidade: nome, e-mail e função na conta</li>
+        <li>Escopo de acesso: leitura/escrita de despesas, relatórios e pagamentos</li>
+        <li>Sessão OAuth 2.0: token de acesso e refresh token com expiração</li>
+      </ul>
+      <p class="small-muted mt-0 mb-16">
+        Ao continuar, você autoriza o fluxo OAuth 2.0 com PKCE para esta aplicação.
+      </p>
+      <div id="oauth-consent-error" class="error-box hidden"></div>
+      <div class="button-row">
+        <button type="button" id="oauth-consent-cancel" class="secondary flex-1">Cancelar</button>
+        <button type="button" id="oauth-consent-continue" class="primary flex-1 mt-0">Continuar com OAuth</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase (Firestore) — banco de dados primário, com localStorage como fallback. -->
   <!-- Ver README.md > "Conectando ao Firebase" para o passo a passo de configuração. -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
