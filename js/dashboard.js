@@ -703,33 +703,33 @@ class DashboardController {
         e.preventDefault();
         this._sendGoogleAIChatMessage();
       }
-
-      _setupPixKeyPayment() {
-        if (this.pixKeyPaymentBound) return;
-        const form = document.getElementById("pix-key-payment-form");
-        if (!form) return;
-        this.pixKeyPaymentBound = true;
-
-        const dateInput = document.getElementById("pix-key-date");
-        if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
-
-        const copyBtn = document.getElementById("pix-key-copy-btn");
-        if (copyBtn) {
-          copyBtn.addEventListener("click", () => {
-            const codeEl = document.getElementById("pix-key-copy-code");
-            const code = String((codeEl && codeEl.textContent) || "").trim();
-            if (!code) return;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(code);
-            }
-          });
-        }
-      }
-
-      _getCopilotChatAgent() {
-        return window.GitHubCopilotAgent || window.GoogleAIChatbot || window.GitHubExpenseAgent || null;
-      }
     });
+  }
+
+  _setupPixKeyPayment() {
+    if (this.pixKeyPaymentBound) return;
+    const form = document.getElementById("pix-key-payment-form");
+    if (!form) return;
+    this.pixKeyPaymentBound = true;
+
+    const dateInput = document.getElementById("pix-key-date");
+    if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+
+    const copyBtn = document.getElementById("pix-key-copy-btn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", () => {
+        const codeEl = document.getElementById("pix-key-copy-code");
+        const code = String((codeEl && codeEl.textContent) || "").trim();
+        if (!code) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code);
+        }
+      });
+    }
+  }
+
+  _getCopilotChatAgent() {
+    return window.GitHubCopilotAgent || window.GoogleAIChatbot || window.GitHubExpenseAgent || null;
   }
 
   _appendGoogleAIChatMessage(type, text) {
@@ -1136,74 +1136,6 @@ class DashboardController {
             manualTxnNumber: analysis ? analysis.manualTxnNumber : null,
           });
         }
-
-        _renderPixKeyFallback(qrEl, payload) {
-          const img = document.createElement("img");
-          img.alt = "QR Code Pix";
-          img.width = 142;
-          img.height = 142;
-          img.src = "https://api.qrserver.com/v1/create-qr-code/?size=142x142&data=" + encodeURIComponent(payload);
-          img.onerror = () => {
-            qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
-          };
-          qrEl.innerHTML = "";
-          qrEl.appendChild(img);
-        }
-
-        async _handlePixKeyPaymentFormSubmit(e) {
-          e.preventDefault();
-          const errorBox = document.getElementById("pix-key-payment-error");
-          const resultBox = document.getElementById("pix-key-payment-result");
-          const qrEl = document.getElementById("pix-key-qrcode");
-          const codeEl = document.getElementById("pix-key-copy-code");
-          if (errorBox) errorBox.classList.add("hidden");
-
-          const amount = Number(document.getElementById("pix-key-amount").value);
-          const date = String(document.getElementById("pix-key-date").value || "").trim();
-          const key = String(document.getElementById("pix-key-value").value || "").trim();
-          const merchantName = String(document.getElementById("pix-key-merchant-name").value || "").trim();
-          const merchantCity = String(document.getElementById("pix-key-merchant-city").value || "").trim();
-          const description = String(document.getElementById("pix-key-description").value || "").trim();
-
-          if (!Number.isFinite(amount) || amount <= 0) {
-            if (errorBox) {
-              errorBox.textContent = "Informe um valor válido para a despesa.";
-              errorBox.classList.remove("hidden");
-            }
-            return;
-          }
-
-          try {
-            const payload = Pix.buildPayload({
-              key,
-              name: merchantName,
-              city: merchantCity,
-              amount,
-              description: description || `Despesa ${date || new Date().toISOString().slice(0, 10)}`,
-              txid: Pix.generateTxid("PGTO"),
-            });
-            if (codeEl) codeEl.textContent = payload;
-            if (resultBox) resultBox.classList.remove("hidden");
-            if (qrEl) {
-              qrEl.innerHTML = "";
-              try {
-                if (window.QRCode) {
-                  new QRCode(qrEl, { text: payload, width: 142, height: 142, correctLevel: QRCode.CorrectLevel.M });
-                } else {
-                  this._renderPixKeyFallback(qrEl, payload);
-                }
-              } catch (_err) {
-                this._renderPixKeyFallback(qrEl, payload);
-              }
-            }
-          } catch (err) {
-            if (errorBox) {
-              errorBox.textContent = (err && err.message) || "Não foi possível gerar o pagamento Pix.";
-              errorBox.classList.remove("hidden");
-            }
-            if (resultBox) resultBox.classList.add("hidden");
-          }
-        }
         await this._refreshQuotaInfo();
         await this._refreshExpenseTable();
         await this._refreshExpenseCategoryBudgetInfo();
@@ -1226,6 +1158,74 @@ class DashboardController {
     } catch (err) {
       errorBox.textContent = err.message;
       errorBox.classList.remove("hidden");
+    }
+  }
+
+  _renderPixKeyFallback(qrEl, payload) {
+    const img = document.createElement("img");
+    img.alt = "QR Code Pix";
+    img.width = 142;
+    img.height = 142;
+    img.src = "https://api.qrserver.com/v1/create-qr-code/?size=142x142&data=" + encodeURIComponent(payload);
+    img.onerror = () => {
+      qrEl.textContent = "QR indisponível — use o código copia e cola abaixo.";
+    };
+    qrEl.innerHTML = "";
+    qrEl.appendChild(img);
+  }
+
+  async _handlePixKeyPaymentFormSubmit(e) {
+    e.preventDefault();
+    const errorBox = document.getElementById("pix-key-payment-error");
+    const resultBox = document.getElementById("pix-key-payment-result");
+    const qrEl = document.getElementById("pix-key-qrcode");
+    const codeEl = document.getElementById("pix-key-copy-code");
+    if (errorBox) errorBox.classList.add("hidden");
+
+    const amount = Number(document.getElementById("pix-key-amount").value);
+    const date = String(document.getElementById("pix-key-date").value || "").trim();
+    const key = String(document.getElementById("pix-key-value").value || "").trim();
+    const merchantName = String(document.getElementById("pix-key-merchant-name").value || "").trim();
+    const merchantCity = String(document.getElementById("pix-key-merchant-city").value || "").trim();
+    const description = String(document.getElementById("pix-key-description").value || "").trim();
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      if (errorBox) {
+        errorBox.textContent = "Informe um valor válido para a despesa.";
+        errorBox.classList.remove("hidden");
+      }
+      return;
+    }
+
+    try {
+      const payload = Pix.buildPayload({
+        key,
+        name: merchantName,
+        city: merchantCity,
+        amount,
+        description: description || `Despesa ${date || new Date().toISOString().slice(0, 10)}`,
+        txid: Pix.generateTxid("PGTO"),
+      });
+      if (codeEl) codeEl.textContent = payload;
+      if (resultBox) resultBox.classList.remove("hidden");
+      if (qrEl) {
+        qrEl.innerHTML = "";
+        try {
+          if (window.QRCode) {
+            new QRCode(qrEl, { text: payload, width: 142, height: 142, correctLevel: QRCode.CorrectLevel.M });
+          } else {
+            this._renderPixKeyFallback(qrEl, payload);
+          }
+        } catch (_err) {
+          this._renderPixKeyFallback(qrEl, payload);
+        }
+      }
+    } catch (err) {
+      if (errorBox) {
+        errorBox.textContent = (err && err.message) || "Não foi possível gerar o pagamento Pix.";
+        errorBox.classList.remove("hidden");
+      }
+      if (resultBox) resultBox.classList.add("hidden");
     }
   }
 
