@@ -325,41 +325,33 @@ class RevocationList {
 //
 // Armazena um histórico enxuto dos eventos críticos do fluxo OAuth (authorize,
 // emissão/refresh/revogação de tokens e bloqueios de proteção), com trace_id
-// para correlação. Persistência local por navegador (mesma limitação do app
-// 100% client-side), suficiente para auditoria operacional e troubleshooting.
+// para correlação. O buffer fica em memória nesta sessão do navegador,
+// suficiente para auditoria operacional e troubleshooting sem gravar dados
+// sensíveis em armazenamento persistente.
 
 class OAuthTraceStore {
   constructor(storageKey, { maxEntries = 200 } = {}) {
     this.storageKey = storageKey;
     this.maxEntries = maxEntries;
+    this._entries = [];
   }
 
   _read() {
-    try {
-      const raw = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-      return Array.isArray(raw) ? raw : [];
-    } catch (e) {
-      return [];
-    }
+    return this._entries.slice();
   }
 
   _write(list) {
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(list));
-    } catch (e) {
-      // não crítico
-    }
+    this._entries = Array.isArray(list) ? list.slice() : [];
   }
 
   append(event, payload = {}) {
     const list = this._read();
-    const trace_id = String(payload.trace_id || OAuthCrypto.randomString(10));
+    const requestedTraceId = payload && typeof payload.trace_id === "string" ? payload.trace_id.trim() : "";
+    const trace_id = /^[A-Za-z0-9_-]{8,80}$/.test(requestedTraceId) ? requestedTraceId : OAuthCrypto.randomString(10);
     const next = {
       trace_id,
       event: String(event || "oauth.event"),
       at: new Date().toISOString(),
-      ...payload,
-      trace_id, // garante que não será sobrescrito por spread anterior
     };
     list.push(next);
     const trimmed = list.length > this.maxEntries ? list.slice(list.length - this.maxEntries) : list;
