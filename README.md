@@ -46,6 +46,7 @@ A landing (`index.html`) já está preparada com dois slots na seção **Patroci
    - Aguarde aprovação do site nas políticas do Google.
 3. **Troque o publisher ID de teste pelo seu**
    - Em `index.html`, ajuste `<meta name="google-adsense-account" content="ca-pub-...">` para o seu `ca-pub` real.
+   - Esse valor também é aplicado automaticamente como `data-ad-client` em cada slot da landing.
 4. **Troque os slots de anúncio**
    - Na seção `lp-ad-grid` de `index.html`, substitua `data-ad-slot` pelos IDs reais criados no painel do AdSense.
 5. **Respeite consentimento**

@@ -177,7 +177,6 @@
         <div class="lp-ad-slot-wrap">
           <ins class="adsbygoogle lp-ad-slot"
                style="display:block"
-               data-ad-client="ca-pub-3940256099942544"
                data-ad-slot="6300978111"
                data-ad-format="auto"
                data-full-width-responsive="true"></ins>
@@ -186,7 +185,6 @@
         <div class="lp-ad-slot-wrap">
           <ins class="adsbygoogle lp-ad-slot"
                style="display:block"
-               data-ad-client="ca-pub-3940256099942544"
                data-ad-slot="6300978111"
                data-ad-format="auto"
                data-full-width-responsive="true"></ins>
@@ -580,6 +578,8 @@
 
       function renderAdSlots() {
         slots.forEach(function (slot) {
+          if (!slot.getAttribute('data-ad-slot')) return;
+          slot.setAttribute('data-ad-client', adClient);
           if (slot.dataset.adsRendered === '1') return;
           slot.dataset.adsRendered = '1';
           try {
@@ -616,12 +616,23 @@
         });
       }
 
+      function hasValidConfig() {
+        if (!/^ca-pub-\d+$/.test(adClient)) return false;
+        return Array.prototype.every.call(slots, function (slot) {
+          return /^\d+$/.test(slot.getAttribute('data-ad-slot') || '');
+        });
+      }
+
       function persistConsent(granted) {
         localStorage.setItem(CONSENT_KEY, granted ? 'granted' : 'denied');
         updateGtagConsent(granted);
       }
 
       function enableAds() {
+        if (!hasValidConfig()) {
+          setUiState(false, 'Configuração de anúncios incompleta. Defina seu ca-pub e slots reais para liberar os blocos patrocinados.');
+          return;
+        }
         persistConsent(true);
         setUiState(true);
         loadAdSenseScript()
