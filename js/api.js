@@ -576,6 +576,7 @@ class ExpenseService {
           id: e.id,
           amount: e.amount,
           date: e.date,
+          created_at: e.created_at || null,
           description: e.description,
           transaction_number: e.transaction_number || null,
           category_id: e.category_id,
@@ -1088,13 +1089,22 @@ class BudgetLayoutService {
 // localStorage — assim o histórico também sincroniza entre dispositivos.
 
 class PaymentService {
-  async listPayments() {
+  async listPayments(allUsers = false) {
     const session = Auth.requireSession();
     const db = await loadDb();
-    return db.payments
-      .filter((p) => p.tenant_id === session.tenant_id && p.user_id === session.user_id)
+    const scoped = db.payments.filter((p) => p.tenant_id === session.tenant_id);
+    const filtered =
+      allUsers && session.role === "admin" ? scoped : scoped.filter((p) => p.user_id === session.user_id);
+    return filtered
       .slice()
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .map((p) => {
+        const user = db.users.find((u) => u.id === p.user_id);
+        return {
+          ...p,
+          user_name: user ? user.name : null,
+        };
+      });
   }
 
   async addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber }) {
@@ -1410,8 +1420,8 @@ class ApiFacade {
   }
 
   // ---------- Payments ----------
-  listPayments() {
-    return this.paymentService.listPayments();
+  listPayments(allUsers = false) {
+    return this.paymentService.listPayments(allUsers);
   }
   addPayment(payload) {
     return this.paymentService.addPayment(payload);
