@@ -11,6 +11,7 @@
        domínios o navegador pode carregar script/estilo/fonte/imagem. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://*.google.com https://*.google-analytics.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; frame-src https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <link rel="icon" type="image/png" href="assets/img/pix-qrcode.png" />
 
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
   <script>
@@ -25,9 +26,6 @@
     gtag('js', new Date());
     gtag('config', 'AW-10926256695');
   </script>
-
-  <script async crossorigin="anonymous"
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3940256099942544"></script>
 
   <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:400,500,600,700,800" />
@@ -168,18 +166,8 @@
       <span class="lp-kicker">Patrocinado</span>
       <h2 class="lp-h2 lp-h2-ad">Ofertas e parceiros relevantes para sua rotina financeira</h2>
       <div class="lp-ad-grid">
-        <ins class="adsbygoogle lp-ad-slot"
-          style="display:block"
-          data-ad-client="ca-pub-3940256099942544"
-          data-ad-slot="6300978111"
-          data-ad-format="auto"
-          data-full-width-responsive="true"></ins>
-        <ins class="adsbygoogle lp-ad-slot"
-          style="display:block"
-          data-ad-client="ca-pub-3940256099942544"
-          data-ad-slot="7806394673"
-          data-ad-format="auto"
-          data-full-width-responsive="true"></ins>
+        <div class="lp-ad-slot" aria-hidden="true"></div>
+        <div class="lp-ad-slot" aria-hidden="true"></div>
       </div>
     </div>
   </section>
@@ -536,24 +524,6 @@
       });
     })();
 
-    // Inicializa blocos Google AdSense
-    (function () {
-      function initAdSlots() {
-        var slots = document.querySelectorAll('.adsbygoogle');
-        slots.forEach(function (slot) {
-          if (slot.getAttribute('data-ads-initialized') === 'true') return;
-          try {
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
-            slot.setAttribute('data-ads-initialized', 'true');
-          } catch (err) {}
-        });
-      }
-      if (document.readyState === 'complete') {
-        initAdSlots();
-      } else {
-        window.addEventListener('load', initAdSlots);
-      }
-    })();
   </script>
 
 </body>
