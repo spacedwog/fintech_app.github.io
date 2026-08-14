@@ -77,6 +77,10 @@
               <i class="fa fa-refresh"></i>
               <div><strong>Mercado Pago</strong><span>Confirmação automática de pagamentos</span></div>
             </a>
+            <a href="#feeds" class="lp-mega-item">
+              <i class="fa fa-rss"></i>
+              <div><strong>Feeds</strong><span>Linha do tempo das movimentações da conta</span></div>
+            </a>
             <a href="#recursos" class="lp-mega-item">
               <i class="fa fa-users"></i>
               <div><strong>Equipe</strong><span>Convide colegas para o mesmo painel</span></div>
@@ -85,6 +89,7 @@
         </div>
         <a href="#como-funciona">Como funciona</a>
         <a href="#planos">Planos</a>
+        <a href="#feeds">Feeds</a>
         <a href="#seguranca">Segurança</a>
         <a href="#faq">FAQ</a>
       </nav>
@@ -102,6 +107,7 @@
       <a href="#recursos">Recursos</a>
       <a href="#como-funciona">Como funciona</a>
       <a href="#planos">Planos</a>
+      <a href="#feeds">Feeds</a>
       <a href="#seguranca">Segurança</a>
       <a href="#faq">FAQ</a>
       <hr />
@@ -268,6 +274,11 @@
           <h3>Confirmação automática via Mercado Pago</h3>
           <p>Um agente local opcional cruza seus pagamentos Pix com a API do Mercado Pago e confirma sozinho — sem depender só do "já paguei" do usuário.</p>
         </div>
+        <div class="lp-card">
+          <i class="fa fa-rss"></i>
+          <h3>Feed cronológico da conta</h3>
+          <p>Veja em ordem do mais recente para o mais antigo tudo o que entrou no sistema: despesas registradas e pagamentos confirmados.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -337,6 +348,7 @@
             <li>Pagamentos Pix por chave, QR Code e copia-e-cola</li>
             <li>Leitura de comprovante por OCR com fallback manual</li>
             <li>Resumo mensal com gráficos e visão Previsto x Realizado</li>
+            <li>Feed cronológico com despesas e pagamentos confirmados</li>
           </ul>
         </div>
         <div class="lp-system-card">
@@ -360,6 +372,60 @@
           </ul>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="lp-section" id="feeds">
+    <div class="lp-section-inner">
+      <span class="lp-kicker">Feeds</span>
+      <h2 class="lp-h2">Acompanhe as últimas movimentações da conta</h2>
+      <p class="lp-feeds-lead">No painel, o feed reúne despesas e pagamentos em uma linha do tempo única, sempre ordenada do mais recente para o mais antigo.</p>
+
+      <div class="lp-feeds-grid">
+        <article class="lp-feed-card">
+          <div class="lp-feed-card-head">
+            <strong>Despesas recentes</strong>
+            <span class="lp-feed-badge">Atualizado agora</span>
+          </div>
+          <ul class="lp-feed-list">
+            <li>
+              <div><b>Alimentação</b><span>Compra no mercado</span></div>
+              <time>Hoje, 14:22</time>
+            </li>
+            <li>
+              <div><b>Transporte</b><span>Abastecimento do carro</span></div>
+              <time>Hoje, 09:10</time>
+            </li>
+            <li>
+              <div><b>Casa</b><span>Conta de energia</span></div>
+              <time>Ontem, 19:43</time>
+            </li>
+          </ul>
+        </article>
+
+        <article class="lp-feed-card">
+          <div class="lp-feed-card-head">
+            <strong>Pagamentos confirmados</strong>
+            <span class="lp-feed-badge lp-feed-badge-ok">Pix verificado</span>
+          </div>
+          <ul class="lp-feed-list">
+            <li>
+              <div><b>Plano Premium</b><span>Comprovante validado</span></div>
+              <time>Hoje, 12:04</time>
+            </li>
+            <li>
+              <div><b>Despesa extra</b><span>Pagamento de R$ 5,00</span></div>
+              <time>Ontem, 16:15</time>
+            </li>
+            <li>
+              <div><b>Plano Free</b><span>Mudança registrada</span></div>
+              <time>Ontem, 08:51</time>
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <a href="login.html" class="lp-btn lp-btn-primary lp-btn-lg">Ver feed completo no painel</a>
     </div>
   </section>
 

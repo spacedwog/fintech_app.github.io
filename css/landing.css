@@ -605,6 +605,96 @@ a { text-decoration: none; }
   color: var(--muted);
 }
 
+/* ---------- Feeds ---------- */
+.lp-feeds-lead {
+  max-width: 760px;
+  margin: -22px auto 34px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.lp-feeds-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  text-align: left;
+  margin-bottom: 28px;
+}
+
+.lp-feed-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.lp-feed-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.lp-feed-card-head strong {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.lp-feed-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #eef2f9;
+  color: #334155;
+}
+
+.lp-feed-badge-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.lp-feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lp-feed-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.lp-feed-list li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.lp-feed-list b {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.lp-feed-list span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lp-feed-list time {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* ---------- Security ---------- */
 .lp-security {
   display: grid;
@@ -732,7 +822,7 @@ a { text-decoration: none; }
   .lp-nav-links { display: none; }
   .lp-nav-toggle { display: block; }
   .lp-jumbo { font-size: 34px; }
-  .lp-grid, .lp-steps, .lp-security, .lp-tab-panel, .lp-stats-inner, .lp-system-map { grid-template-columns: 1fr; }
+  .lp-grid, .lp-steps, .lp-security, .lp-tab-panel, .lp-stats-inner, .lp-system-map, .lp-feeds-grid { grid-template-columns: 1fr; }
   .lp-plans { grid-template-columns: 1fr; }
   .lp-ad-grid { grid-template-columns: 1fr; }
   .lp-strip-inner { gap: 16px; }
