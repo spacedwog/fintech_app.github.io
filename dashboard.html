@@ -64,9 +64,7 @@
       <button class="nav-item" data-view="plan">Plano</button>
 
       <div class="sidebar-section-label">Conta</div>
-      <button class="nav-item" data-view="security">Segurança</button>
-      <button class="nav-item" data-view="privacy">Privacidade</button>
-      <button class="nav-item" data-view="certification">Certificação</button>
+      <button class="nav-item" data-view="security-privacy">Segurança e Privacidade</button>
       <button class="nav-item" data-view="settings">Configurações</button>
 
       <div class="sidebar-footer">
@@ -354,7 +352,16 @@
            ISO usadas como referência de boas práticas para o sistema.
       ============================================================ -->
       <section class="view hidden" id="view-security">
-        <div class="top-bar"><h1>Segurança</h1></div>
+        <div class="top-bar"><h1>Segurança e Privacidade</h1></div>
+        <div class="flow-pager account-pager">
+          <button type="button" class="secondary" data-account-nav="prev">‹ Anterior</button>
+          <div class="flow-pager-dots">
+            <button type="button" class="flow-page-dot account-page-dot" data-account-page="1">1. Segurança</button>
+            <button type="button" class="flow-page-dot account-page-dot" data-account-page="2">2. Privacidade</button>
+          </div>
+          <button type="button" class="secondary" data-account-nav="next">Próxima ›</button>
+        </div>
+        <p class="small-muted text-center mt-4 mb-18 account-page-indicator">Página 1 de 2</p>
 
         <div class="card">
           <h3 class="mt-0">Sua sessão</h3>
@@ -405,7 +412,16 @@
            PRIVACIDADE — LGPD (Lei 13.709/2018)
       ============================================================ -->
       <section class="view hidden" id="view-privacy">
-        <div class="top-bar"><h1>Privacidade</h1></div>
+        <div class="top-bar"><h1>Segurança e Privacidade</h1></div>
+        <div class="flow-pager account-pager">
+          <button type="button" class="secondary" data-account-nav="prev">‹ Anterior</button>
+          <div class="flow-pager-dots">
+            <button type="button" class="flow-page-dot account-page-dot" data-account-page="1">1. Segurança</button>
+            <button type="button" class="flow-page-dot account-page-dot" data-account-page="2">2. Privacidade</button>
+          </div>
+          <button type="button" class="secondary" data-account-nav="next">Próxima ›</button>
+        </div>
+        <p class="small-muted text-center mt-4 mb-18 account-page-indicator">Página 2 de 2</p>
 
         <div class="card">
           <h3 class="mt-0">Controlador dos dados</h3>
@@ -454,51 +470,6 @@
           <button type="button" class="secondary btn-outline-danger" id="privacy-delete-btn">
             Excluir minha conta permanentemente
           </button>
-        </div>
-      </section>
-
-      <!-- ============================================================
-           CERTIFICAÇÃO — autoavaliação de prontidão + roteiro real até a
-           certificação ISO (certificação de verdade exige auditoria por um
-           organismo certificador acreditado — isto NÃO é um certificado).
-      ============================================================ -->
-      <section class="view hidden" id="view-certification">
-        <div class="top-bar"><h1>Certificação</h1></div>
-
-        <div class="card">
-          <p class="small-muted mt-0 mb-0">
-            <strong>Nenhuma norma abaixo está certificada hoje.</strong> Certificação ISO só é emitida por um organismo
-            certificador acreditado, após auditoria paga (Estágio 1 + Estágio 2) e manutenção anual — não é algo que um
-            sistema de software "obtém" sozinho. O que segue é uma <strong>autoavaliação honesta</strong> de quanto os
-            controles já implementados neste app cobrem cada norma, e o roteiro real para buscar a certificação.
-          </p>
-        </div>
-
-        <div class="card">
-          <h3 class="mt-0">Prontidão por norma (autoavaliação)</h3>
-          <div id="certification-readiness-list"></div>
-        </div>
-
-        <div class="card">
-          <h3 class="mt-0">Artefatos formais implementados</h3>
-          <p class="small-muted mt-0 mb-8">
-            Documentos de governança criados no repositório para suportar auditoria interna e evolução de conformidade.
-          </p>
-          <ul class="security-control-list" id="certification-artifacts-list"></ul>
-        </div>
-
-        <div class="card">
-          <h3 class="mt-0">Roteiro até a certificação real</h3>
-          <ol class="security-control-list" id="certification-roadmap-list"></ol>
-        </div>
-
-        <div class="card">
-          <h3 class="mt-0">Onde contratar uma auditoria de verdade</h3>
-          <ul class="security-control-list">
-            <li><strong>ABNT</strong> — publica a versão brasileira das normas (ex.: ABNT NBR ISO/IEC 27001) — <a href="https://www.abnt.org.br" target="_blank" rel="noopener">abnt.org.br</a>.</li>
-            <li><strong>Cgcre/INMETRO</strong> — Coordenação Geral de Acreditação: lista oficial de organismos de certificação acreditados no Brasil — <a href="https://www.gov.br/inmetro/pt-br/acesso-a-informacao/acreditacao" target="_blank" rel="noopener">gov.br/inmetro</a>.</li>
-            <li><strong>IAF</strong> (International Accreditation Forum) — referência internacional de acreditação, para certificadoras fora do Brasil — <a href="https://iaf.nu" target="_blank" rel="noopener">iaf.nu</a>.</li>
-          </ul>
         </div>
       </section>
 

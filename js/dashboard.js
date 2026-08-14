@@ -433,6 +433,8 @@ class DashboardController {
 
     this.flowPagerBound = false;
     this.currentFlowPage = 1;
+    this.securityPrivacyPagerBound = false;
+    this.currentSecurityPrivacyPage = 1;
     this.expenseCategorySelectBound = false;
     this.budgetOverviewMonthBound = false;
     this.budgetManageBound = false;
@@ -453,7 +455,6 @@ class DashboardController {
 
     this.securityBound = false;
     this.privacyBound = false;
-    this.certificationBound = false;
     this.settingsBound = false;
   }
 
@@ -543,10 +544,28 @@ class DashboardController {
     });
   }
 
-  showView(viewName) {
+  _setActiveNav(viewName) {
     document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.view === viewName);
     });
+  }
+
+  showView(viewName) {
+    if (viewName === "security") {
+      this.currentSecurityPrivacyPage = 1;
+      return this.showView("security-privacy");
+    }
+    if (viewName === "privacy") {
+      this.currentSecurityPrivacyPage = 2;
+      return this.showView("security-privacy");
+    }
+    if (viewName === "security-privacy") {
+      this._setActiveNav("security-privacy");
+      this._loadSecurityPrivacyView();
+      return;
+    }
+
+    this._setActiveNav(viewName);
     document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
     document.getElementById(`view-${viewName}`).classList.remove("hidden");
 
@@ -554,10 +573,54 @@ class DashboardController {
     if (viewName === "reports") this._loadReportsView();
     if (viewName === "team") this._loadTeamView();
     if (viewName === "plan") this._loadPlanView();
-    if (viewName === "security") this._loadSecurityView();
-    if (viewName === "privacy") this._loadPrivacyView();
-    if (viewName === "certification") this._loadCertificationView();
     if (viewName === "settings") this._loadSettingsView();
+  }
+
+  _loadSecurityPrivacyView() {
+    if (!this.securityPrivacyPagerBound) {
+      this.securityPrivacyPagerBound = true;
+      this._bindSecurityPrivacyPager();
+    }
+    this._goToSecurityPrivacyPage(this.currentSecurityPrivacyPage);
+  }
+
+  _bindSecurityPrivacyPager() {
+    document.querySelectorAll("[data-account-page]").forEach((btn) => {
+      btn.addEventListener("click", () => this._goToSecurityPrivacyPage(parseInt(btn.dataset.accountPage, 10)));
+    });
+    document.querySelectorAll('[data-account-nav="prev"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToSecurityPrivacyPage(this.currentSecurityPrivacyPage - 1));
+    });
+    document.querySelectorAll('[data-account-nav="next"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToSecurityPrivacyPage(this.currentSecurityPrivacyPage + 1));
+    });
+  }
+
+  _goToSecurityPrivacyPage(page) {
+    const nextPage = Math.max(1, Math.min(2, Number(page) || 1));
+    this.currentSecurityPrivacyPage = nextPage;
+
+    const isSecurity = nextPage === 1;
+    document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
+    document.getElementById("view-security").classList.toggle("hidden", !isSecurity);
+    document.getElementById("view-privacy").classList.toggle("hidden", isSecurity);
+
+    document.querySelectorAll(".account-page-dot").forEach((btn) => {
+      const btnPage = parseInt(btn.dataset.accountPage, 10);
+      btn.classList.toggle("active", btnPage === nextPage);
+    });
+    document.querySelectorAll(".account-page-indicator").forEach((el) => {
+      el.textContent = `Página ${nextPage} de 2`;
+    });
+    document.querySelectorAll('[data-account-nav="prev"]').forEach((btn) => {
+      btn.disabled = nextPage === 1;
+    });
+    document.querySelectorAll('[data-account-nav="next"]').forEach((btn) => {
+      btn.disabled = nextPage === 2;
+    });
+
+    if (isSecurity) this._loadSecurityView();
+    else this._loadPrivacyView();
   }
 
   // Registra, num único lugar, os handlers de submit dos formulários da
@@ -1941,87 +2004,6 @@ class DashboardController {
       { code: "ISO 20022", name: "Mensageria financeira", relevance: "Padrão usado no sistema financeiro brasileiro (Bacen/Pix) — o app processa pagamentos Pix." },
       { code: "ISO 8000", name: "Qualidade de dados", relevance: "Consistência dos dados financeiros (despesas, orçamento) armazenados." },
     ];
-  }
-
-  // ---------- Certificação (autoavaliação + roteiro real) ----------
-  //
-  // "readiness" é uma autoavaliação INFORMAL (não é uma auditoria) de
-  // quanto os controles já implementados neste app cobrem cada norma —
-  // serve para orientar por onde começar, não substitui um gap assessment
-  // de verdade feito por quem for conduzir a certificação.
-
-  static get CERTIFICATION_READINESS() {
-    return [
-      { code: "ISO/IEC 27001", readiness: 95, evidencias: "Hash de senha (PBKDF2), tokens OAuth assinados e com expiração, CSP, isolamento por conta (tenant_id), RBAC + política de segurança, matriz formal de riscos, gestão de incidentes, SoA e ciclo recorrente de auditoria interna com auditoria externa registrada em `compliance/`.", faltam: "Manter auditorias internas trimestrais, auditorias anuais de manutenção e rastreabilidade contínua das evidências." },
-      { code: "ISO/IEC 27701", readiness: 92, evidencias: "Consentimento de cookies, exportação/exclusão de dados, ROPA, DPIA, designação formal de DPO, política de retenção e ciclos trimestrais de revisão de privacidade com validação externa em `compliance/revisoes-privacidade-27701.md`.", faltam: "Manter o ciclo trimestral de revisão de privacidade e a renovação periódica da validação externa." },
-      { code: "ISO/IEC 25010", readiness: 90, evidencias: "Testes de integração automatizados (tests/*.test.js), métricas de qualidade formalizadas, teste de performance/carga smoke (`tests/performance-smoke.test.js`) e evidências recorrentes de usabilidade com métricas quantitativas em `compliance/testes-usabilidade-25010.md`.", faltam: "Manter a execução recorrente dos testes com usuários reais e evolução dos indicadores de UX por ciclo." },
-      { code: "ISO/IEC 27017 / 27018", readiness: 88, evidencias: "Dados em nuvem (Firebase/Firestore) com regras por conta, avaliação formal do fornecedor e contrato/SLA com controles específicos aprovados pela direção em `compliance/avaliacao-fornecedor-nuvem.md`.", faltam: "Manter revisão periódica do fornecedor e renovação anual dos controles contratuais." },
-      { code: "ISO 31000", readiness: 90, evidencias: "Matriz de riscos formal com probabilidade/impacto, dono de risco, plano de tratamento, monitoramento contínuo e histórico de indicadores de risco residual em `compliance/matriz-riscos.md`.", faltam: "Manter revisões periódicas e recalibrar o apetite de risco com base na tendência dos indicadores." },
-      { code: "ISO 9001", readiness: 93, evidencias: "SGQ documentado, fluxo de não conformidades, auditoria interna, revisão pela direção e ciclos fechados com ações corretivas e melhoria contínua em `compliance/`.", faltam: "Manter execução recorrente do SGQ com auditorias de manutenção e evidências de melhoria por ciclo." },
-      { code: "ISO 20022 / ISO 8000", readiness: null, evidencias: "Não são normas certificáveis por auditoria organizacional — são padrões técnicos de mensageria financeira e qualidade de dados a seguir no formato dos dados.", faltam: "Não aplicável (ver evidências)." },
-    ];
-  }
-
-  static get COMPLIANCE_ARTIFACTS() {
-    return [
-      { label: "Política de Segurança da Informação", path: "compliance/politica-seguranca.md", covers: "ISO/IEC 27001" },
-      { label: "Matriz de Riscos (formal)", path: "compliance/matriz-riscos.md", covers: "ISO 31000 + ISO/IEC 27001" },
-      { label: "Gestão de Incidentes", path: "compliance/gestao-incidentes.md", covers: "ISO/IEC 27001" },
-      { label: "Declaração de Aplicabilidade (SoA)", path: "compliance/soa-27001.md", covers: "ISO/IEC 27001" },
-      { label: "ROPA", path: "compliance/ropa-27701.md", covers: "ISO/IEC 27701" },
-      { label: "DPIA", path: "compliance/dpia-27701.md", covers: "ISO/IEC 27701" },
-      { label: "Designação de DPO", path: "compliance/dpo-designacao.md", covers: "ISO/IEC 27701" },
-      { label: "Política de Retenção", path: "compliance/politica-retencao.md", covers: "ISO/IEC 27701" },
-      { label: "Revisões Contínuas de Privacidade", path: "compliance/revisoes-privacidade-27701.md", covers: "ISO/IEC 27701" },
-      { label: "Métricas de Qualidade", path: "compliance/metricas-qualidade-25010.md", covers: "ISO/IEC 25010" },
-      { label: "Plano de Performance/Carga", path: "compliance/teste-performance.md", covers: "ISO/IEC 25010" },
-      { label: "Evidências de Usabilidade", path: "compliance/testes-usabilidade-25010.md", covers: "ISO/IEC 25010" },
-      { label: "Calendário 2026-Q3/Q4 + Rastreabilidade", path: "compliance/calendario-rastreabilidade-2026.md", covers: "ISO/IEC 27001, 27701, 25010, 27017/27018, ISO 31000, ISO 9001" },
-      { label: "Avaliação de Fornecedor de Nuvem", path: "compliance/avaliacao-fornecedor-nuvem.md", covers: "ISO/IEC 27017 / 27018" },
-      { label: "SGQ, não conformidades e auditoria", path: "compliance/sgq-9001.md", covers: "ISO 9001" },
-    ];
-  }
-
-  static get CERTIFICATION_ROADMAP() {
-    return [
-      "Escolher a norma e definir o escopo formal (ex.: \"sistema de gestão de segurança da informação do produto Fintech Spacecworp\").",
-      "Fazer um gap assessment de verdade (auditoria interna ou consultoria especializada) comparando os controles exigidos com o que já existe.",
-      "Documentar as políticas exigidas (segurança da informação, gestão de risco, gestão de incidentes, privacidade, etc.).",
-      "Implementar os controles que faltam e treinar a equipe nos processos documentados.",
-      "Rodar uma auditoria interna e uma revisão formal pela direção da empresa.",
-      "Contratar um organismo certificador ACREDITADO (no Brasil, pelo Cgcre/INMETRO, ou por outro membro do IAF) para a auditoria externa em dois estágios.",
-      "Corrigir as não conformidades apontadas na auditoria externa e receber o certificado — válido por 3 anos, com auditorias de manutenção anuais.",
-    ];
-  }
-
-  _readinessBarHtml(item) {
-    if (item.readiness === null) {
-      return `<div class="iso-card"><span class="badge premium">${item.code}</span>
-        <p class="small-muted mt-6 mb-4"><strong>Não aplicável</strong> — ${item.evidencias}</p></div>`;
-    }
-    return `
-      <div class="iso-card">
-        <div class="row-between mb-6"><span class="badge premium">${item.code}</span><strong class="fs-18">${item.readiness}%</strong></div>
-        <div class="readiness-bar"><div class="readiness-bar-fill" style="width:${item.readiness}%"></div></div>
-        <p class="small-muted mt-8 mb-2"><strong>Já implementado:</strong> ${item.evidencias}</p>
-        <p class="small-muted m-0"><strong>Falta para certificar:</strong> ${item.faltam}</p>
-      </div>`;
-  }
-
-  _loadCertificationView() {
-    if (this.certificationBound) return;
-    this.certificationBound = true;
-
-    document.getElementById("certification-readiness-list").innerHTML =
-      `<div class="iso-grid">${DashboardController.CERTIFICATION_READINESS.map((i) => this._readinessBarHtml(i)).join("")}</div>`;
-
-    document.getElementById("certification-artifacts-list").innerHTML = DashboardController.COMPLIANCE_ARTIFACTS.map(
-      (item) => `<li><strong>${item.label}</strong> — <a href="${item.path}" target="_blank" rel="noopener">${item.path}</a> <span class="small-muted">(${item.covers})</span></li>`
-    ).join("");
-
-    document.getElementById("certification-roadmap-list").innerHTML = DashboardController.CERTIFICATION_ROADMAP.map(
-      (step) => `<li>${step}</li>`
-    ).join("");
   }
 
   async _loadSecurityView() {
