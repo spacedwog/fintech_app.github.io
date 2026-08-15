@@ -56,8 +56,20 @@ function buildDevice(label) {
   return { label, ctx: sandbox, localStorage };
 }
 
-function run(device, code) {
-  return vm.runInContext(`(async () => { ${code} })()`, device.ctx, { filename: `${device.label}-step.js` });
+function run(device, stepFn) {
+  if (typeof stepFn !== "function") throw new Error("run requer uma função async.");
+  device.ctx.__adsApiStep = stepFn;
+  return vm.runInContext(
+    `(async () => {
+      try {
+        return await __adsApiStep({ Api, Auth, loadDb, saveDb, nextId });
+      } finally {
+        __adsApiStep = undefined;
+      }
+    })()`,
+    device.ctx,
+    { filename: `${device.label}-step.js` }
+  );
 }
 
 const results = [];
@@ -69,9 +81,7 @@ function check(name, cond) {
 (async () => {
   const dev = buildDevice("ads-api");
 
-  await run(
-    dev,
-    `
+  await run(dev, async ({ Api, Auth }) => {
     const signup = await Api.signup({
       company_name: "Empresa Ads",
       admin_name: "Admin Ads",
@@ -79,14 +89,10 @@ function check(name, cond) {
       password: "senha-forte-123",
     });
     Auth.setToken(signup.token);
-    return {};
-  `
-  );
+  });
 
-  const created = await run(
-    dev,
-    `
-    return await Api.createAd({
+  const created = await run(dev, async ({ Api }) => {
+    return Api.createAd({
       title: "Plano Premium com 20% OFF",
       description: "Promoção por tempo limitado",
       image_url: "https://cdn.example.com/banner.png",
@@ -95,38 +101,32 @@ function check(name, cond) {
       placement: "landing",
       is_active: true,
     });
-  `
-  );
+  });
   check("createAd cria anúncio com id", !!(created && created.id));
   check("createAd salva placement informado", created.placement === "landing");
 
-  const listedActive = await run(dev, `return await Api.listAds({ onlyActive: true, placement: "landing" });`);
+  const listedActive = await run(dev, async ({ Api }) => Api.listAds({ onlyActive: true, placement: "landing" }));
   check("listAds filtra onlyActive + placement", Array.isArray(listedActive) && listedActive.length === 1 && listedActive[0].id === created.id);
 
-  const updated = await run(
-    dev,
-    `
-    return await Api.updateAd(${JSON.stringify(created.id)}, {
+  const updated = await run(dev, async ({ Api }) => {
+    return Api.updateAd(created.id, {
       is_active: false,
-      target_url: "https://example.com/premium-novo"
+      target_url: "https://example.com/premium-novo",
     });
-  `
-  );
+  });
   check("updateAd altera target_url", updated.target_url === "https://example.com/premium-novo");
   check("updateAd altera is_active", updated.is_active === false);
 
-  const listedAfterDisable = await run(dev, `return await Api.listAds({ onlyActive: true });`);
+  const listedAfterDisable = await run(dev, async ({ Api }) => Api.listAds({ onlyActive: true }));
   check("listAds onlyActive ignora anúncio inativo", Array.isArray(listedAfterDisable) && listedAfterDisable.length === 0);
 
-  const deletion = await run(dev, `return await Api.deleteAd(${JSON.stringify(created.id)});`);
+  const deletion = await run(dev, async ({ Api }) => Api.deleteAd(created.id));
   check("deleteAd remove anúncio", deletion && deletion.ok === true);
 
-  const listedAfterDelete = await run(dev, `return await Api.listAds();`);
+  const listedAfterDelete = await run(dev, async ({ Api }) => Api.listAds());
   check("listAds vazio após delete", Array.isArray(listedAfterDelete) && listedAfterDelete.length === 0);
 
-  const memberCannotCreate = await run(
-    dev,
-    `
+  const memberCannotCreate = await run(dev, async ({ Api, Auth }) => {
     await Api.inviteUser({
       name: "Membro Ads",
       email: "membro.ads@example.com",
@@ -142,13 +142,10 @@ function check(name, cond) {
     } catch (err) {
       return { blocked: /administradores/.test(String(err.message || "")) };
     }
-  `
-  );
+  });
   check("member não pode createAd", memberCannotCreate.blocked === true);
 
-  const otherTenantIsolation = await run(
-    dev,
-    `
+  const otherTenantIsolation = await run(dev, async ({ Api, Auth }) => {
     Auth.clearToken();
     const signup2 = await Api.signup({
       company_name: "Empresa B",
@@ -159,8 +156,7 @@ function check(name, cond) {
     Auth.setToken(signup2.token);
     const list = await Api.listAds();
     return { count: list.length };
-  `
-  );
+  });
   check("anúncios isolados por tenant", otherTenantIsolation.count === 0);
 
   console.log("\n=== RESUMO ===");
