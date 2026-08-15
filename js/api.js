@@ -1133,6 +1133,109 @@ class PaymentService {
   }
 }
 
+// ---------- AdService: anúncios internos da conta (tenant) ----------
+
+class AdService {
+  _sanitizeUrl(url, { required = false, fieldLabel = "URL" } = {}) {
+    const value = String(url || "").trim();
+    if (!value) {
+      if (required) throw new Error(`${fieldLabel} é obrigatória.`);
+      return null;
+    }
+    if (!/^https?:\/\//i.test(value)) {
+      throw new Error(`${fieldLabel} deve começar com http:// ou https://.`);
+    }
+    return value;
+  }
+
+  _serialize(ad) {
+    return {
+      id: ad.id,
+      title: ad.title,
+      description: ad.description || "",
+      image_url: ad.image_url || null,
+      target_url: ad.target_url,
+      cta_label: ad.cta_label || "Saiba mais",
+      is_active: !!ad.is_active,
+      placement: ad.placement || "landing",
+      created_at: ad.created_at || null,
+      updated_at: ad.updated_at || null,
+      user_id: ad.user_id,
+      tenant_id: ad.tenant_id,
+    };
+  }
+
+  async listAds({ onlyActive = false, placement = null } = {}) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    let scoped = (db.ads || []).filter((ad) => ad.tenant_id === session.tenant_id);
+    if (onlyActive) scoped = scoped.filter((ad) => !!ad.is_active);
+    if (placement) scoped = scoped.filter((ad) => (ad.placement || "landing") === String(placement));
+    return scoped
+      .slice()
+      .sort((a, b) => (String(a.updated_at || a.created_at || "") < String(b.updated_at || b.created_at || "") ? 1 : -1))
+      .map((ad) => this._serialize(ad));
+  }
+
+  async createAd({ title, description, image_url, target_url, cta_label, is_active, placement } = {}) {
+    const session = Auth.requireAdmin();
+    const cleanTitle = String(title || "").trim();
+    if (!cleanTitle) throw new Error("Título do anúncio é obrigatório.");
+    const db = await loadDb();
+    const ad = {
+      id: nextId(db, "ads"),
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      title: cleanTitle,
+      description: String(description || "").trim(),
+      image_url: this._sanitizeUrl(image_url, { fieldLabel: "URL da imagem" }),
+      target_url: this._sanitizeUrl(target_url, { required: true, fieldLabel: "URL de destino" }),
+      cta_label: String(cta_label || "Saiba mais").trim() || "Saiba mais",
+      is_active: is_active !== undefined ? !!is_active : true,
+      placement: String(placement || "landing").trim() || "landing",
+      created_at: nowIso(),
+      updated_at: nowIso(),
+    };
+    db.ads = db.ads || [];
+    db.ads.push(ad);
+    await saveDb(db);
+    return this._serialize(ad);
+  }
+
+  async updateAd(id, { title, description, image_url, target_url, cta_label, is_active, placement } = {}) {
+    const session = Auth.requireAdmin();
+    const db = await loadDb();
+    const ad = (db.ads || []).find((item) => item.id === id && item.tenant_id === session.tenant_id);
+    if (!ad) throw new Error("Anúncio não encontrado.");
+
+    if (title !== undefined) {
+      const cleanTitle = String(title || "").trim();
+      if (!cleanTitle) throw new Error("Título do anúncio é obrigatório.");
+      ad.title = cleanTitle;
+    }
+    if (description !== undefined) ad.description = String(description || "").trim();
+    if (image_url !== undefined) ad.image_url = this._sanitizeUrl(image_url, { fieldLabel: "URL da imagem" });
+    if (target_url !== undefined) ad.target_url = this._sanitizeUrl(target_url, { required: true, fieldLabel: "URL de destino" });
+    if (cta_label !== undefined) ad.cta_label = String(cta_label || "").trim() || "Saiba mais";
+    if (is_active !== undefined) ad.is_active = !!is_active;
+    if (placement !== undefined) ad.placement = String(placement || "").trim() || "landing";
+    ad.updated_at = nowIso();
+
+    await saveDb(db);
+    return this._serialize(ad);
+  }
+
+  async deleteAd(id) {
+    const session = Auth.requireAdmin();
+    const db = await loadDb();
+    const before = (db.ads || []).length;
+    db.ads = (db.ads || []).filter((ad) => !(ad.id === id && ad.tenant_id === session.tenant_id));
+    await saveDb(db);
+    if ((db.ads || []).length === before) throw new Error("Anúncio não encontrado.");
+    return { ok: true };
+  }
+}
+
 // ---------- ProfileService: conta do usuário, privacidade (LGPD) e dados
 // institucionais — usado pelas telas "Configurações" e "Privacidade" ----------
 
@@ -1245,6 +1348,7 @@ class ProfileService {
     const categoryBudgets = db.categoryBudgets.filter((b) => b.tenant_id === session.tenant_id);
     const budgetGroups = (db.budgetGroups || []).filter((g) => g.tenant_id === session.tenant_id);
     const payments = db.payments.filter((p) => p.tenant_id === session.tenant_id && p.user_id === session.user_id);
+    const ads = (db.ads || []).filter((a) => a.tenant_id === session.tenant_id);
 
     return {
       exported_at: nowIso(),
@@ -1258,6 +1362,7 @@ class ProfileService {
       orcamentos_por_categoria: categoryBudgets,
       grupos_orcamento: budgetGroups,
       pagamentos: payments,
+      anuncios: ads,
       controlador_dos_dados: COMPANY_PROFILE,
     };
   }
@@ -1282,6 +1387,7 @@ class ProfileService {
       db.expenses = db.expenses.filter((e) => e.tenant_id !== session.tenant_id);
       db.budgets = db.budgets.filter((b) => b.tenant_id !== session.tenant_id);
       db.payments = db.payments.filter((p) => p.tenant_id !== session.tenant_id);
+      db.ads = (db.ads || []).filter((a) => a.tenant_id !== session.tenant_id);
       db.budgetLayouts = db.budgetLayouts.filter((l) => l.tenant_id !== session.tenant_id);
       db.categoryBudgets = db.categoryBudgets.filter((b) => b.tenant_id !== session.tenant_id);
       db.budgetGroups = (db.budgetGroups || []).filter((g) => g.tenant_id !== session.tenant_id);
@@ -1311,6 +1417,7 @@ class ApiFacade {
     this.reportService = new ReportService();
     this.budgetLayoutService = new BudgetLayoutService();
     this.paymentService = new PaymentService();
+    this.adService = new AdService();
     this.profileService = new ProfileService();
   }
 
@@ -1425,6 +1532,20 @@ class ApiFacade {
   }
   addPayment(payload) {
     return this.paymentService.addPayment(payload);
+  }
+
+  // ---------- Ads ----------
+  listAds(filters) {
+    return this.adService.listAds(filters);
+  }
+  createAd(payload) {
+    return this.adService.createAd(payload);
+  }
+  updateAd(id, payload) {
+    return this.adService.updateAd(id, payload);
+  }
+  deleteAd(id) {
+    return this.adService.deleteAd(id);
   }
 
   // ---------- Perfil / Configurações ----------
