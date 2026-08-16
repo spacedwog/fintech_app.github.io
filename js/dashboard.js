@@ -1726,12 +1726,18 @@ class DashboardController {
       }
       if (format === "pdf") {
         const html = this._buildConsolidatedHtml(data);
-        const printWindow = window.open("", "_blank");
-        if (!printWindow) return;
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
+        const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+        const printWindow = window.open(url, "_blank");
+        if (!printWindow) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        const revoke = () => URL.revokeObjectURL(url);
+        printWindow.addEventListener("load", () => {
+          printWindow.focus();
+          printWindow.print();
+          setTimeout(revoke, 15000);
+        }, { once: true });
       }
     } catch (err) {
       alert((err && err.message) || "Não foi possível exportar o relatório consolidado.");
