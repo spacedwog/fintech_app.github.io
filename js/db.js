@@ -35,6 +35,19 @@ const DB_PENDING_SYNC_KEY = "fintech_saas_pending_sync_v1"; // flag: há mudanç
 const DB_LAST_SYNCED_KEY = "fintech_saas_last_synced_v1"; // "base" do último merge bem-sucedido com o Firestore (ver ThreeWayMerger)
 const DB_SEED_JSON_URL = "db.json"; // banco "de fábrica", só para o 1º carregamento
 
+function secureRandomBase36(size = 6) {
+  const cryptoApi =
+    (typeof globalThis !== "undefined" && globalThis.crypto)
+    || (typeof window !== "undefined" && window.crypto)
+    || null;
+  if (!cryptoApi || typeof cryptoApi.getRandomValues !== "function") {
+    return Date.now().toString(36).slice(-size).padEnd(size, "0");
+  }
+  const bytes = new Uint8Array(size);
+  cryptoApi.getRandomValues(bytes);
+  return Array.from(bytes, (b) => (b % 36).toString(36)).join("");
+}
+
 const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros"];
 const DB_COLLECTIONS = [
   "tenants", "users", "categories", "expenses", "budgets", "payments", "ads", "budgetLayouts", "categoryBudgets", "budgetGroups", "expenseRules", "auditEvents",
@@ -558,7 +571,7 @@ class Database {
     // apagando o outro na hora do merge.
     db._seq[collectionName] = (db._seq[collectionName] || 0) + 1; // mantido só para depuração/compatibilidade
     const ts = Date.now().toString(36);
-    const rand = Math.random().toString(36).slice(2, 8);
+    const rand = secureRandomBase36(6);
     return `${collectionName}_${ts}_${rand}`;
   }
 

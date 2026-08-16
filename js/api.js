@@ -21,6 +21,19 @@
 const SESSION_KEY = "fintech_saas_session_v1";
 const SESSION_MASK_KEY = "fintech_saas_session_mask_v1";
 
+function secureRandomString(size = 16) {
+  const cryptoApi =
+    (typeof globalThis !== "undefined" && globalThis.crypto)
+    || (typeof window !== "undefined" && window.crypto)
+    || null;
+  if (!cryptoApi || typeof cryptoApi.getRandomValues !== "function") {
+    return `fallback_${Date.now().toString(36)}`;
+  }
+  const bytes = new Uint8Array(size);
+  cryptoApi.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 // SessionManager guarda, sob SESSION_KEY, o PAR DE TOKENS OAuth emitido por
 // OAuth.issueSessionTokens (js/oauth.js) — não mais um JSON "cru" com o
 // papel do usuário: { access_token, refresh_token, token_type, expires_in,
@@ -35,7 +48,7 @@ class SessionManager {
   _getMaskKey() {
     let key = localStorage.getItem(SESSION_MASK_KEY);
     if (!key) {
-      key = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      key = `${secureRandomString(16)}_${Date.now().toString(36)}`;
       localStorage.setItem(SESSION_MASK_KEY, key);
     }
     return key;

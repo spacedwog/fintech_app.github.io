@@ -21,6 +21,22 @@
   'use strict';
 
   class PixPayloadBuilder {
+    _secureRandomBase36(size) {
+      var cryptoApi = (typeof globalThis !== 'undefined' && globalThis.crypto)
+        || (global && global.crypto)
+        || null;
+      if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
+        return Date.now().toString(36).slice(-size).toUpperCase().padEnd(size, '0');
+      }
+      var bytes = new Uint8Array(size);
+      cryptoApi.getRandomValues(bytes);
+      var out = '';
+      for (var i = 0; i < bytes.length; i++) {
+        out += (bytes[i] % 36).toString(36).toUpperCase();
+      }
+      return out;
+    }
+
     _pad2(n) {
       var s = String(n);
       return s.length === 1 ? '0' + s : s;
@@ -97,7 +113,7 @@
     // o pagamento com o pedido no histórico local.
     generateTxid(prefix) {
       var ts = Date.now().toString(36).toUpperCase();
-      var rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+      var rand = this._secureRandomBase36(6);
       return this._sanitizeTxid(String(prefix || 'FIN') + ts + rand);
     }
   }
