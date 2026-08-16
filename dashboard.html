@@ -60,8 +60,8 @@
         <div id="mp-customer-profile" class="mp-customer-profile small-muted"></div>
       </div>
 
-      <button class="nav-item active" data-view="budget-flow">Orçamento</button>
-      <button class="nav-item" data-view="expenses-flow">Despesas</button>
+      <button class="nav-item active" data-view="budget-flow">Orçamento e Despesas</button>
+      <button class="nav-item" data-view="expense-rules">Regras automáticas</button>
       <button class="nav-item" data-view="feed">Feed</button>
       <button class="nav-item" data-view="reports">Resumo Mensal</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
@@ -79,9 +79,9 @@
 
     <main class="main">
 
-      <!-- Orçamento — fluxo paginado -->
+      <!-- Orçamento + Despesas — fluxo paginado -->
       <section class="view" id="view-budget-flow">
-        <div class="top-bar"><h1>Orçamento</h1></div>
+        <div class="top-bar"><h1>Orçamento e Despesas</h1></div>
 
         <div class="flow-pager">
           <button type="button" class="secondary" id="budget-flow-prev-btn">‹ Anterior</button>
@@ -90,10 +90,12 @@
             <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="2">2. Alertas / Orçamento</button>
             <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="3">3. Gerenciar Orçamentos</button>
             <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="4">4. Grupo</button>
+            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="5">5. SpaceHub e Minhas despesas</button>
+            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="6">6. Pagamento de despesa</button>
           </div>
           <button type="button" class="secondary" id="budget-flow-next-btn">Próxima ›</button>
         </div>
-        <p class="small-muted text-center mt-4 mb-18" id="budget-flow-page-indicator">Página 1 de 4</p>
+        <p class="small-muted text-center mt-4 mb-18" id="budget-flow-page-indicator">Página 1 de 6</p>
 
         <!-- Página 1: Importar Orçamento -->
         <div class="flow-page budget-flow-page" id="budget-flow-page-1">
@@ -145,8 +147,8 @@
             <p class="small-muted mt-0">
               Grava o <strong>Previsto</strong> de cada categoria acima no app (cria categorias que não existirem)
               para o mês escolhido. A partir daqui, o <strong>Realizado</strong> passa a ser calculado com despesas
-              reais — registre-as no <strong>Menu Despesas</strong> e confira o resultado na
-              <strong>Página 2</strong> deste menu.
+              reais — registre-as na <strong>Página 5</strong> deste fluxo e confira o resultado na
+              <strong>Página 2</strong>.
             </p>
             <div class="grid-2">
               <div class="field hidden" id="budget-adopt-mes-field">
@@ -194,7 +196,7 @@
             </div>
             <p class="small-muted">
               Previsto = orçamento importado na <strong>Página 1</strong> para o mês selecionado. Realizado = soma
-              das despesas de verdade registradas no <strong>Menu Despesas</strong> nesse mês (todos os membros da conta).
+              das despesas de verdade registradas na <strong>Página 5</strong> desse fluxo nesse mês (todos os membros da conta).
             </p>
             <p id="budget-overview-empty" class="small-muted hidden">
               Nenhum orçamento importado para este mês ainda — vá à <strong>Página 1</strong> e use "Usar este
@@ -259,23 +261,7 @@
             </table>
           </div>
         </div>
-      </section>
-
-      <!-- Despesas — fluxo paginado -->
-      <section class="view hidden" id="view-expenses-flow">
-        <div class="top-bar"><h1>Despesas</h1></div>
-
-        <div class="flow-pager">
-          <button type="button" class="secondary" id="expenses-flow-prev-btn">‹ Anterior</button>
-          <div class="flow-pager-dots">
-            <button type="button" class="flow-page-dot expenses-flow-page-dot" data-expenses-flow-page="1">1. SpaceHub e Minhas despesas</button>
-            <button type="button" class="flow-page-dot expenses-flow-page-dot" data-expenses-flow-page="2">2. Pagamento de despesa</button>
-          </div>
-          <button type="button" class="secondary" id="expenses-flow-next-btn">Próxima ›</button>
-        </div>
-        <p class="small-muted text-center mt-4 mb-18" id="expenses-flow-page-indicator">Página 1 de 2</p>
-
-        <div class="flow-page expenses-flow-page" id="expenses-flow-page-1">
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-5">
           <div class="card">
             <h3 class="mt-0">SpaceHub</h3>
             <p class="small-muted mt-0 mb-12">
@@ -306,36 +292,6 @@
 
           <div class="card">
             <div class="row-between">
-              <h3 class="m-0">Regras automáticas de categoria</h3>
-              <button type="button" class="secondary" id="expense-rules-apply-btn">Aplicar em despesas sem categoria</button>
-            </div>
-            <p class="small-muted mt-0 mb-12">
-              Crie regras por descrição/recebedor para classificar despesas automaticamente.
-            </p>
-            <form id="expense-rule-form">
-              <div class="grid-2">
-                <div class="field">
-                  <label>Palavra-chave (descrição/recebedor)</label>
-                  <input type="text" id="expense-rule-keyword" placeholder="Ex: uber, supermercado, energia" required />
-                </div>
-                <div class="field">
-                  <label>Categoria</label>
-                  <select id="expense-rule-category" required></select>
-                </div>
-              </div>
-              <button type="submit" class="primary">Adicionar regra</button>
-            </form>
-            <p id="expense-rules-status" class="small-muted mt-10 mb-10"></p>
-            <table>
-              <thead>
-                <tr><th>Palavra-chave</th><th>Categoria</th><th>Ações</th></tr>
-              </thead>
-              <tbody id="expense-rules-tbody"></tbody>
-            </table>
-          </div>
-
-          <div class="card">
-            <div class="row-between">
               <h3 class="m-0">Minhas despesas</h3>
             </div>
             <table>
@@ -347,7 +303,7 @@
           </div>
         </div>
 
-        <div class="flow-page expenses-flow-page hidden" id="expenses-flow-page-2">
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-6">
           <div class="card">
             <h3 class="mt-0">Pagamento de despesa</h3>
             <p class="small-muted mt-0 mb-12">
@@ -396,6 +352,39 @@
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-expense-rules">
+        <div class="top-bar"><h1>Regras automáticas</h1></div>
+        <div class="card">
+          <div class="row-between">
+            <h3 class="m-0">Regras automáticas de categoria</h3>
+            <button type="button" class="secondary" id="expense-rules-apply-btn">Aplicar em despesas sem categoria</button>
+          </div>
+          <p class="small-muted mt-0 mb-12">
+            Crie regras por descrição/recebedor para classificar despesas automaticamente.
+          </p>
+          <form id="expense-rule-form">
+            <div class="grid-2">
+              <div class="field">
+                <label>Palavra-chave (descrição/recebedor)</label>
+                <input type="text" id="expense-rule-keyword" placeholder="Ex: uber, supermercado, energia" required />
+              </div>
+              <div class="field">
+                <label>Categoria</label>
+                <select id="expense-rule-category" required></select>
+              </div>
+            </div>
+            <button type="submit" class="primary">Adicionar regra</button>
+          </form>
+          <p id="expense-rules-status" class="small-muted mt-10 mb-10"></p>
+          <table>
+            <thead>
+              <tr><th>Palavra-chave</th><th>Categoria</th><th>Ações</th></tr>
+            </thead>
+            <tbody id="expense-rules-tbody"></tbody>
+          </table>
         </div>
       </section>
 
