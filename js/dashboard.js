@@ -586,6 +586,7 @@ class DashboardController {
     document.getElementById(`view-${viewName}`).classList.remove("hidden");
 
     if (viewName === "budget-flow") this._loadBudgetFlowView();
+    if (viewName === "expense-rules") this._loadExpenseRulesView();
     if (viewName === "expenses-flow") this._loadExpensesFlowView();
     if (viewName === "feed") this._loadFeedView();
     if (viewName === "reports") this._loadReportsView();
@@ -707,6 +708,10 @@ class DashboardController {
       this._bindExpensesFlowPager();
     }
     this._goToExpensesFlowPage(this.currentExpensesFlowPage);
+  }
+
+  _loadExpenseRulesView() {
+    this._loadExpenseRules();
   }
 
   _bindExpensesFlowPager() {
@@ -926,7 +931,7 @@ class DashboardController {
   }
 
   _goToBudgetFlowPage(page) {
-    page = Math.min(4, Math.max(1, page));
+    page = Math.min(6, Math.max(1, page));
     this.currentBudgetFlowPage = page;
 
     document.querySelectorAll(".budget-flow-page").forEach((el, idx) => {
@@ -936,11 +941,11 @@ class DashboardController {
       btn.classList.toggle("active", parseInt(btn.dataset.budgetFlowPage, 10) === page);
     });
     const indicator = document.getElementById("budget-flow-page-indicator");
-    if (indicator) indicator.textContent = `Página ${page} de 4`;
+    if (indicator) indicator.textContent = `Página ${page} de 6`;
     const prevBtn = document.getElementById("budget-flow-prev-btn");
     const nextBtn = document.getElementById("budget-flow-next-btn");
     if (prevBtn) prevBtn.disabled = page === 1;
-    if (nextBtn) nextBtn.disabled = page === 4;
+    if (nextBtn) nextBtn.disabled = page === 6;
 
     if (page === 1) this._loadBudgetView();
     if (page === 2) {
@@ -949,6 +954,7 @@ class DashboardController {
     }
     if (page === 3) this._loadBudgetManageView();
     if (page === 4) this._loadBudgetGroupsView();
+    if (page === 5) this._loadExpensesView();
   }
 
   _goToExpensesFlowPage(page) {
@@ -993,7 +999,6 @@ class DashboardController {
     await this._refreshQuotaInfo();
     await this._refreshExpenseTable();
     await this._refreshExpenseCategoryBudgetInfo();
-    await this._loadExpenseRules();
   }
 
   // Fecha o fluxo Importar Orçamento -> Registrar Despesas: mostra, para a
