@@ -153,6 +153,17 @@ class SessionManager {
       err.status = 403;
       throw err;
     }
+
+    requireScope(scopeName) {
+      const session = this.requireSession();
+      const scopes = Array.isArray(session.scope) ? session.scope : [];
+      if (!scopes.includes(scopeName)) {
+        const err = new Error(`Escopo OAuth obrigatório: ${scopeName}`);
+        err.status = 403;
+        throw err;
+      }
+      return session;
+    }
     return session;
   }
 
@@ -908,25 +919,62 @@ class CategoryBudgetService {
     return db.categoryBudgets
       .filter((b) => b.tenant_id === session.tenant_id && (!month || b.month === month))
       .map((b) => {
-        const category = db.categories.find((c) => c.id === b.category_id);
-        return { id: b.id, category_id: b.category_id, category_name: category ? category.name : null, month: b.month, previsto: b.previsto };
+        const category = b.category_id ? db.categories.find((c) => c.id === b.category_id) : null;
+        const categoryName = b.category_name || (category ? category.name : null);
+        return { id: b.id, category_id: b.category_id || null, category_name: categoryName, month: b.month, previsto: b.previsto };
       })
-      .sort((a, b) => (a.month === b.month ? a.category_name.localeCompare(b.category_name) : (a.month < b.month ? -1 : 1)));
+      .sort((a, b) => (a.month === b.month ? String(a.category_name || "").localeCompare(String(b.category_name || "")) : (a.month < b.month ? -1 : 1)));
   }
 
-  async setCategoryBudget({ category_id, month, previsto }) {
+  async setCategoryBudget({ budget_id, category_id, category_name, month, previsto }) {
     const session = Auth.requireSession();
-    if (!category_id) throw new Error("Categoria é obrigatória.");
     if (!month) throw new Error("Mês é obrigatório.");
     if (!isFinite(previsto)) throw new Error("Previsto é obrigatório.");
+    if (!budget_id && !category_id && !String(category_name || "").trim()) {
+      throw new Error("Informe ao menos orçamento, categoria ou nome da categoria.");
+    }
     const db = await loadDb();
-    let record = db.categoryBudgets.find(
-      (b) => b.tenant_id === session.tenant_id && b.category_id === category_id && b.month === month
-    );
+    const normalizedName = normalizeGroupText(category_name);
+    const category = category_id
+      ? db.categories.find((c) => c.id === category_id && c.tenant_id === session.tenant_id)
+      : null;
+    const resolvedName = String(category_name || (category && category.name) || "").trim() || null;
+
+    let record = budget_id
+      ? db.categoryBudgets.find((b) => b.id === budget_id && b.tenant_id === session.tenant_id)
+      : db.categoryBudgets.find(
+        (b) => (
+          b.tenant_id === session.tenant_id &&
+          b.month === month &&
+          (
+            (category_id && b.category_id === category_id)
+            || (!category_id && !b.category_id && normalizeGroupText(b.category_name) === normalizedName)
+          )
+        )
+      );
+
     if (record) {
       record.previsto = previsto;
+      if (category) {
+        record.category_id = category.id;
+        record.category_name = category.name;
+        record.category_name_normalized = normalizeGroupText(category.name);
+      } else if (resolvedName) {
+        record.category_id = record.category_id || null;
+        record.category_name = resolvedName;
+        record.category_name_normalized = normalizeGroupText(resolvedName);
+      }
     } else {
-      record = { id: nextId(db, "categoryBudgets"), tenant_id: session.tenant_id, category_id, month, previsto };
+      record = {
+        id: nextId(db, "categoryBudgets"),
+        tenant_id: session.tenant_id,
+        category_id: category ? category.id : null,
+        category_name: resolvedName,
+        category_name_normalized: normalizeGroupText(resolvedName),
+        month,
+        previsto,
+        imported_from_budget: true,
+      };
       db.categoryBudgets.push(record);
     }
     ensureBudgetGroupsForTenant(db, session.tenant_id);
@@ -975,34 +1023,48 @@ class CategoryBudgetService {
     });
     if (!byName.size) throw new Error("Nenhuma categoria válida encontrada para importar.");
 
-    let createdCategories = 0;
     const applied = [];
 
     byName.forEach(({ name, previsto }) => {
-      let category = db.categories.find(
+      const category = db.categories.find(
         (c) => c.tenant_id === session.tenant_id && c.name.toLowerCase() === name.toLowerCase()
       );
-      if (!category) {
-        category = { id: nextId(db, "categories"), tenant_id: session.tenant_id, name };
-        db.categories.push(category);
-        createdCategories += 1;
-      }
+      const normalizedName = normalizeGroupText(name);
 
       let budget = db.categoryBudgets.find(
-        (b) => b.tenant_id === session.tenant_id && b.category_id === category.id && b.month === month
+        (b) =>
+          b.tenant_id === session.tenant_id &&
+          b.month === month &&
+          (
+            (category && b.category_id === category.id)
+            || (!category && !b.category_id && normalizeGroupText(b.category_name) === normalizedName)
+          )
       );
       if (budget) {
         budget.previsto = previsto;
+        budget.category_name = name;
+        budget.category_name_normalized = normalizedName;
+        budget.category_id = category ? category.id : null;
+        budget.imported_from_budget = true;
       } else {
-        budget = { id: nextId(db, "categoryBudgets"), tenant_id: session.tenant_id, category_id: category.id, month, previsto };
+        budget = {
+          id: nextId(db, "categoryBudgets"),
+          tenant_id: session.tenant_id,
+          category_id: category ? category.id : null,
+          category_name: name,
+          category_name_normalized: normalizedName,
+          month,
+          previsto,
+          imported_from_budget: true,
+        };
         db.categoryBudgets.push(budget);
       }
-      applied.push({ category_id: category.id, category_name: category.name, previsto });
+      applied.push({ category_id: category ? category.id : null, category_name: name, previsto });
     });
 
     ensureBudgetGroupsForTenant(db, session.tenant_id);
     await saveDb(db);
-    return { month, created_categories: createdCategories, categories_count: applied.length, rows: applied };
+    return { month, created_categories: 0, categories_count: applied.length, rows: applied };
   }
 
   // Visão completa do fluxo: Previsto (importado, por categoria) x
@@ -1023,13 +1085,38 @@ class CategoryBudgetService {
     );
 
     const byCategory = new Map();
+    const budgetNameKeyByNormalizedCategory = new Map();
     budgets.forEach((b) => {
-      byCategory.set(b.category_id, { category_id: b.category_id, previsto: b.previsto, realizado: 0, hasBudget: true });
+      const category = b.category_id ? db.categories.find((c) => c.id === b.category_id) : null;
+      const categoryName = b.category_name || (category ? category.name : null) || "Sem categoria";
+      const key = b.category_id || `budget_name:${normalizeGroupText(categoryName)}`;
+      byCategory.set(key, {
+        category_id: b.category_id || null,
+        category_name: categoryName,
+        previsto: b.previsto,
+        realizado: 0,
+        hasBudget: true,
+      });
+      if (!b.category_id && categoryName) {
+        budgetNameKeyByNormalizedCategory.set(normalizeGroupText(categoryName), key);
+      }
     });
     expenses.forEach((e) => {
-      const key = e.category_id || "__sem_categoria__";
+      const expenseCategory = e.category_id ? db.categories.find((c) => c.id === e.category_id) : null;
+      const expenseCategoryName = expenseCategory ? expenseCategory.name : "Sem categoria";
+      let key = e.category_id || "__sem_categoria__";
       if (!byCategory.has(key)) {
-        byCategory.set(key, { category_id: e.category_id, previsto: 0, realizado: 0, hasBudget: false });
+        const budgetNameKey = budgetNameKeyByNormalizedCategory.get(normalizeGroupText(expenseCategoryName));
+        if (budgetNameKey) key = budgetNameKey;
+      }
+      if (!byCategory.has(key)) {
+        byCategory.set(key, {
+          category_id: e.category_id || null,
+          category_name: expenseCategoryName,
+          previsto: 0,
+          realizado: 0,
+          hasBudget: false,
+        });
       }
       byCategory.get(key).realizado += e.amount;
     });
@@ -1041,7 +1128,7 @@ class CategoryBudgetService {
         const status = !r.hasBudget ? "SEM_ORCAMENTO" : saldo < 0 ? "ESTOURADO" : "DENTRO_DO_ORCAMENTO";
         return {
           category_id: r.category_id,
-          category_name: category ? category.name : "Sem categoria",
+          category_name: r.category_name || (category ? category.name : "Sem categoria"),
           previsto: r.previsto,
           realizado: r.realizado,
           saldo,
@@ -1086,7 +1173,13 @@ class CategoryBudgetService {
     sourceRows.forEach((row) => {
       const adjusted = Math.round((Number(row.previsto || 0) * factor) * 100) / 100;
       const existing = db.categoryBudgets.find(
-        (b) => b.tenant_id === session.tenant_id && b.category_id === row.category_id && b.month === targetMonth
+        (b) =>
+          b.tenant_id === session.tenant_id &&
+          b.month === targetMonth &&
+          (
+            (row.category_id && b.category_id === row.category_id)
+            || (!row.category_id && !b.category_id && normalizeGroupText(b.category_name) === normalizeGroupText(row.category_name))
+          )
       );
       if (existing) {
         existing.previsto = adjusted;
@@ -1095,9 +1188,12 @@ class CategoryBudgetService {
         db.categoryBudgets.push({
           id: nextId(db, "categoryBudgets"),
           tenant_id: session.tenant_id,
-          category_id: row.category_id,
+          category_id: row.category_id || null,
+          category_name: row.category_name || null,
+          category_name_normalized: normalizeGroupText(row.category_name),
           month: targetMonth,
           previsto: adjusted,
+          imported_from_budget: !!row.imported_from_budget,
         });
         created += 1;
       }
@@ -1937,6 +2033,60 @@ class ApiFacade {
       automation,
       automation_configured: lastRunAt !== null,
       last_run_at: lastRunAt,
+    };
+  }
+
+  async getMarketplaceCustomerProfile(month) {
+    Auth.requireScope("marketplace:ai_agent");
+    const session = Auth.requireSession();
+    const [db, marketplaceStatus] = await Promise.all([loadDb(), this.getMercadoPagoStatus()]);
+    const targetMonth = monthRegexOk(month) ? month : nowIso().slice(0, 7);
+    const tenantCategories = (db.categories || []).filter((c) => c.tenant_id === session.tenant_id);
+    const tenantBudgets = (db.categoryBudgets || []).filter((b) => b.tenant_id === session.tenant_id && b.month === targetMonth);
+    const tenantExpenses = (db.expenses || []).filter((e) => e.tenant_id === session.tenant_id && String(e.date || "").slice(0, 7) === targetMonth);
+
+    const totalBudget = tenantBudgets.reduce((sum, b) => sum + (Number(b.previsto) || 0), 0);
+    const totalSpent = tenantExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const budgetUsage = totalBudget > 0 ? (totalSpent / totalBudget) : null;
+    const mpShare = totalSpent > 0 ? (Number(marketplaceStatus.expenses_total || 0) / totalSpent) : 0;
+
+    const spentByCategory = new Map();
+    tenantExpenses.forEach((expense) => {
+      const cat = expense.category_id ? tenantCategories.find((c) => c.id === expense.category_id) : null;
+      const label = cat ? cat.name : "Sem categoria";
+      spentByCategory.set(label, (spentByCategory.get(label) || 0) + (Number(expense.amount) || 0));
+    });
+    const topCategory = Array.from(spentByCategory.entries()).sort((a, b) => b[1] - a[1])[0] || null;
+
+    let segment = "Em formação";
+    if (budgetUsage !== null && budgetUsage > 1) segment = "Risco de estouro";
+    else if (budgetUsage !== null && budgetUsage >= 0.85) segment = "Atenção ao orçamento";
+    else if (marketplaceStatus.connected && mpShare >= 0.35) segment = "Cliente digital orientado a marketplace";
+    else if ((tenantExpenses || []).length >= 8) segment = "Cliente recorrente";
+    else if ((tenantExpenses || []).length > 0) segment = "Cliente em crescimento";
+
+    const insights = [];
+    if (totalBudget > 0) insights.push(`Consumo de orçamento: ${(Math.max(0, budgetUsage) * 100).toFixed(1)}%`);
+    if (topCategory) insights.push(`Categoria dominante: ${topCategory[0]} (R$ ${topCategory[1].toFixed(2)})`);
+    if (marketplaceStatus.connected) {
+      insights.push(`Marketplace ativo: ${marketplaceStatus.expenses_count} despesa(s) via Mercado Pago`);
+    } else {
+      insights.push("Marketplace ainda sem despesas sincronizadas");
+    }
+
+    return {
+      month: targetMonth,
+      segment,
+      summary: `${segment} · ${insights.join(" · ")}`,
+      metrics: {
+        categories_count: tenantCategories.length,
+        budgets_count: tenantBudgets.length,
+        expenses_count: tenantExpenses.length,
+        total_budget: totalBudget,
+        total_spent: totalSpent,
+        marketplace_share: mpShare,
+      },
+      insights,
     };
   }
 }

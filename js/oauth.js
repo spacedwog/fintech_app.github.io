@@ -482,7 +482,7 @@ const OAUTH_CLIENT = {
   redirect_uri: "dashboard.html",
   authorize_endpoint: "/login/oauth/authorize",
   token_endpoint: "/login/oauth/access_token",
-  allowed_scopes: ["profile", "expenses:read", "expenses:write", "reports:read", "payments:read", "team:manage"],
+  allowed_scopes: ["profile", "expenses:read", "expenses:write", "reports:read", "payments:read", "team:manage", "marketplace:ai_agent"],
 };
 
 // ---------- OAuthAuthorizationServer: endpoints /authorize e /token (RFC 6749) ----------

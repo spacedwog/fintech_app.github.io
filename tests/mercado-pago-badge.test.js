@@ -192,6 +192,10 @@ function check(name, cond) {
   check("automation_configured=true quando algum agente já rodou", statusConectado.automation_configured === true);
   check("last_run_at é o horário mais recente entre os agentes (2026-08-04T12:05, do reconcile)", statusConectado.last_run_at === "2026-08-04T12:05:00.000Z");
 
+  const profileMarketplace = await run(dev, `return await Api.getMarketplaceCustomerProfile("2026-08");`);
+  check("agent IA de marketplace retorna segmento de perfil", typeof profileMarketplace.segment === "string" && profileMarketplace.segment.length > 0);
+  check("agent IA de marketplace retorna resumo consolidado", typeof profileMarketplace.summary === "string" && profileMarketplace.summary.includes("Marketplace"));
+
   // ---------- 4) Isolado por conta: outra conta não vê nada disso ----------
   const statusOutraConta = await run(
     dev,

@@ -63,10 +63,14 @@ class MercadoPagoStatusIndicator {
   async render() {
     const box = document.getElementById("mp-status");
     const label = document.getElementById("mp-status-label");
+    const profileLabel = document.getElementById("mp-customer-profile");
     if (!box || !label || typeof Api === "undefined") return;
 
     try {
-      const status = await Api.getMercadoPagoStatus();
+      const [status, profile] = await Promise.all([
+        Api.getMercadoPagoStatus(),
+        Api.getMarketplaceCustomerProfile().catch(() => null),
+      ]);
       box.classList.toggle("connected", status.connected);
       box.classList.toggle("idle", !status.connected);
 
@@ -98,8 +102,13 @@ class MercadoPagoStatusIndicator {
           "mp_expenses.py + mp_open_finance_sync.py/mp_oauth_account_sync.py (quando aplicável) fora do navegador, " +
           "ou agende via GitHub Actions (veja orcamento_agent/LEIA-ME.md).";
       }
+
+      if (profileLabel) {
+        profileLabel.textContent = profile ? `Perfil IA: ${profile.summary}` : "";
+      }
     } catch (e) {
       label.textContent = "";
+      if (profileLabel) profileLabel.textContent = "";
       box.title = "";
     }
   }
@@ -1893,7 +1902,7 @@ class DashboardController {
     const previsto = parseFloat(input.value);
     const categoryId = input.dataset.categoryId;
     const month = monthInput.value;
-    await Api.setCategoryBudget({ category_id: categoryId, month, previsto });
+    await Api.setCategoryBudget({ budget_id: id, category_id: categoryId, month, previsto });
     if (status) status.textContent = "Orçamento atualizado.";
     await this._renderBudgetManageTable(month);
   }
