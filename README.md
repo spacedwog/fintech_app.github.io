@@ -84,7 +84,7 @@ O menu **Orçamento** (`view-budget-flow`) consolida "Importar Orçamento", "Ale
 O menu **Despesas** (`view-expenses-flow`) separa:
 
 1. **Página 1**: SpaceHub + Minhas despesas.
-2. **Página 2**: Pagamento de despesa via Pix por chave.
+2. **Página 2**: Pagamento de despesa.
 
 <details>
 <summary><strong>Página 1 — Importar Orçamento</strong></summary>

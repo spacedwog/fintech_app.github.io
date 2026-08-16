@@ -463,6 +463,49 @@ a { text-decoration: none; }
   display: none;
 }
 
+.lp-cookie-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 17, 32, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 40;
+}
+
+.lp-cookie-modal.hidden {
+  display: none;
+}
+
+.lp-cookie-modal-card {
+  width: min(560px, 100%);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 25px 40px rgba(0, 0, 0, 0.2);
+}
+
+.lp-cookie-modal-card h3 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.lp-cookie-modal-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.lp-cookie-modal-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* ---------- Feature grid ---------- */
 .lp-grid {
   display: grid;

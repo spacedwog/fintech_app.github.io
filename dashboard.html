@@ -264,9 +264,9 @@
 
         <div class="flow-page expenses-flow-page" id="expenses-flow-page-1">
           <div class="card">
-            <h3 class="mt-0">SpaceHub + GitHub Copilot Agent</h3>
+            <h3 class="mt-0">SpaceHub</h3>
             <p class="small-muted mt-0 mb-12">
-              Converse com o agente para gerar despesas e importar direto em Minhas despesas. Ele combina o chatbot do app com contexto público do GitHub.
+              Converse com o SpaceHub para gerar despesas e importar direto em Minhas despesas.
             </p>
 
             <div class="field">
@@ -275,7 +275,7 @@
             </div>
 
             <div id="google-ai-chat-messages" class="google-ai-chat-messages" aria-live="polite">
-              <div class="google-ai-msg bot">Olá! Sou o SpaceHub com agente GitHub Copilot. Posso gerar despesas para você e adicioná-las em Minhas despesas.</div>
+              <div class="google-ai-msg bot">Olá! Sou o SpaceHub. Posso gerar despesas para você e adicioná-las em Minhas despesas.</div>
             </div>
 
             <div class="field mb-10">
@@ -306,7 +306,7 @@
 
         <div class="flow-page expenses-flow-page hidden" id="expenses-flow-page-2">
           <div class="card">
-            <h3 class="mt-0">Pagamento de despesa via Pix por chave</h3>
+            <h3 class="mt-0">Pagamento de despesa</h3>
             <p class="small-muted mt-0 mb-12">
               Informe a chave Pix do destinatário para gerar QR Code e código copia-e-cola da despesa.
             </p>
@@ -340,7 +340,7 @@
                 <label>Descrição da despesa</label>
                 <input type="text" id="pix-key-description" placeholder="Ex: Pagamento da conta de energia" />
               </div>
-              <button type="submit" class="primary">Gerar pagamento Pix</button>
+              <button type="submit" class="primary">Gerar pagamento via Pix</button>
             </form>
 
             <div id="pix-key-payment-result" class="hidden mt-16">
@@ -374,7 +374,7 @@
       <section class="view hidden" id="view-reports">
         <div class="top-bar"><h1>Resumo Mensal</h1></div>
         <div class="card">
-          <h3 class="mt-0">DataScience para tomada de decisão</h3>
+          <h3 class="mt-0">Consumo do orçamento</h3>
           <p class="small-muted mt-0">Grau de porcentagem de consumo do orçamento no mês atual.</p>
           <div id="datascience-decision-box" class="alert-ok">
             <strong id="datascience-percentage">0%</strong>
