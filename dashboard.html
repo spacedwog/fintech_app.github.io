@@ -60,8 +60,17 @@
         <div id="mp-customer-profile" class="mp-customer-profile small-muted"></div>
       </div>
 
-      <button class="nav-item active" data-view="budget-flow">Orçamento e Despesas</button>
-      <button class="nav-item" data-view="expense-rules">Regras automáticas</button>
+      <div class="sidebar-menu-label">Orçamento</div>
+      <button class="nav-item nav-sub-item active" data-view="budget-flow" data-budget-flow-page="1">Importar Orçamento</button>
+      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="2">Alertas Orçamento</button>
+      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="3">Gerenciar Orçamento</button>
+      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="4">Grupo</button>
+
+      <div class="sidebar-menu-label">Despesas</div>
+      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="5" data-budget-focus-id="budget-spacehub-card">SpaceHub</button>
+      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="5" data-budget-focus-id="budget-expenses-card">Minhas despesas</button>
+      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="6">Pagamento de Despesas</button>
+      <button class="nav-item nav-sub-item" data-view="expense-rules">Regras automáticas</button>
       <button class="nav-item" data-view="feed">Feed</button>
       <button class="nav-item" data-view="reports">Resumo Mensal</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
@@ -99,7 +108,7 @@
 
         <!-- Página 1: Importar Orçamento -->
         <div class="flow-page budget-flow-page" id="budget-flow-page-1">
-          <div class="card">
+          <div class="card" id="budget-spacehub-card">
             <p class="small-muted mt-0">
               Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita no
               navegador, integrada ao backend em nuvem (arquitetura fullstack), sem depender de um arquivo fixo. Funciona com uma
@@ -167,7 +176,7 @@
 
         <!-- Página 2: Alertas / Orçamento -->
         <div class="flow-page budget-flow-page hidden" id="budget-flow-page-2">
-          <div class="card">
+          <div class="card" id="budget-expenses-card">
             <h3 class="mt-0">Limite geral do mês</h3>
             <p class="small-muted mt-0">Um único valor total por mês, independente de categoria — mais simples, mas menos detalhado que a comparação por categoria abaixo.</p>
             <div id="alerts-box" class="alert-ok">Carregando...</div>

@@ -556,13 +556,41 @@ class DashboardController {
 
   _bindNav() {
     document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
-      btn.addEventListener("click", () => this.showView(btn.dataset.view));
+      btn.addEventListener("click", () => {
+        const viewName = btn.dataset.view;
+        const budgetFlowPage = parseInt(btn.dataset.budgetFlowPage, 10);
+        const focusId = String(btn.dataset.budgetFocusId || "").trim();
+
+        if (viewName === "budget-flow" && Number.isFinite(budgetFlowPage)) {
+          this.currentBudgetFlowPage = budgetFlowPage;
+          this.showView("budget-flow");
+          if (focusId) {
+            const target = document.getElementById(focusId);
+            if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+          return;
+        }
+
+        this.showView(viewName);
+      });
     });
   }
 
   _setActiveNav(viewName) {
     document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.view === viewName);
+      const matchesView = btn.dataset.view === viewName;
+      if (!matchesView) {
+        btn.classList.remove("active");
+        return;
+      }
+
+      if (viewName === "budget-flow" && btn.dataset.budgetFlowPage) {
+        const budgetFlowPage = parseInt(btn.dataset.budgetFlowPage, 10);
+        btn.classList.toggle("active", budgetFlowPage === this.currentBudgetFlowPage);
+        return;
+      }
+
+      btn.classList.add("active");
     });
   }
 
@@ -933,6 +961,7 @@ class DashboardController {
   _goToBudgetFlowPage(page) {
     page = Math.min(6, Math.max(1, page));
     this.currentBudgetFlowPage = page;
+    this._setActiveNav("budget-flow");
 
     document.querySelectorAll(".budget-flow-page").forEach((el, idx) => {
       el.classList.toggle("hidden", idx + 1 !== page);
