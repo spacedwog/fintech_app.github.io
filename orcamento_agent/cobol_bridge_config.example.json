@@ -1,0 +1,13 @@
+{
+  "events_json": "cobol_events.example.json",
+  "db_json": "../db.json",
+  "firebase_service_account": null,
+  "tenant_filter": null,
+  "_comentarios": {
+    "events_json": "Arquivo JSON produzido pela camada intermediária entre IBM COBOL e este repositório. Deve ser um array de eventos com event_id + status_quitacao + identificador de pagamento (payment_id, txid ou amount).",
+    "db_json": "Fonte local no formato do banco do app (db.json/localStorage exportado). Use db_json OU firebase_service_account.",
+    "firebase_service_account": "Opcional e recomendado para produção: chave de conta de serviço para ler/gravar direto no Firestore fintech_saas/db_v1.",
+    "tenant_filter": "Opcional. Se preenchido, só processa eventos desse tenant_id.",
+    "seguranca": "NUNCA versione este arquivo copiado com segredos reais. O arquivo de exemplo é seguro para commit."
+  }
+}

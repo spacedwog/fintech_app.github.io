@@ -1,8 +1,8 @@
 # Agente de Controle de Orçamento — Mercado Pago
 
 ## O que é
-Esta pasta reúne cinco agentes que usam a conta do Mercado Pago via API (Access
-Token) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local):
+Esta pasta reúne agentes de integração financeira (Mercado Pago + legado) com o
+mesmo cuidado de segurança (nenhum segredo sai da máquina local):
 
 1. **`mp_sync.py`** — puxa pagamentos do Mercado Pago, categoriza automaticamente e
    compara com o orçamento previsto numa planilha de orçamento (ex.: o orçamento do
@@ -25,6 +25,10 @@ Token) com o mesmo cuidado de segurança (nenhum segredo sai da máquina local):
    (vendedor/usuário) para consultar pagamentos, cobranças, saldo e movimentações
    permitidas pela API, com sincronização idempotente para o painel web e projeção
    opcional em despesas (modelo prático).
+6. **`cobol_bridge.py`** — ponte de integração com legado (ex.: IBM COBOL) via
+   camada intermediária: lê eventos financeiros em JSON, reconcilia com pagamentos
+   do painel, atualiza status de quitação/liquidação, mantém histórico e aplica
+   idempotência por `event_id`.
 
 Além dos três, **`mp_list_activities.py`** é um utilitário só de leitura: lista as
 atividades (pagamentos) reais da conta do Mercado Pago no terminal (e pode exportar
@@ -110,6 +114,15 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
 - `test_mp_list_activities.py` — teste automatizado do `mp_list_activities.py` com
   pagamentos simulados (não chama a API real). Rode `python3 test_mp_list_activities.py`
   depois de qualquer alteração no script.
+- `cobol_bridge.py` — ponte para eventos financeiros de sistemas legados
+  (incluindo IBM COBOL) via camada intermediária JSON, com reconciliação,
+  rastreabilidade e idempotência por `event_id`.
+- `cobol_bridge_config.example.json` — modelo de configuração do `cobol_bridge.py`
+  (copie para `cobol_bridge_config.json`, nunca versione o copiado).
+- `cobol_events.example.json` — exemplo de payload de eventos da camada intermediária.
+- `test_cobol_bridge.py` — teste automatizado do `cobol_bridge.py` com dados
+  simulados (sem Firestore real). Rode `python3 test_cobol_bridge.py` depois de
+  qualquer alteração no script.
 
 ## Ver as atividades do Mercado Pago sem gerar despesas (`mp_list_activities.py`)
 Antes de configurar o Firebase para `mp_reconcile.py`/`mp_expenses.py` valer a pena,
@@ -149,6 +162,27 @@ Rode `python3 test_mp_list_activities.py` depois de qualquer alteração no scri
 descrições, e-mail de quem pagou) — os nomes sugeridos acima (`mp_activities.*`)
 já estão cobertos pelo `.gitignore`; se usar outro nome, adicione-o também antes de
 commitar.
+
+## Ponte com legado (IBM COBOL) sem acoplar no front-end (`cobol_bridge.py`)
+Para manter o site estático seguro, a integração com legado roda fora do navegador:
+a camada intermediária exporta eventos financeiros em JSON e o `cobol_bridge.py`
+reconcilia esses eventos com os pagamentos já gravados no painel.
+
+**O que atualiza no banco do app:**
+- `settlementStatus` (PENDENTE/QUITADO/LIQUIDADO/CANCELADO)
+- `verifiedByCobol` (true/false)
+- `cobolSettlement` (último evento aplicado)
+- `settlementHistory` (trilha de liquidação)
+- `cobol_bridge_state` (ids já processados para idempotência)
+
+**Rodar:**
+```bash
+cd orcamento_agent
+cp cobol_bridge_config.example.json cobol_bridge_config.json
+python3 cobol_bridge.py --events-json cobol_events.example.json --db-json ../db.json --dry-run
+python3 cobol_bridge.py --config cobol_bridge_config.json
+python3 test_cobol_bridge.py
+```
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).

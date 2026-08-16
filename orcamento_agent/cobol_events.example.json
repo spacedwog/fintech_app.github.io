@@ -1,0 +1,14 @@
+[
+  {
+    "event_id": "cbl-evt-2026-08-16-0001",
+    "tenant_id": "global",
+    "tipo": "PAYMENT_SETTLEMENT",
+    "payment_id": "42",
+    "txid": "PIX-EXEMPLO-0001",
+    "amount": 19.99,
+    "status_quitacao": "QUITADO",
+    "settled_at": "2026-08-16T12:00:00Z",
+    "liquidation_reference": "LQ-20260816-0001",
+    "source_system": "IBM_COBOL"
+  }
+]
