@@ -219,6 +219,18 @@
               <label>Mês (AAAA-MM)</label>
               <input type="text" id="budget-manage-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
             </div>
+            <div class="grid-2">
+              <div class="field">
+                <label>Copiar do mês (AAAA-MM)</label>
+                <input type="text" id="budget-recurring-source-month" placeholder="vazio = mês anterior" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+              </div>
+              <div class="field">
+                <label>Ajuste percentual (%)</label>
+                <input type="number" id="budget-recurring-adjustment" step="0.01" value="0" />
+              </div>
+            </div>
+            <button type="button" class="secondary" id="budget-recurring-apply-btn">Copiar orçamento recorrente</button>
+            <p class="small-muted mt-8 mb-0" id="budget-recurring-status"></p>
             <p class="small-muted mt-0 mb-10" id="budget-manage-status"></p>
             <table>
               <thead>
@@ -289,6 +301,36 @@
               <button type="button" id="google-ai-chat-send" class="primary flex-1 mt-0">Enviar</button>
               <button type="button" id="google-ai-chat-clear" class="secondary flex-1">Limpar conversa</button>
             </div>
+          </div>
+
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Regras automáticas de categoria</h3>
+              <button type="button" class="secondary" id="expense-rules-apply-btn">Aplicar em despesas sem categoria</button>
+            </div>
+            <p class="small-muted mt-0 mb-12">
+              Crie regras por descrição/recebedor para classificar despesas automaticamente.
+            </p>
+            <form id="expense-rule-form">
+              <div class="grid-2">
+                <div class="field">
+                  <label>Palavra-chave (descrição/recebedor)</label>
+                  <input type="text" id="expense-rule-keyword" placeholder="Ex: uber, supermercado, energia" required />
+                </div>
+                <div class="field">
+                  <label>Categoria</label>
+                  <select id="expense-rule-category" required></select>
+                </div>
+              </div>
+              <button type="submit" class="primary">Adicionar regra</button>
+            </form>
+            <p id="expense-rules-status" class="small-muted mt-10 mb-10"></p>
+            <table>
+              <thead>
+                <tr><th>Palavra-chave</th><th>Categoria</th><th>Ações</th></tr>
+              </thead>
+              <tbody id="expense-rules-tbody"></tbody>
+            </table>
           </div>
 
           <div class="card">
@@ -379,6 +421,32 @@
           <div id="datascience-decision-box" class="alert-ok">
             <strong id="datascience-percentage">0%</strong>
             <span id="datascience-decision-text"> — Carregando análise...</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row-between">
+            <h3 class="m-0">Alerta preditivo do mês</h3>
+            <div class="field m-0 min-w-160">
+              <input type="text" id="report-export-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+            </div>
+          </div>
+          <div id="budget-projection-box" class="alert-ok">
+            <strong id="budget-projection-value">R$ 0,00</strong>
+            <span id="budget-projection-text"> — Carregando projeção...</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">Checklist de fechamento mensal</h3>
+          <p id="monthly-close-summary" class="small-muted mt-0 mb-8">Carregando checklist...</p>
+          <ul class="security-control-list" id="monthly-close-checklist"></ul>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">Exportação consolidada (despesas + orçamento)</h3>
+          <p class="small-muted mt-0 mb-12">Use o mês acima para exportar relatório consolidado.</p>
+          <div class="button-row-wrap">
+            <button type="button" class="secondary" id="report-export-csv">Exportar CSV</button>
+            <button type="button" class="secondary" id="report-export-xls">Exportar Excel</button>
+            <button type="button" class="secondary" id="report-export-pdf">Exportar PDF</button>
           </div>
         </div>
         <div class="grid-2">
