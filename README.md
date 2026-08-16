@@ -84,7 +84,7 @@ O menu **Orçamento** (`view-budget-flow`) consolida "Importar Orçamento", "Ale
 O menu **Despesas** (`view-expenses-flow`) separa:
 
 1. **Página 1**: SpaceHub + Minhas despesas.
-2. **Página 2**: Pagamento de despesa via Pix por chave.
+2. **Página 2**: Pagamento de despesa.
 
 <details>
 <summary><strong>Página 1 — Importar Orçamento</strong></summary>
@@ -105,6 +105,7 @@ Código: `js/dashboard.js` (`loadBudgetView`, `handleBudgetFileUpload`, `showBud
 Registra despesas com valor, data, categoria e descrição — igual a antes, com um adicional: ao escolher a categoria, um aviso mostra o Previsto x Realizado **daquela categoria no mês atual**, puxado do que foi importado na Página 1 (`Api.getBudgetOverview`), inclusive avisando quando a categoria ainda não tem orçamento definido.
 
 - A página usa o **SpaceHub - Chatbot de Financiamento (sem token)** para gerar despesas e importar direto em "Minhas despesas". O campo "Usuário GitHub" é opcional e só adiciona contexto usando APIs públicas do GitHub; o chatbot também expõe uma API interna de metodologias da linguagem portuguesa (verbos, adjetivos, provérbios e orações subordinadas) e executa o fluxo por uma VM interna de instruções (`ChatbotVirtualMachine` em `js/google-ai-chatbot.js`).
+- **Regras automáticas de categoria**: você cadastra palavras-chave de descrição/recebedor (ex.: "uber", "supermercado", "energia") e o app classifica despesas sem categoria automaticamente (`Api.addExpenseRule`, `Api.applyExpenseRulesToUncategorized`).
 - O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — a 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
 - Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).
@@ -131,6 +132,12 @@ Código: `js/dashboard.js` (`loadAlertsView`, `loadBudgetOverview`), `Api.setBud
 <summary>O que é e como funciona</summary>
 
 Dois gráficos (Chart.js): gasto total por mês (barras) e gasto por categoria no período (rosca). Somam todas as despesas do tenant, sem filtro de usuário — qualquer membro vê o resumo completo da conta.
+
+Além dos gráficos, a tela inclui:
+
+- **Alerta preditivo do mês**: projeção simples de gasto até o fim do mês com base na média diária (`Api.getMonthlyProjection`).
+- **Checklist de fechamento mensal**: itens guiados para fechar o mês (categorização, comprovantes, limite mensal e orçamento por categoria) (`Api.getMonthlyCloseChecklist`).
+- **Exportação consolidada**: relatório de despesas + orçamento em CSV, Excel e PDF (`Api.getConsolidatedExportData` + exportadores no `dashboard.js`).
 
 Código: `js/dashboard.js` (`loadReportsView`), dados vindos de `Api.monthlyReport()`/`Api.categoryReport()` em `js/api.js`.
 </details>

@@ -333,6 +333,27 @@ function ensureBudgetGroupsForTenant(db, tenantId) {
   });
 }
 
+function normalizeExpenseRuleKeyword(value) {
+  return normalizeGroupText(value);
+}
+
+function monthRegexOk(value) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || "").trim());
+}
+
+function previousMonth(month) {
+  if (!monthRegexOk(month)) return null;
+  const [yearRaw, monthRaw] = String(month).split("-");
+  let year = Number(yearRaw);
+  let m = Number(monthRaw);
+  m -= 1;
+  if (m <= 0) {
+    m = 12;
+    year -= 1;
+  }
+  return `${String(year).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
+}
+
 // ---------- AuthService: signup/login/me ----------
 
 class AuthService {
@@ -557,9 +578,92 @@ class CategoryService {
   }
 }
 
+// ---------- ExpenseRuleService ----------
+
+class ExpenseRuleService {
+  async listExpenseRules() {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    return (db.expenseRules || [])
+      .filter((r) => r.tenant_id === session.tenant_id)
+      .map((r) => {
+        const category = db.categories.find((c) => c.id === r.category_id);
+        return {
+          id: r.id,
+          category_id: r.category_id,
+          category_name: category ? category.name : null,
+          keyword: r.keyword,
+          match_type: r.match_type || "contains",
+          created_at: r.created_at || null,
+        };
+      })
+      .sort((a, b) => (a.keyword || "").localeCompare(b.keyword || ""));
+  }
+
+  async addExpenseRule({ category_id, keyword, match_type }) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const safeKeyword = String(keyword || "").trim();
+    const normalizedKeyword = normalizeExpenseRuleKeyword(safeKeyword);
+    if (!category_id) throw new Error("Categoria é obrigatória.");
+    if (!safeKeyword || !normalizedKeyword) throw new Error("Palavra-chave da regra é obrigatória.");
+    const normalizedMatchType = String(match_type || "contains").toLowerCase() === "exact" ? "exact" : "contains";
+
+    const exists = (db.expenseRules || []).some(
+      (r) =>
+        r.tenant_id === session.tenant_id &&
+        r.category_id === category_id &&
+        (r.match_type || "contains") === normalizedMatchType &&
+        (r.keyword_normalized || normalizeExpenseRuleKeyword(r.keyword)) === normalizedKeyword
+    );
+    if (exists) throw new Error("Já existe uma regra igual para esta categoria.");
+
+    if (!Array.isArray(db.expenseRules)) db.expenseRules = [];
+    const record = {
+      id: nextId(db, "expenseRules"),
+      tenant_id: session.tenant_id,
+      category_id,
+      keyword: safeKeyword,
+      keyword_normalized: normalizedKeyword,
+      match_type: normalizedMatchType,
+      created_at: nowIso(),
+    };
+    db.expenseRules.push(record);
+    await saveDb(db);
+    return record;
+  }
+
+  async deleteExpenseRule(id) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const before = (db.expenseRules || []).length;
+    db.expenseRules = (db.expenseRules || []).filter((r) => !(r.id === id && r.tenant_id === session.tenant_id));
+    await saveDb(db);
+    if (db.expenseRules.length === before) throw new Error("Regra não encontrada.");
+    return { ok: true };
+  }
+}
+
 // ---------- ExpenseService ----------
 
 class ExpenseService {
+  _resolveCategoryByRule(db, tenantId, description) {
+    const normalizedDescription = normalizeExpenseRuleKeyword(description);
+    if (!normalizedDescription) return null;
+    const rules = (db.expenseRules || []).filter((r) => r.tenant_id === tenantId);
+    for (let i = 0; i < rules.length; i += 1) {
+      const rule = rules[i];
+      const keyword = rule.keyword_normalized || normalizeExpenseRuleKeyword(rule.keyword);
+      if (!keyword) continue;
+      const matchType = rule.match_type || "contains";
+      const matches = matchType === "exact"
+        ? normalizedDescription === keyword
+        : normalizedDescription.includes(keyword);
+      if (matches) return rule.category_id || null;
+    }
+    return null;
+  }
+
   async listExpenses(allUsers = false) {
     const session = Auth.requireSession();
     const db = await loadDb();
@@ -581,6 +685,7 @@ class ExpenseService {
           transaction_number: e.transaction_number || null,
           category_id: e.category_id,
           category_name: category ? category.name : null,
+          auto_categorized_by_rule: !!e.auto_categorized_by_rule,
           user_id: e.user_id,
           is_extra: !!e.is_extra,
           extra_charge: e.extra_charge || 0,
@@ -642,15 +747,17 @@ class ExpenseService {
     const isExtra = isFinite(maxPerDay) && todayCount >= maxPerDay;
     const extraCharge = isExtra ? planDetails.overage_price || 0 : 0;
 
+    const finalCategoryId = category_id || this._resolveCategoryByRule(db, session.tenant_id, description);
     const expense = {
       id: nextId(db, "expenses"),
       tenant_id: session.tenant_id,
       user_id: session.user_id,
-      category_id: category_id || null,
+      category_id: finalCategoryId || null,
       amount,
       date,
       description: description || "",
       transaction_number: transaction_number || null,
+      auto_categorized_by_rule: !category_id && !!finalCategoryId,
       created_at: nowIso(),
       is_extra: isExtra,
       extra_charge: extraCharge,
@@ -680,12 +787,36 @@ class ExpenseService {
     expense.amount = amount;
     expense.date = date;
     expense.description = description || "";
-    expense.category_id = category_id || null;
+    const finalCategoryId = category_id || this._resolveCategoryByRule(db, session.tenant_id, expense.description);
+    expense.category_id = finalCategoryId || null;
+    expense.auto_categorized_by_rule = !category_id && !!finalCategoryId;
     if (transaction_number !== undefined) expense.transaction_number = transaction_number || null;
 
     ensureBudgetGroupsForTenant(db, session.tenant_id);
     await saveDb(db);
     return { ok: true };
+  }
+
+  async applyRulesToUncategorized({ month } = {}) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const targetMonth = month && monthRegexOk(month) ? month : null;
+    let updated = 0;
+    (db.expenses || []).forEach((expense) => {
+      if (expense.tenant_id !== session.tenant_id) return;
+      if (targetMonth && String(expense.date || "").slice(0, 7) !== targetMonth) return;
+      if (expense.category_id) return;
+      const resolved = this._resolveCategoryByRule(db, session.tenant_id, expense.description || "");
+      if (!resolved) return;
+      expense.category_id = resolved;
+      expense.auto_categorized_by_rule = true;
+      updated += 1;
+    });
+    if (updated > 0) {
+      ensureBudgetGroupsForTenant(db, session.tenant_id);
+      await saveDb(db);
+    }
+    return { updated, month: targetMonth };
   }
 }
 
@@ -934,6 +1065,55 @@ class CategoryBudgetService {
       hasAnyBudget: budgets.length > 0,
     };
   }
+
+  async copyCategoryBudgetsRecurring({ targetMonth, sourceMonth, adjustmentPercent }) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    if (!monthRegexOk(targetMonth)) throw new Error("Mês de destino inválido (use AAAA-MM).");
+    const effectiveSourceMonth = monthRegexOk(sourceMonth) ? sourceMonth : previousMonth(targetMonth);
+    if (!effectiveSourceMonth) throw new Error("Mês de origem inválido.");
+
+    const factor = 1 + (Number(adjustmentPercent || 0) / 100);
+    if (!isFinite(factor) || factor <= 0) throw new Error("Ajuste percentual inválido.");
+
+    const sourceRows = (db.categoryBudgets || []).filter(
+      (b) => b.tenant_id === session.tenant_id && b.month === effectiveSourceMonth
+    );
+    if (!sourceRows.length) throw new Error("Não há orçamento por categoria no mês de origem.");
+
+    let created = 0;
+    let updated = 0;
+    sourceRows.forEach((row) => {
+      const adjusted = Math.round((Number(row.previsto || 0) * factor) * 100) / 100;
+      const existing = db.categoryBudgets.find(
+        (b) => b.tenant_id === session.tenant_id && b.category_id === row.category_id && b.month === targetMonth
+      );
+      if (existing) {
+        existing.previsto = adjusted;
+        updated += 1;
+      } else {
+        db.categoryBudgets.push({
+          id: nextId(db, "categoryBudgets"),
+          tenant_id: session.tenant_id,
+          category_id: row.category_id,
+          month: targetMonth,
+          previsto: adjusted,
+        });
+        created += 1;
+      }
+    });
+
+    ensureBudgetGroupsForTenant(db, session.tenant_id);
+    await saveDb(db);
+    return {
+      target_month: targetMonth,
+      source_month: effectiveSourceMonth,
+      adjustment_percent: Number(adjustmentPercent || 0),
+      copied_rows: sourceRows.length,
+      created,
+      updated,
+    };
+  }
 }
 
 // ---------- BudgetGroupService: relacionamento automático entre itens ----------
@@ -1002,6 +1182,107 @@ class ReportService {
     return Object.keys(totals)
       .sort((a, b) => totals[b] - totals[a])
       .map((category) => ({ category, total: totals[category] }));
+  }
+
+  async getMonthlyProjection(month) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const targetMonth = monthRegexOk(month) ? month : nowIso().slice(0, 7);
+    const [year, mon] = targetMonth.split("-").map(Number);
+    const daysInMonth = new Date(year, mon, 0).getDate;
+    const currentMonth = nowIso().slice(0, 7);
+    const elapsedDays = targetMonth === currentMonth
+      ? Math.min(new Date().getDate(), daysInMonth)
+      : daysInMonth;
+    const expenses = db.expenses.filter(
+      (e) =>
+        e.tenant_id === session.tenant_id &&
+        e.user_id === session.user_id &&
+        String(e.date || "").slice(0, 7) === targetMonth
+    );
+    const totalSpent = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const avgPerDay = elapsedDays > 0 ? totalSpent / elapsedDays : 0;
+    const projectedTotal = avgPerDay * daysInMonth;
+
+    const budget = db.budgets.find(
+      (b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id && b.month === targetMonth
+    );
+    const limit = Number((budget && budget.limit_value) || 0);
+    const projectedPercent = limit > 0 ? Math.round((projectedTotal / limit) * 100) : 0;
+    const projectedOverBudget = limit > 0 && projectedTotal > limit;
+
+    return {
+      month: targetMonth,
+      elapsed_days: elapsedDays,
+      total_days: daysInMonth,
+      total_spent: totalSpent,
+      average_per_day: avgPerDay,
+      projected_total: projectedTotal,
+      limit,
+      projected_percent: projectedPercent,
+      projected_over_budget: projectedOverBudget,
+    };
+  }
+
+  async getMonthlyCloseChecklist(month) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const targetMonth = monthRegexOk(month) ? month : nowIso().slice(0, 7);
+    const expenses = db.expenses.filter(
+      (e) =>
+        e.tenant_id === session.tenant_id &&
+        e.user_id === session.user_id &&
+        String(e.date || "").slice(0, 7) === targetMonth
+    );
+    const uncategorized = expenses.filter((e) => !e.category_id).length;
+    const missingReceipt = expenses.filter((e) => !String(e.transaction_number || "").trim()).length;
+    const hasMonthlyBudget = db.budgets.some(
+      (b) => b.tenant_id === session.tenant_id && b.user_id === session.user_id && b.month === targetMonth
+    );
+    const hasCategoryBudget = (db.categoryBudgets || []).some(
+      (b) => b.tenant_id === session.tenant_id && b.month === targetMonth
+    );
+
+    const checklist = [
+      { id: "categorized", label: "Classificar todas as despesas do mês", done: uncategorized === 0 },
+      { id: "receipts", label: "Conferir comprovantes (número da transação) das despesas", done: missingReceipt === 0 },
+      { id: "monthly-budget", label: "Definir limite geral do mês", done: hasMonthlyBudget },
+      { id: "category-budget", label: "Aplicar orçamento por categoria no mês", done: hasCategoryBudget },
+    ];
+    const doneCount = checklist.filter((item) => item.done).length;
+
+    return {
+      month: targetMonth,
+      expenses_count: expenses.length,
+      uncategorized_count: uncategorized,
+      missing_receipt_count: missingReceipt,
+      checklist,
+      done_count: doneCount,
+      total_count: checklist.length,
+      progress_percent: checklist.length ? Math.round((doneCount / checklist.length) * 100) : 0,
+    };
+  }
+
+  async getConsolidatedExportData(month) {
+    const targetMonth = monthRegexOk(month) ? month : nowIso().slice(0, 7);
+    const expenses = await Api.listExpenses();
+    const monthExpenses = expenses.filter((e) => String(e.date || "").slice(0, 7) === targetMonth);
+    const budgetOverview = await Api.getBudgetOverview(targetMonth);
+    const alerts = await Api.getAlerts(targetMonth);
+    const projection = await this.getMonthlyProjection(targetMonth);
+    const closeChecklist = await this.getMonthlyCloseChecklist(targetMonth);
+    return {
+      exported_at: nowIso(),
+      month: targetMonth,
+      summary: {
+        total_expenses: monthExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0),
+        total_budget_limit: Number(alerts.limit || 0),
+      },
+      expenses: monthExpenses,
+      budget_overview: budgetOverview,
+      monthly_projection: projection,
+      monthly_close_checklist: closeChecklist,
+    };
   }
 }
 
@@ -1410,6 +1691,7 @@ class ApiFacade {
     this.planService = new PlanService();
     this.userService = new UserService();
     this.categoryService = new CategoryService();
+    this.expenseRuleService = new ExpenseRuleService();
     this.expenseService = new ExpenseService();
     this.budgetService = new BudgetService();
     this.categoryBudgetService = new CategoryBudgetService();
@@ -1456,6 +1738,17 @@ class ApiFacade {
     return this.categoryService.addCategory(name);
   }
 
+  // ---------- Regras automáticas de categoria ----------
+  listExpenseRules() {
+    return this.expenseRuleService.listExpenseRules();
+  }
+  addExpenseRule(payload) {
+    return this.expenseRuleService.addExpenseRule(payload);
+  }
+  deleteExpenseRule(id) {
+    return this.expenseRuleService.deleteExpenseRule(id);
+  }
+
   // ---------- Expenses ----------
   listExpenses(allUsers = false) {
     return this.expenseService.listExpenses(allUsers);
@@ -1471,6 +1764,9 @@ class ApiFacade {
   }
   deleteExpense(id) {
     return this.expenseService.deleteExpense(id);
+  }
+  applyExpenseRulesToUncategorized(payload = {}) {
+    return this.expenseService.applyRulesToUncategorized(payload);
   }
 
   // ---------- Budgets & Alerts ----------
@@ -1503,6 +1799,9 @@ class ApiFacade {
   getBudgetOverview(month) {
     return this.categoryBudgetService.getBudgetOverview(month);
   }
+  copyCategoryBudgetsRecurring(payload) {
+    return this.categoryBudgetService.copyCategoryBudgetsRecurring(payload);
+  }
   listBudgetGroups() {
     return this.budgetGroupService.listBudgetGroups();
   }
@@ -1513,6 +1812,15 @@ class ApiFacade {
   }
   categoryReport(allUsers = false) {
     return this.reportService.categoryReport(allUsers);
+  }
+  getMonthlyProjection(month) {
+    return this.reportService.getMonthlyProjection(month);
+  }
+  getMonthlyCloseChecklist(month) {
+    return this.reportService.getMonthlyCloseChecklist(month);
+  }
+  getConsolidatedExportData(month) {
+    return this.reportService.getConsolidatedExportData(month);
   }
 
   // ---------- Budget Layouts ----------

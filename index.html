@@ -580,6 +580,20 @@
     </div>
   </footer>
 
+  <div id="lp-cookie-modal" class="lp-cookie-modal hidden" role="dialog" aria-modal="true" aria-labelledby="lp-cookie-modal-title">
+    <div class="lp-cookie-modal-card">
+      <h3 id="lp-cookie-modal-title">Consentimento de cookies</h3>
+      <p>
+        Usamos cookies de analytics e anúncios para medir desempenho e exibir conteúdos patrocinados.
+        Você pode aceitar ou manter esses cookies bloqueados.
+      </p>
+      <div class="lp-cookie-modal-actions">
+        <button type="button" class="lp-btn lp-btn-primary" id="lp-cookie-modal-accept">Aceitar cookies</button>
+        <button type="button" class="lp-btn lp-btn-ghost" id="lp-cookie-modal-deny">Manter bloqueado</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Tabs por persona
     (function () {
@@ -617,6 +631,9 @@
       var statusEl = document.getElementById('lp-ads-consent-status');
       var acceptBtn = document.getElementById('lp-ads-consent-accept');
       var denyBtn = document.getElementById('lp-ads-consent-deny');
+      var cookieModal = document.getElementById('lp-cookie-modal');
+      var cookieModalAcceptBtn = document.getElementById('lp-cookie-modal-accept');
+      var cookieModalDenyBtn = document.getElementById('lp-cookie-modal-deny');
       var slots = document.querySelectorAll('.lp-ad-slot');
 
       if (!section || !statusEl || !acceptBtn || !denyBtn || !slots.length) return;
@@ -649,6 +666,16 @@
         statusEl.textContent = customText || (granted
           ? 'Anúncios liberados. Você pode revogar essa permissão a qualquer momento na sua privacidade do painel.'
           : 'Anúncios bloqueados até você permitir o consentimento.');
+      }
+
+      function openCookieModal() {
+        if (!cookieModal) return;
+        cookieModal.classList.remove('hidden');
+      }
+
+      function closeCookieModal() {
+        if (!cookieModal) return;
+        cookieModal.classList.add('hidden');
       }
 
       function renderAdSlots() {
@@ -708,7 +735,9 @@
       function getStoredConsent() {
         var cookieValue = readCookie(CONSENT_COOKIE);
         if (cookieValue === 'granted' || cookieValue === 'denied') return cookieValue;
-        return localStorage.getItem(CONSENT_KEY) === 'granted' ? 'granted' : 'denied';
+        var localValue = localStorage.getItem(CONSENT_KEY);
+        if (localValue === 'granted' || localValue === 'denied') return localValue;
+        return null;
       }
 
       function enableAds() {
@@ -717,6 +746,7 @@
           return;
         }
         persistConsent(true);
+        closeCookieModal();
         setUiState(true);
         loadAdSenseScript()
           .then(function () {
@@ -729,17 +759,23 @@
 
       function disableAds() {
         persistConsent(false);
+        closeCookieModal();
         setUiState(false);
       }
 
       acceptBtn.addEventListener('click', enableAds);
       denyBtn.addEventListener('click', disableAds);
+      if (cookieModalAcceptBtn) cookieModalAcceptBtn.addEventListener('click', enableAds);
+      if (cookieModalDenyBtn) cookieModalDenyBtn.addEventListener('click', disableAds);
 
       var storedConsent = getStoredConsent();
       if (storedConsent === 'granted') {
         enableAds();
-      } else {
+      } else if (storedConsent === 'denied') {
         disableAds();
+      } else {
+        setUiState(false, 'Anúncios bloqueados até você escolher no modal de cookies.');
+        openCookieModal();
       }
     })();
 

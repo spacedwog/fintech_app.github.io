@@ -438,10 +438,12 @@ class DashboardController {
     this.securityPrivacyPagerBound = false;
     this.currentSecurityPrivacyPage = 1;
     this.expenseCategorySelectBound = false;
+    this.expenseRulesBound = false;
     this.budgetOverviewMonthBound = false;
     this.budgetManageBound = false;
     this.budgetGroupsBound = false;
     this.feedBound = false;
+    this.reportsBound = false;
 
     this.budgetInputBound = false;
     this.pixKeyPaymentBound = false;
@@ -645,6 +647,9 @@ class DashboardController {
           break;
         case "category-form":
           this._handleCategoryFormSubmit(e);
+          break;
+        case "expense-rule-form":
+          this._handleExpenseRuleFormSubmit(e);
           break;
         case "budget-form":
           this._handleBudgetFormSubmit(e);
@@ -979,6 +984,7 @@ class DashboardController {
     await this._refreshQuotaInfo();
     await this._refreshExpenseTable();
     await this._refreshExpenseCategoryBudgetInfo();
+    await this._loadExpenseRules();
   }
 
   // Fecha o fluxo Importar Orçamento -> Registrar Despesas: mostra, para a
@@ -1010,6 +1016,80 @@ class DashboardController {
         (restante >= 0 ? ` (R$ ${restante.toFixed(2)} restantes).` : ` (R$ ${Math.abs(restante).toFixed(2)} acima do previsto).`);
     } catch (e) {
       box.textContent = "";
+    }
+  }
+
+  async _loadExpenseRules() {
+    const tbody = document.getElementById("expense-rules-tbody");
+    const categorySelect = document.getElementById("expense-rule-category");
+    const applyBtn = document.getElementById("expense-rules-apply-btn");
+    if (!tbody || !categorySelect) return;
+
+    const categories = await Api.listCategories();
+    const prevCategory = categorySelect.value;
+    categorySelect.innerHTML = categories
+      .map((c) => `<option value="${c.id}">${c.name}</option>`)
+      .join("");
+    if (prevCategory && categories.some((c) => c.id === prevCategory)) categorySelect.value = prevCategory;
+
+    if (!this.expenseRulesBound) {
+      this.expenseRulesBound = true;
+      tbody.addEventListener("click", async (e) => {
+        const btn = e.target && e.target.closest("button[data-rule-action]");
+        if (!btn || btn.dataset.ruleAction !== "delete") return;
+        const ruleId = btn.dataset.ruleId;
+        if (!ruleId) return;
+        await Api.deleteExpenseRule(ruleId);
+        await this._loadExpenseRules();
+      });
+      if (applyBtn) {
+        applyBtn.addEventListener("click", async () => {
+          const status = document.getElementById("expense-rules-status");
+          try {
+            const month = new Date().toISOString().slice(0, 7);
+            const result = await Api.applyExpenseRulesToUncategorized({ month });
+            if (status) status.textContent = `${result.updated} despesa(s) sem categoria foram classificadas em ${month}.`;
+            await this._refreshExpenseTable();
+            await this._refreshExpenseCategoryBudgetInfo();
+          } catch (err) {
+            if (status) status.textContent = (err && err.message) || "Não foi possível aplicar as regras.";
+          }
+        });
+      }
+    }
+
+    const rules = await Api.listExpenseRules();
+    const rows = rules
+      .map(
+        (rule) => `
+        <tr>
+          <td>${rule.keyword}</td>
+          <td>${rule.category_name || "-"}</td>
+          <td><button type="button" class="secondary" data-rule-action="delete" data-rule-id="${rule.id}">Excluir</button></td>
+        </tr>`
+      )
+      .join("");
+    tbody.innerHTML = rows || '<tr><td colspan="3">Nenhuma regra cadastrada.</td></tr>';
+  }
+
+  async _handleExpenseRuleFormSubmit(e) {
+    e.preventDefault();
+    const keywordInput = document.getElementById("expense-rule-keyword");
+    const categorySelect = document.getElementById("expense-rule-category");
+    const status = document.getElementById("expense-rules-status");
+    if (!keywordInput || !categorySelect) return;
+    if (!keywordInput.reportValidity() || !categorySelect.reportValidity()) return;
+    try {
+      await Api.addExpenseRule({
+        keyword: keywordInput.value,
+        category_id: categorySelect.value,
+        match_type: "contains",
+      });
+      keywordInput.value = "";
+      if (status) status.textContent = "Regra adicionada.";
+      await this._loadExpenseRules();
+    } catch (err) {
+      if (status) status.textContent = (err && err.message) || "Não foi possível salvar a regra.";
     }
   }
 
@@ -1368,9 +1448,27 @@ class DashboardController {
   }
 
   async _loadReportsView() {
+    const reportMonthInput = document.getElementById("report-export-month");
+    if (reportMonthInput && !reportMonthInput.value) reportMonthInput.value = new Date().toISOString().slice(0, 7);
+    if (!this.reportsBound && reportMonthInput) {
+      this.reportsBound = true;
+      reportMonthInput.addEventListener("change", () => this._loadReportsView());
+      const csvBtn = document.getElementById("report-export-csv");
+      const xlsBtn = document.getElementById("report-export-xls");
+      const pdfBtn = document.getElementById("report-export-pdf");
+      if (csvBtn) csvBtn.addEventListener("click", () => this._exportConsolidatedReport("csv"));
+      if (xlsBtn) xlsBtn.addEventListener("click", () => this._exportConsolidatedReport("xls"));
+      if (pdfBtn) pdfBtn.addEventListener("click", () => this._exportConsolidatedReport("pdf"));
+    }
+
+    const targetMonth = (reportMonthInput && reportMonthInput.value) || new Date().toISOString().slice(0, 7);
     const monthly = await Api.monthlyReport();
     const byCategory = await Api.categoryReport();
-    const alertData = await Api.getAlerts();
+    const [alertData, projection, closeChecklist] = await Promise.all([
+      Api.getAlerts(targetMonth),
+      Api.getMonthlyProjection(targetMonth),
+      Api.getMonthlyCloseChecklist(targetMonth),
+    ]);
 
     const ctx1 = document.getElementById("monthly-chart").getContext("2d");
     if (this.monthlyChart) this.monthlyChart.destroy();
@@ -1417,6 +1515,232 @@ class DashboardController {
         box.className = "alert-ok";
         decisionEl.textContent = " — Nível saudável: mantenha a estratégia atual.";
       }
+    }
+
+    const projectionBox = document.getElementById("budget-projection-box");
+    const projectionValue = document.getElementById("budget-projection-value");
+    const projectionText = document.getElementById("budget-projection-text");
+    if (projectionBox && projectionValue && projectionText) {
+      projectionValue.textContent = `R$ ${projection.projected_total.toFixed(2)}`;
+      if (projection.limit <= 0) {
+        projectionBox.className = "alert-warn";
+        projectionText.textContent = " — Defina um limite mensal para ativar comparação preditiva.";
+      } else if (projection.projected_over_budget) {
+        projectionBox.className = "alert-warn";
+        projectionText.textContent =
+          ` — Projeção de ${projection.projected_percent}% do limite (R$ ${projection.limit.toFixed(2)}). Revise gastos antes do fechamento.`;
+      } else {
+        projectionBox.className = "alert-ok";
+        projectionText.textContent =
+          ` — Projeção de ${projection.projected_percent}% do limite (R$ ${projection.limit.toFixed(2)}).`;
+      }
+    }
+
+    const closeSummary = document.getElementById("monthly-close-summary");
+    const closeList = document.getElementById("monthly-close-checklist");
+    if (closeSummary && closeList) {
+      closeSummary.textContent =
+        `Progresso: ${closeChecklist.done_count}/${closeChecklist.total_count} itens concluídos (${closeChecklist.progress_percent}%). ` +
+        `Despesas no mês: ${closeChecklist.expenses_count}.`;
+      closeList.innerHTML = closeChecklist.checklist
+        .map(
+          (item) =>
+            `<li class="${item.done ? "monthly-check-item-done" : "monthly-check-item-open"}">` +
+            `${item.done ? "✅" : "⚠️"} ${item.label}</li>`
+        )
+        .join("");
+    }
+  }
+
+  _downloadFile(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  _escapeCsvCell(value) {
+    const raw = String(value === null || value === undefined ? "" : value);
+    if (!/[",\n;]/.test(raw)) return raw;
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+
+  _buildConsolidatedCsv(data) {
+    const lines = [];
+    lines.push(`mes,${data.month}`);
+    lines.push(`exportado_em,${data.exported_at}`);
+    lines.push("");
+    lines.push("DESPESAS");
+    lines.push("data,categoria,descricao,valor,numero_transacao");
+    (data.expenses || []).forEach((e) => {
+      lines.push([
+        this._escapeCsvCell(e.date),
+        this._escapeCsvCell(e.category_name || "Sem categoria"),
+        this._escapeCsvCell(e.description || ""),
+        this._escapeCsvCell(Number(e.amount || 0).toFixed(2)),
+        this._escapeCsvCell(e.transaction_number || ""),
+      ].join(","));
+    });
+    lines.push("");
+    lines.push("ORCAMENTO_POR_CATEGORIA");
+    lines.push("categoria,previsto,realizado,saldo,status");
+    ((data.budget_overview && data.budget_overview.rows) || []).forEach((r) => {
+      lines.push([
+        this._escapeCsvCell(r.category_name),
+        this._escapeCsvCell(Number(r.previsto || 0).toFixed(2)),
+        this._escapeCsvCell(Number(r.realizado || 0).toFixed(2)),
+        this._escapeCsvCell(Number(r.saldo || 0).toFixed(2)),
+        this._escapeCsvCell(r.status),
+      ].join(","));
+    });
+    lines.push("");
+    lines.push("CHECKLIST_FECHAMENTO");
+    lines.push("item,concluido");
+    (data.monthly_close_checklist.checklist || []).forEach((item) => {
+      lines.push(`${this._escapeCsvCell(item.label)},${item.done ? "SIM" : "NAO"}`);
+    });
+    return lines.join("\n");
+  }
+
+  _buildConsolidatedExcelXml(data) {
+    const esc = (value) =>
+      String(value === null || value === undefined ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const expenseRows = (data.expenses || [])
+      .map(
+        (e) =>
+          `<Row><Cell><Data ss:Type="String">${esc(e.date)}</Data></Cell><Cell><Data ss:Type="String">${esc(
+            e.category_name || "Sem categoria"
+          )}</Data></Cell><Cell><Data ss:Type="String">${esc(e.description || "")}</Data></Cell><Cell><Data ss:Type="Number">${
+            Number(e.amount || 0)
+          }</Data></Cell><Cell><Data ss:Type="String">${esc(e.transaction_number || "")}</Data></Cell></Row>`
+      )
+      .join("");
+    const budgetRows = ((data.budget_overview && data.budget_overview.rows) || [])
+      .map(
+        (r) =>
+          `<Row><Cell><Data ss:Type="String">${esc(r.category_name)}</Data></Cell><Cell><Data ss:Type="Number">${
+            Number(r.previsto || 0)
+          }</Data></Cell><Cell><Data ss:Type="Number">${Number(r.realizado || 0)}</Data></Cell><Cell><Data ss:Type="Number">${
+            Number(r.saldo || 0)
+          }</Data></Cell><Cell><Data ss:Type="String">${esc(r.status)}</Data></Cell></Row>`
+      )
+      .join("");
+    const checklistRows = (data.monthly_close_checklist.checklist || [])
+      .map(
+        (item) =>
+          `<Row><Cell><Data ss:Type="String">${esc(item.label)}</Data></Cell><Cell><Data ss:Type="String">${
+            item.done ? "SIM" : "NAO"
+          }</Data></Cell></Row>`
+      )
+      .join("");
+
+    return `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="Resumo">
+    <Table>
+      <Row><Cell><Data ss:Type="String">Mês</Data></Cell><Cell><Data ss:Type="String">${esc(data.month)}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Exportado em</Data></Cell><Cell><Data ss:Type="String">${esc(data.exported_at)}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Total despesas</Data></Cell><Cell><Data ss:Type="Number">${Number(
+        data.summary.total_expenses || 0
+      )}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Limite mensal</Data></Cell><Cell><Data ss:Type="Number">${Number(
+        data.summary.total_budget_limit || 0
+      )}</Data></Cell></Row>
+    </Table>
+  </Worksheet>
+  <Worksheet ss:Name="Despesas"><Table>
+    <Row><Cell><Data ss:Type="String">Data</Data></Cell><Cell><Data ss:Type="String">Categoria</Data></Cell><Cell><Data ss:Type="String">Descrição</Data></Cell><Cell><Data ss:Type="String">Valor</Data></Cell><Cell><Data ss:Type="String">Nº transação</Data></Cell></Row>
+    ${expenseRows}
+  </Table></Worksheet>
+  <Worksheet ss:Name="Orçamento"><Table>
+    <Row><Cell><Data ss:Type="String">Categoria</Data></Cell><Cell><Data ss:Type="String">Previsto</Data></Cell><Cell><Data ss:Type="String">Realizado</Data></Cell><Cell><Data ss:Type="String">Saldo</Data></Cell><Cell><Data ss:Type="String">Status</Data></Cell></Row>
+    ${budgetRows}
+  </Table></Worksheet>
+  <Worksheet ss:Name="Checklist"><Table>
+    <Row><Cell><Data ss:Type="String">Item</Data></Cell><Cell><Data ss:Type="String">Concluído</Data></Cell></Row>
+    ${checklistRows}
+  </Table></Worksheet>
+</Workbook>`;
+  }
+
+  _buildConsolidatedHtml(data) {
+    const rowsExpenses = (data.expenses || [])
+      .map(
+        (e) =>
+          `<tr><td>${e.date || ""}</td><td>${e.category_name || "Sem categoria"}</td><td>${e.description || ""}</td><td>R$ ${Number(
+            e.amount || 0
+          ).toFixed(2)}</td><td>${e.transaction_number || "-"}</td></tr>`
+      )
+      .join("");
+    const rowsBudget = ((data.budget_overview && data.budget_overview.rows) || [])
+      .map(
+        (r) =>
+          `<tr><td>${r.category_name}</td><td>R$ ${Number(r.previsto || 0).toFixed(2)}</td><td>R$ ${Number(
+            r.realizado || 0
+          ).toFixed(2)}</td><td>R$ ${Number(r.saldo || 0).toFixed(2)}</td><td>${r.status}</td></tr>`
+      )
+      .join("");
+    const rowsChecklist = (data.monthly_close_checklist.checklist || [])
+      .map((item) => `<li>${item.done ? "✅" : "⚠️"} ${item.label}</li>`)
+      .join("");
+    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Consolidado ${data.month}</title>
+      <style>body{font-family:Arial,sans-serif;padding:24px;color:#1f2937}h1,h2{margin:0 0 12px}table{width:100%;border-collapse:collapse;margin-bottom:18px}th,td{border:1px solid #ddd;padding:8px;font-size:12px;text-align:left}ul{padding-left:18px} .meta{margin-bottom:14px;color:#6b7280}</style>
+      </head><body>
+      <h1>Relatório consolidado — ${data.month}</h1>
+      <p class="meta">Exportado em: ${data.exported_at}</p>
+      <h2>Despesas</h2><table><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Nº transação</th></tr></thead><tbody>${rowsExpenses}</tbody></table>
+      <h2>Orçamento por categoria</h2><table><thead><tr><th>Categoria</th><th>Previsto</th><th>Realizado</th><th>Saldo</th><th>Status</th></tr></thead><tbody>${rowsBudget}</tbody></table>
+      <h2>Checklist de fechamento</h2><ul>${rowsChecklist}</ul>
+      </body></html>`;
+  }
+
+  async _exportConsolidatedReport(format) {
+    const monthInput = document.getElementById("report-export-month");
+    const targetMonth = (monthInput && monthInput.value) || new Date().toISOString().slice(0, 7);
+    try {
+      const data = await Api.getConsolidatedExportData(targetMonth);
+      if (format === "csv") {
+        this._downloadFile(
+          this._buildConsolidatedCsv(data),
+          `relatorio-consolidado-${targetMonth}.csv`,
+          "text/csv;charset=utf-8"
+        );
+        return;
+      }
+      if (format === "xls") {
+        this._downloadFile(
+          this._buildConsolidatedExcelXml(data),
+          `relatorio-consolidado-${targetMonth}.xls`,
+          "application/vnd.ms-excel"
+        );
+        return;
+      }
+      if (format === "pdf") {
+        const html = this._buildConsolidatedHtml(data);
+        const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+        const printWindow = window.open(url, "_blank");
+        if (!printWindow) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        const revoke = () => URL.revokeObjectURL(url);
+        printWindow.addEventListener("load", () => {
+          printWindow.focus();
+          printWindow.print();
+          setTimeout(revoke, 15000);
+        }, { once: true });
+      }
+    } catch (err) {
+      alert((err && err.message) || "Não foi possível exportar o relatório consolidado.");
     }
   }
 
@@ -1506,6 +1830,7 @@ class DashboardController {
   async _loadBudgetManageView() {
     const monthInput = document.getElementById("budget-manage-month");
     const refreshBtn = document.getElementById("budget-manage-refresh-btn");
+    const recurringBtn = document.getElementById("budget-recurring-apply-btn");
     const tbody = document.getElementById("budget-manage-tbody");
     if (!monthInput || !tbody) return;
 
@@ -1513,6 +1838,7 @@ class DashboardController {
       this.budgetManageBound = true;
       monthInput.addEventListener("change", () => this._renderBudgetManageTable(monthInput.value));
       if (refreshBtn) refreshBtn.addEventListener("click", () => this._renderBudgetManageTable(monthInput.value));
+      if (recurringBtn) recurringBtn.addEventListener("click", () => this._handleBudgetRecurringApply());
       tbody.addEventListener("click", (e) => {
         const btn = e.target && e.target.closest("button[data-budget-action]");
         if (!btn) return;
@@ -1524,6 +1850,8 @@ class DashboardController {
     }
 
     if (!monthInput.value) monthInput.value = new Date().toISOString().slice(0, 7);
+    const recurringSourceMonth = document.getElementById("budget-recurring-source-month");
+    if (recurringSourceMonth && !recurringSourceMonth.value) recurringSourceMonth.placeholder = "vazio = mês anterior";
     await this._renderBudgetManageTable(monthInput.value);
   }
 
@@ -1578,6 +1906,34 @@ class DashboardController {
     await Api.deleteCategoryBudget(id);
     if (status) status.textContent = "Orçamento excluído.";
     await this._renderBudgetManageTable(monthInput.value);
+  }
+
+  async _handleBudgetRecurringApply() {
+    const monthInput = document.getElementById("budget-manage-month");
+    const sourceInput = document.getElementById("budget-recurring-source-month");
+    const adjustmentInput = document.getElementById("budget-recurring-adjustment");
+    const status = document.getElementById("budget-recurring-status");
+    if (!monthInput || !adjustmentInput) return;
+    if (!monthInput.reportValidity()) return;
+
+    const targetMonth = monthInput.value;
+    const sourceMonth = sourceInput ? sourceInput.value.trim() : "";
+    const adjustmentPercent = Number(adjustmentInput.value || 0);
+    try {
+      const result = await Api.copyCategoryBudgetsRecurring({
+        targetMonth,
+        sourceMonth,
+        adjustmentPercent,
+      });
+      if (status) {
+        status.textContent =
+          `Orçamento recorrente aplicado: ${result.copied_rows} categoria(s) de ${result.source_month} para ${result.target_month}.`;
+      }
+      await this._renderBudgetManageTable(targetMonth);
+      await this._loadBudgetOverview(targetMonth);
+    } catch (err) {
+      if (status) status.textContent = (err && err.message) || "Não foi possível copiar o orçamento recorrente.";
+    }
   }
 
   async _loadBudgetGroupsView() {

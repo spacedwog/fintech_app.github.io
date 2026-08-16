@@ -716,6 +716,9 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 
 .security-control-list li { margin-bottom: 4px; }
 
+.monthly-check-item-done { color: var(--success); }
+.monthly-check-item-open { color: #92400e; }
+
 /* ---------- CIA Triad ---------- */
 .cia-card { text-align: center; padding: 18px 14px; }
 

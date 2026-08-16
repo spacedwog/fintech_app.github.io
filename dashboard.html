@@ -219,6 +219,18 @@
               <label>Mês (AAAA-MM)</label>
               <input type="text" id="budget-manage-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
             </div>
+            <div class="grid-2">
+              <div class="field">
+                <label>Copiar do mês (AAAA-MM)</label>
+                <input type="text" id="budget-recurring-source-month" placeholder="vazio = mês anterior" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+              </div>
+              <div class="field">
+                <label>Ajuste percentual (%)</label>
+                <input type="number" id="budget-recurring-adjustment" step="0.01" value="0" />
+              </div>
+            </div>
+            <button type="button" class="secondary" id="budget-recurring-apply-btn">Copiar orçamento recorrente</button>
+            <p class="small-muted mt-8 mb-0" id="budget-recurring-status"></p>
             <p class="small-muted mt-0 mb-10" id="budget-manage-status"></p>
             <table>
               <thead>
@@ -264,9 +276,9 @@
 
         <div class="flow-page expenses-flow-page" id="expenses-flow-page-1">
           <div class="card">
-            <h3 class="mt-0">SpaceHub + GitHub Copilot Agent</h3>
+            <h3 class="mt-0">SpaceHub</h3>
             <p class="small-muted mt-0 mb-12">
-              Converse com o agente para gerar despesas e importar direto em Minhas despesas. Ele combina o chatbot do app com contexto público do GitHub.
+              Converse com o SpaceHub para gerar despesas e importar direto em Minhas despesas.
             </p>
 
             <div class="field">
@@ -275,7 +287,7 @@
             </div>
 
             <div id="google-ai-chat-messages" class="google-ai-chat-messages" aria-live="polite">
-              <div class="google-ai-msg bot">Olá! Sou o SpaceHub com agente GitHub Copilot. Posso gerar despesas para você e adicioná-las em Minhas despesas.</div>
+              <div class="google-ai-msg bot">Olá! Sou o SpaceHub. Posso gerar despesas para você e adicioná-las em Minhas despesas.</div>
             </div>
 
             <div class="field mb-10">
@@ -293,6 +305,36 @@
 
           <div class="card">
             <div class="row-between">
+              <h3 class="m-0">Regras automáticas de categoria</h3>
+              <button type="button" class="secondary" id="expense-rules-apply-btn">Aplicar em despesas sem categoria</button>
+            </div>
+            <p class="small-muted mt-0 mb-12">
+              Crie regras por descrição/recebedor para classificar despesas automaticamente.
+            </p>
+            <form id="expense-rule-form">
+              <div class="grid-2">
+                <div class="field">
+                  <label>Palavra-chave (descrição/recebedor)</label>
+                  <input type="text" id="expense-rule-keyword" placeholder="Ex: uber, supermercado, energia" required />
+                </div>
+                <div class="field">
+                  <label>Categoria</label>
+                  <select id="expense-rule-category" required></select>
+                </div>
+              </div>
+              <button type="submit" class="primary">Adicionar regra</button>
+            </form>
+            <p id="expense-rules-status" class="small-muted mt-10 mb-10"></p>
+            <table>
+              <thead>
+                <tr><th>Palavra-chave</th><th>Categoria</th><th>Ações</th></tr>
+              </thead>
+              <tbody id="expense-rules-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="row-between">
               <h3 class="m-0">Minhas despesas</h3>
             </div>
             <table>
@@ -306,7 +348,7 @@
 
         <div class="flow-page expenses-flow-page hidden" id="expenses-flow-page-2">
           <div class="card">
-            <h3 class="mt-0">Pagamento de despesa via Pix por chave</h3>
+            <h3 class="mt-0">Pagamento de despesa</h3>
             <p class="small-muted mt-0 mb-12">
               Informe a chave Pix do destinatário para gerar QR Code e código copia-e-cola da despesa.
             </p>
@@ -340,7 +382,7 @@
                 <label>Descrição da despesa</label>
                 <input type="text" id="pix-key-description" placeholder="Ex: Pagamento da conta de energia" />
               </div>
-              <button type="submit" class="primary">Gerar pagamento Pix</button>
+              <button type="submit" class="primary">Gerar pagamento via Pix</button>
             </form>
 
             <div id="pix-key-payment-result" class="hidden mt-16">
@@ -374,11 +416,37 @@
       <section class="view hidden" id="view-reports">
         <div class="top-bar"><h1>Resumo Mensal</h1></div>
         <div class="card">
-          <h3 class="mt-0">DataScience para tomada de decisão</h3>
+          <h3 class="mt-0">Consumo do orçamento</h3>
           <p class="small-muted mt-0">Grau de porcentagem de consumo do orçamento no mês atual.</p>
           <div id="datascience-decision-box" class="alert-ok">
             <strong id="datascience-percentage">0%</strong>
             <span id="datascience-decision-text"> — Carregando análise...</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row-between">
+            <h3 class="m-0">Alerta preditivo do mês</h3>
+            <div class="field m-0 min-w-160">
+              <input type="text" id="report-export-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+            </div>
+          </div>
+          <div id="budget-projection-box" class="alert-ok">
+            <strong id="budget-projection-value">R$ 0,00</strong>
+            <span id="budget-projection-text"> — Carregando projeção...</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">Checklist de fechamento mensal</h3>
+          <p id="monthly-close-summary" class="small-muted mt-0 mb-8">Carregando checklist...</p>
+          <ul class="security-control-list" id="monthly-close-checklist"></ul>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">Exportação consolidada (despesas + orçamento)</h3>
+          <p class="small-muted mt-0 mb-12">Use o mês acima para exportar relatório consolidado.</p>
+          <div class="button-row-wrap">
+            <button type="button" class="secondary" id="report-export-csv">Exportar CSV</button>
+            <button type="button" class="secondary" id="report-export-xls">Exportar Excel</button>
+            <button type="button" class="secondary" id="report-export-pdf">Exportar PDF</button>
           </div>
         </div>
         <div class="grid-2">
