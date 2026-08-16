@@ -1388,7 +1388,11 @@ class DashboardController {
     this._renderFeedEmptyState(box, "Carregando feed...");
     const events = [];
     try {
-      const [expenses, payments] = await Promise.all([Api.listExpenses(true), Api.listPayments(true)]);
+      const [expenses, payments, audits] = await Promise.all([
+        Api.listExpenses(true),
+        Api.listPayments(true),
+        Api.listAuditTrail({ limit: 80, allUsers: true }),
+      ]);
 
       expenses.forEach((expense) => {
         events.push({
@@ -1411,6 +1415,16 @@ class DashboardController {
           amount: Number(payment.amount) || 0,
           title: label,
           subtitle: `${this._formatFeedDate(payment.date)} · txid ${payment.txid || "-"}`,
+        });
+      });
+
+      audits.forEach((audit) => {
+        events.push({
+          type: "audit",
+          date: audit.created_at,
+          amount: null,
+          title: `Auditoria · ${audit.entity}`,
+          subtitle: `${this._formatFeedDate(audit.created_at)} · ${audit.user_name || "Usuário"} · ${audit.message || audit.action}`,
         });
       });
     } catch (_err) {
@@ -1447,8 +1461,13 @@ class DashboardController {
       left.appendChild(subtitle);
 
       const amount = document.createElement("strong");
-      amount.style.color = event.type === "payment" ? "var(--success)" : "var(--danger)";
-      amount.textContent = `${event.type === "payment" ? "+" : "-"}R$ ${event.amount.toFixed(2)}`;
+      if (event.type === "audit") {
+        amount.className = "small-muted";
+        amount.textContent = "—";
+      } else {
+        amount.style.color = event.type === "payment" ? "var(--success)" : "var(--danger)";
+        amount.textContent = `${event.type === "payment" ? "+" : "-"}R$ ${event.amount.toFixed(2)}`;
+      }
 
       row.appendChild(left);
       row.appendChild(amount);
