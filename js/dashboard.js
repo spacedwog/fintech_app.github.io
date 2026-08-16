@@ -39,8 +39,8 @@ class SyncStatusIndicator {
 // que os agentes Mercado Pago/Open Finance já trouxeram para esta conta
 // (mp_reconcile.py, mp_expenses.py, mp_open_finance_sync.py e
 // mp_oauth_account_sync.py).
-// Distinto do selo "Mercado Pago" por linha na tabela de despesas (Página 2
-// do fluxo Orçamento & Despesas) — este é um resumo único, sempre visível,
+// Distinto do selo "Mercado Pago" por linha na tabela de despesas (Menu
+// Despesas) — este é um resumo único, sempre visível,
 // no topo da sidebar. ----------
 
 class MercadoPagoStatusIndicator {
@@ -431,8 +431,10 @@ class DashboardController {
     this.monthlyChart = null;
     this.categoryChart = null;
 
-    this.flowPagerBound = false;
-    this.currentFlowPage = 1;
+    this.budgetFlowPagerBound = false;
+    this.currentBudgetFlowPage = 1;
+    this.expensesFlowPagerBound = false;
+    this.currentExpensesFlowPage = 1;
     this.securityPrivacyPagerBound = false;
     this.currentSecurityPrivacyPage = 1;
     this.expenseCategorySelectBound = false;
@@ -573,6 +575,7 @@ class DashboardController {
     document.getElementById(`view-${viewName}`).classList.remove("hidden");
 
     if (viewName === "budget-flow") this._loadBudgetFlowView();
+    if (viewName === "expenses-flow") this._loadExpensesFlowView();
     if (viewName === "feed") this._loadFeedView();
     if (viewName === "reports") this._loadReportsView();
     if (viewName === "team") this._loadTeamView();
@@ -664,31 +667,42 @@ class DashboardController {
     });
   }
 
-  // ---------- Orçamento & Despesas (fluxo único paginado) ----------
-  //
-  // Página 1 "Importar Orçamento" -> Página 2 "Registrar Despesas" -> Página 3
-  // "Alertas / Orçamento". As três mantêm sua lógica própria (mais abaixo,
-  // nas seções originais de cada uma) — o que fecha o ciclo entre elas é o
-  // Previsto por categoria persistido na Página 1 (Api.importCategoryBudgets)
-  // e lido de volta na Página 3 junto com as despesas reais da Página 2
-  // (Api.getBudgetOverview).
+  // ---------- Orçamento (fluxo paginado) ----------
 
   _loadBudgetFlowView() {
-    if (!this.flowPagerBound) {
-      this.flowPagerBound = true;
-      this._bindFlowPager();
+    if (!this.budgetFlowPagerBound) {
+      this.budgetFlowPagerBound = true;
+      this._bindBudgetFlowPager();
     }
-    this._goToFlowPage(this.currentFlowPage);
+    this._goToBudgetFlowPage(this.currentBudgetFlowPage);
   }
 
-  _bindFlowPager() {
-    document.querySelectorAll(".flow-page-dot").forEach((btn) => {
-      btn.addEventListener("click", () => this._goToFlowPage(parseInt(btn.dataset.flowPage, 10)));
+  _bindBudgetFlowPager() {
+    document.querySelectorAll(".budget-flow-page-dot").forEach((btn) => {
+      btn.addEventListener("click", () => this._goToBudgetFlowPage(parseInt(btn.dataset.budgetFlowPage, 10)));
     });
-    const prevBtn = document.getElementById("flow-prev-btn");
-    const nextBtn = document.getElementById("flow-next-btn");
-    if (prevBtn) prevBtn.addEventListener("click", () => this._goToFlowPage(this.currentFlowPage - 1));
-    if (nextBtn) nextBtn.addEventListener("click", () => this._goToFlowPage(this.currentFlowPage + 1));
+    const prevBtn = document.getElementById("budget-flow-prev-btn");
+    const nextBtn = document.getElementById("budget-flow-next-btn");
+    if (prevBtn) prevBtn.addEventListener("click", () => this._goToBudgetFlowPage(this.currentBudgetFlowPage - 1));
+    if (nextBtn) nextBtn.addEventListener("click", () => this._goToBudgetFlowPage(this.currentBudgetFlowPage + 1));
+  }
+
+  _loadExpensesFlowView() {
+    if (!this.expensesFlowPagerBound) {
+      this.expensesFlowPagerBound = true;
+      this._bindExpensesFlowPager();
+    }
+    this._goToExpensesFlowPage(this.currentExpensesFlowPage);
+  }
+
+  _bindExpensesFlowPager() {
+    document.querySelectorAll(".expenses-flow-page-dot").forEach((btn) => {
+      btn.addEventListener("click", () => this._goToExpensesFlowPage(parseInt(btn.dataset.expensesFlowPage, 10)));
+    });
+    const prevBtn = document.getElementById("expenses-flow-prev-btn");
+    const nextBtn = document.getElementById("expenses-flow-next-btn");
+    if (prevBtn) prevBtn.addEventListener("click", () => this._goToExpensesFlowPage(this.currentExpensesFlowPage - 1));
+    if (nextBtn) nextBtn.addEventListener("click", () => this._goToExpensesFlowPage(this.currentExpensesFlowPage + 1));
   }
 
   _setupGoogleAIChatbot() {
@@ -897,34 +911,50 @@ class DashboardController {
     }
   }
 
-  _goToFlowPage(page) {
-    page = Math.min(5, Math.max(1, page));
-    this.currentFlowPage = page;
+  _goToBudgetFlowPage(page) {
+    page = Math.min(4, Math.max(1, page));
+    this.currentBudgetFlowPage = page;
 
-    document.querySelectorAll(".flow-page").forEach((el, idx) => {
+    document.querySelectorAll(".budget-flow-page").forEach((el, idx) => {
       el.classList.toggle("hidden", idx + 1 !== page);
     });
-    document.querySelectorAll(".flow-page-dot").forEach((btn) => {
-      btn.classList.toggle("active", parseInt(btn.dataset.flowPage, 10) === page);
+    document.querySelectorAll(".budget-flow-page-dot").forEach((btn) => {
+      btn.classList.toggle("active", parseInt(btn.dataset.budgetFlowPage, 10) === page);
     });
-    const indicator = document.getElementById("flow-page-indicator");
-    if (indicator) indicator.textContent = `Página ${page} de 5`;
-    const prevBtn = document.getElementById("flow-prev-btn");
-    const nextBtn = document.getElementById("flow-next-btn");
+    const indicator = document.getElementById("budget-flow-page-indicator");
+    if (indicator) indicator.textContent = `Página ${page} de 4`;
+    const prevBtn = document.getElementById("budget-flow-prev-btn");
+    const nextBtn = document.getElementById("budget-flow-next-btn");
     if (prevBtn) prevBtn.disabled = page === 1;
-    if (nextBtn) nextBtn.disabled = page === 5;
+    if (nextBtn) nextBtn.disabled = page === 4;
 
-    // Cada página busca os dados mais recentes ao ser exibida: registrar uma
-    // despesa na Página 2 e ir pra Página 3 já mostra o Realizado atualizado,
-    // sem precisar recarregar a tela inteira.
     if (page === 1) this._loadBudgetView();
-    if (page === 2) this._loadExpensesView();
-    if (page === 3) {
+    if (page === 2) {
       this._loadAlertsView();
       this._loadBudgetOverview();
     }
-    if (page === 4) this._loadBudgetManageView();
-    if (page === 5) this._loadBudgetGroupsView();
+    if (page === 3) this._loadBudgetManageView();
+    if (page === 4) this._loadBudgetGroupsView();
+  }
+
+  _goToExpensesFlowPage(page) {
+    page = Math.min(2, Math.max(1, page));
+    this.currentExpensesFlowPage = page;
+
+    document.querySelectorAll(".expenses-flow-page").forEach((el, idx) => {
+      el.classList.toggle("hidden", idx + 1 !== page);
+    });
+    document.querySelectorAll(".expenses-flow-page-dot").forEach((btn) => {
+      btn.classList.toggle("active", parseInt(btn.dataset.expensesFlowPage, 10) === page);
+    });
+    const indicator = document.getElementById("expenses-flow-page-indicator");
+    if (indicator) indicator.textContent = `Página ${page} de 2`;
+    const prevBtn = document.getElementById("expenses-flow-prev-btn");
+    const nextBtn = document.getElementById("expenses-flow-next-btn");
+    if (prevBtn) prevBtn.disabled = page === 1;
+    if (nextBtn) nextBtn.disabled = page === 2;
+
+    if (page === 1) this._loadExpensesView();
   }
 
   // ---------- Registrar Despesa ----------
@@ -1340,6 +1370,7 @@ class DashboardController {
   async _loadReportsView() {
     const monthly = await Api.monthlyReport();
     const byCategory = await Api.categoryReport();
+    const alertData = await Api.getAlerts();
 
     const ctx1 = document.getElementById("monthly-chart").getContext("2d");
     if (this.monthlyChart) this.monthlyChart.destroy();
@@ -1364,6 +1395,29 @@ class DashboardController {
       },
       options: { responsive: true },
     });
+
+    const percentageEl = document.getElementById("datascience-percentage");
+    const decisionEl = document.getElementById("datascience-decision-text");
+    const box = document.getElementById("datascience-decision-box");
+    if (percentageEl && decisionEl && box) {
+      const limit = Number(alertData.limit || 0);
+      const total = Number(alertData.total || 0);
+      const percent = limit > 0 ? Math.round((total / limit) * 100) : 0;
+      percentageEl.textContent = `${percent}%`;
+      if (limit <= 0) {
+        box.className = "alert-warn";
+        decisionEl.textContent = " — Defina um orçamento mensal para liberar a tomada de decisão por porcentagem.";
+      } else if (percent >= 100) {
+        box.className = "alert-warn";
+        decisionEl.textContent = " — Nível crítico: contenha gastos imediatamente.";
+      } else if (percent >= 80) {
+        box.className = "alert-warn";
+        decisionEl.textContent = " — Nível de atenção: revise despesas não essenciais.";
+      } else {
+        box.className = "alert-ok";
+        decisionEl.textContent = " — Nível saudável: mantenha a estratégia atual.";
+      }
+    }
   }
 
   // ---------- Alertas / Orçamento ----------
@@ -1393,7 +1447,7 @@ class DashboardController {
   }
 
   // ---------- Previsto x Realizado por categoria (fecha o fluxo: dados
-  // importados na Página 1 + despesas reais registradas na Página 2) ----------
+  // importados na Página 1 + despesas reais registradas no Menu Despesas) ----------
 
   async _loadBudgetOverview(month) {
     const monthInput = document.getElementById("budget-overview-month");
@@ -1799,7 +1853,7 @@ class DashboardController {
       status.textContent =
         `✅ Orçamento de ${result.categories_count} categoria(s) aplicado para ${result.month}` +
         (result.created_categories ? ` (${result.created_categories} categoria(s) nova(s) criada(s))` : "") +
-        `. Vá para a Página 2 para registrar despesas ou a Página 3 para ver a comparação.`;
+        `. Vá para o menu Despesas para registrar gastos e para a Página 2 de Orçamento para ver a comparação.`;
     } catch (err) {
       status.style.color = "#b45309";
       status.textContent = err.message || "Não foi possível aplicar este orçamento.";

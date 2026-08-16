@@ -1,18 +1,19 @@
 # Fintech Spacecworp
 
-![100% front-end](https://img.shields.io/badge/stack-100%25%20HTML%2FCSS%2FJS-2563eb)
+![Fullstack](https://img.shields.io/badge/stack-Fullstack%20Web-2563eb)
 ![GitHub Pages](https://img.shields.io/badge/hospedagem-GitHub%20Pages-181717)
 ![Idioma](https://img.shields.io/badge/idioma-PT--BR-16a34a)
 ![Mercado Pago](https://img.shields.io/badge/pagamentos-Pix%20real%20%2B%20Mercado%20Pago-00b1ea)
 
-Gestão de despesas pessoais, **100% em HTML, CSS e JavaScript**, sem servidor próprio. Roda inteiramente no navegador, com **Firebase (Firestore)** como banco na nuvem e **`localStorage`** como fallback automático. Cobranças (limite diário excedido, upgrade de plano) usam **Pix real**, com um agente local opcional que confirma automaticamente os pagamentos cruzando com a **API do Mercado Pago** — ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
+Gestão de despesas pessoais em arquitetura **fullstack web**: frontend em HTML/CSS/JavaScript com persistência em **Firebase (Firestore)** na nuvem e fallback automático em **`localStorage`**. Cobranças (limite diário excedido, upgrade de plano) usam **Pix real**, com um agente local opcional que confirma automaticamente os pagamentos cruzando com a **API do Mercado Pago** — ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
 
 > O antigo backend em Python (Streamlit e depois FastAPI) foi descontinuado. Toda a lógica de negócio (autenticação, multi-tenancy, planos, despesas, relatórios) roda em JavaScript no cliente. O `db.json` na raiz do repositório é só o "banco de fábrica" usado para popular o Firestore/localStorage na primeiríssima vez que o app é aberto.
 
 ## Sumário
 
 - [Navegue pelo painel (`dashboard.html`)](#navegue-pelo-painel-dashboardhtml)
-  - [🔄 Orçamento & Despesas (fluxo em 3 páginas)](#-orçamento--despesas-fluxo-em-3-páginas)
+  - [🔄 Orçamento (fluxo paginado)](#-orçamento-fluxo-paginado)
+  - [💸 Despesas (fluxo paginado)](#-despesas-fluxo-paginado)
   - [📊 Resumo Mensal](#-resumo-mensal)
   - [📰 Feed](#-feed)
   - [👥 Equipe](#-equipe)
@@ -70,13 +71,20 @@ A landing (`index.html`) já está preparada com dois slots na seção **Patroci
 
 Depois do login, o painel tem sete seções na barra lateral (as quatro primeiras são o app em si; as três últimas, em "Conta", são Segurança e Privacidade em menu único paginado + Configurações). Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
 
-### 🔄 Orçamento & Despesas (fluxo em 3 páginas)
+### 🔄 Orçamento (fluxo paginado)
 
-As antigas telas separadas "Registrar Despesa", "Alertas / Orçamento" e "Importar Orçamento" foram fundidas numa única tela (`view-budget-flow`) com **paginação** — barra "‹ Anterior / Página X de 3 / Próxima ›" e três atalhos diretos ("1. Importar Orçamento", "2. Registrar Despesas", "3. Alertas / Orçamento"). Não são só três abas lado a lado: as páginas **se alimentam uma da outra**, fechando um fluxo só:
+O menu **Orçamento** (`view-budget-flow`) consolida "Importar Orçamento", "Alertas / Orçamento" e "Gerenciar Orçamentos" em uma única tela com paginação.
 
 1. **Página 1** grava o **Previsto** de cada categoria (a partir de uma planilha) no app.
-2. **Página 2** registra despesas de verdade nessas categorias — isso é o **Realizado**.
-3. **Página 3** compara os dois, por categoria, com dados 100% reais — não mais o Realizado da própria planilha.
+2. **Página 2** compara o Previsto com o Realizado por categoria e exibe alertas.
+3. **Página 3** permite gerenciar orçamentos por categoria.
+
+### 💸 Despesas (fluxo paginado)
+
+O menu **Despesas** (`view-expenses-flow`) separa:
+
+1. **Página 1**: SpaceHub + Minhas despesas.
+2. **Página 2**: Pagamento de despesa via Pix por chave.
 
 <details>
 <summary><strong>Página 1 — Importar Orçamento</strong></summary>
