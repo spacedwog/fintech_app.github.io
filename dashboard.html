@@ -59,7 +59,8 @@
                 aria-label="Atualizar status do Mercado Pago">⟳</button>
       </div>
 
-      <button class="nav-item active" data-view="budget-flow">Orçamento &amp; Despesas</button>
+      <button class="nav-item active" data-view="budget-flow">Orçamento</button>
+      <button class="nav-item" data-view="expenses-flow">Despesas</button>
       <button class="nav-item" data-view="feed">Feed</button>
       <button class="nav-item" data-view="reports">Resumo Mensal</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
@@ -77,32 +78,28 @@
 
     <main class="main">
 
-      <!-- Orçamento & Despesas — fluxo único paginado: 1) Importar Orçamento
-           define o Previsto por categoria; 2) Registrar Despesas alimenta o
-           Realizado de verdade; 3) Alertas/Orçamento compara os dois, além do
-           limite geral mensal (independente de categoria, como antes). -->
+      <!-- Orçamento — fluxo paginado -->
       <section class="view" id="view-budget-flow">
-        <div class="top-bar"><h1>Orçamento &amp; Despesas</h1></div>
+        <div class="top-bar"><h1>Orçamento</h1></div>
 
         <div class="flow-pager">
-          <button type="button" class="secondary" id="flow-prev-btn">‹ Anterior</button>
+          <button type="button" class="secondary" id="budget-flow-prev-btn">‹ Anterior</button>
           <div class="flow-pager-dots">
-            <button type="button" class="flow-page-dot" data-flow-page="1">1. Importar Orçamento</button>
-            <button type="button" class="flow-page-dot" data-flow-page="2">2. Registrar Despesas</button>
-            <button type="button" class="flow-page-dot" data-flow-page="3">3. Alertas / Orçamento</button>
-            <button type="button" class="flow-page-dot" data-flow-page="4">4. Gerenciar Orçamentos</button>
-            <button type="button" class="flow-page-dot" data-flow-page="5">5. Grupo</button>
+            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="1">1. Importar Orçamento</button>
+            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="2">2. Alertas / Orçamento</button>
+            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="3">3. Gerenciar Orçamentos</button>
+            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="4">4. Grupo</button>
           </div>
-          <button type="button" class="secondary" id="flow-next-btn">Próxima ›</button>
+          <button type="button" class="secondary" id="budget-flow-next-btn">Próxima ›</button>
         </div>
-        <p class="small-muted text-center mt-4 mb-18" id="flow-page-indicator">Página 1 de 5</p>
+        <p class="small-muted text-center mt-4 mb-18" id="budget-flow-page-indicator">Página 1 de 4</p>
 
         <!-- Página 1: Importar Orçamento -->
-        <div class="flow-page" id="flow-page-1">
+        <div class="flow-page budget-flow-page" id="budget-flow-page-1">
           <div class="card">
             <p class="small-muted mt-0">
-              Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita 100% no
-              navegador (IA local, sem servidor, sem depender de um arquivo fixo). Funciona com uma
+              Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita no
+              navegador, integrada ao backend em nuvem (arquitetura fullstack), sem depender de um arquivo fixo. Funciona com uma
               coluna <strong>Categoria</strong> e colunas <strong>Previsto</strong>/<strong>Realizado</strong>
               (por mês, lado a lado, ou uma linha por categoria + mês).
             </p>
@@ -140,14 +137,15 @@
 
           <!-- Passo que fecha o fluxo: grava o Previsto de cada categoria da
                planilha no app (criando categorias que faltarem). A partir daí,
-               o Realizado passa a vir das despesas reais (Página 2), não mais
+               o Realizado passa a vir das despesas reais (Menu Despesas), não mais
                do Realizado da própria planilha. -->
           <div class="card hidden" id="budget-adopt-card">
             <h3 class="mt-0">Usar este orçamento no app</h3>
             <p class="small-muted mt-0">
               Grava o <strong>Previsto</strong> de cada categoria acima no app (cria categorias que não existirem)
               para o mês escolhido. A partir daqui, o <strong>Realizado</strong> passa a ser calculado com despesas
-              reais — registre-as na <strong>Página 2</strong> e confira o resultado na <strong>Página 3</strong>.
+              reais — registre-as no <strong>Menu Despesas</strong> e confira o resultado na
+              <strong>Página 2</strong> deste menu.
             </p>
             <div class="grid-2">
               <div class="field hidden" id="budget-adopt-mes-field">
@@ -164,8 +162,107 @@
           </div>
         </div>
 
-        <!-- Página 2: Registrar Despesas -->
-        <div class="flow-page hidden" id="flow-page-2">
+        <!-- Página 2: Alertas / Orçamento -->
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-2">
+          <div class="card">
+            <h3 class="mt-0">Limite geral do mês</h3>
+            <p class="small-muted mt-0">Um único valor total por mês, independente de categoria — mais simples, mas menos detalhado que a comparação por categoria abaixo.</p>
+            <div id="alerts-box" class="alert-ok">Carregando...</div>
+          </div>
+          <div class="card">
+            <h3 class="mt-0">Definir limite geral mensal</h3>
+            <form id="budget-form">
+              <div class="field">
+                <label>Mês (AAAA-MM)</label>
+                <input type="text" id="budget-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
+              </div>
+              <div class="field">
+                <label>Limite (R$)</label>
+                <input type="number" step="0.01" min="0" id="budget-limit" required />
+              </div>
+              <button type="submit" class="primary">Salvar orçamento</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Previsto x Realizado por categoria</h3>
+              <div class="field m-0 min-w-160">
+                <input type="text" id="budget-overview-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
+              </div>
+            </div>
+            <p class="small-muted">
+              Previsto = orçamento importado na <strong>Página 1</strong> para o mês selecionado. Realizado = soma
+              das despesas de verdade registradas no <strong>Menu Despesas</strong> nesse mês (todos os membros da conta).
+            </p>
+            <p id="budget-overview-empty" class="small-muted hidden">
+              Nenhum orçamento importado para este mês ainda — vá à <strong>Página 1</strong> e use "Usar este
+              orçamento no app".
+            </p>
+            <div id="budget-overview-summary" class="alert-ok mb-14"></div>
+            <table>
+              <thead>
+                <tr><th>Categoria</th><th>Previsto</th><th>Realizado</th><th>Saldo</th><th>Status</th></tr>
+              </thead>
+              <tbody id="budget-overview-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-3">
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Gerenciar orçamentos por categoria</h3>
+              <button type="button" class="secondary" id="budget-manage-refresh-btn">Atualizar</button>
+            </div>
+            <div class="field min-w-160">
+              <label>Mês (AAAA-MM)</label>
+              <input type="text" id="budget-manage-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
+            </div>
+            <p class="small-muted mt-0 mb-10" id="budget-manage-status"></p>
+            <table>
+              <thead>
+                <tr><th>Categoria</th><th>Previsto (R$)</th><th>Ações</th></tr>
+              </thead>
+              <tbody id="budget-manage-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-4">
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Grupo</h3>
+              <button type="button" class="secondary" id="budget-groups-refresh-btn">Atualizar</button>
+            </div>
+            <p class="small-muted mt-0 mb-10" id="budget-groups-status">
+              Grupos são criados automaticamente quando a categoria de despesa se assemelha ao item de orçamento.
+            </p>
+            <table>
+              <thead>
+                <tr><th>Grupo</th><th>Categoria de orçamento</th><th>Categoria de despesa</th></tr>
+              </thead>
+              <tbody id="budget-groups-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Despesas — fluxo paginado -->
+      <section class="view hidden" id="view-expenses-flow">
+        <div class="top-bar"><h1>Despesas</h1></div>
+
+        <div class="flow-pager">
+          <button type="button" class="secondary" id="expenses-flow-prev-btn">‹ Anterior</button>
+          <div class="flow-pager-dots">
+            <button type="button" class="flow-page-dot expenses-flow-page-dot" data-expenses-flow-page="1">1. SpaceHub e Minhas despesas</button>
+            <button type="button" class="flow-page-dot expenses-flow-page-dot" data-expenses-flow-page="2">2. Pagamento de despesa</button>
+          </div>
+          <button type="button" class="secondary" id="expenses-flow-next-btn">Próxima ›</button>
+        </div>
+        <p class="small-muted text-center mt-4 mb-18" id="expenses-flow-page-indicator">Página 1 de 2</p>
+
+        <div class="flow-page expenses-flow-page" id="expenses-flow-page-1">
           <div class="card">
             <h3 class="mt-0">SpaceHub + GitHub Copilot Agent</h3>
             <p class="small-muted mt-0 mb-12">
@@ -194,6 +291,20 @@
             </div>
           </div>
 
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Minhas despesas</h3>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th></th></tr>
+              </thead>
+              <tbody id="expenses-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flow-page expenses-flow-page hidden" id="expenses-flow-page-2">
           <div class="card">
             <h3 class="mt-0">Pagamento de despesa via Pix por chave</h3>
             <p class="small-muted mt-0 mb-12">
@@ -242,103 +353,6 @@
               </div>
             </div>
           </div>
-
-          <div class="card">
-            <div class="row-between">
-              <h3 class="m-0">Minhas despesas</h3>
-            </div>
-            <table>
-              <thead>
-                <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th></th></tr>
-              </thead>
-              <tbody id="expenses-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Página 3: Alertas / Orçamento -->
-        <div class="flow-page hidden" id="flow-page-3">
-          <div class="card">
-            <h3 class="mt-0">Limite geral do mês</h3>
-            <p class="small-muted mt-0">Um único valor total por mês, independente de categoria — mais simples, mas menos detalhado que a comparação por categoria abaixo.</p>
-            <div id="alerts-box" class="alert-ok">Carregando...</div>
-          </div>
-          <div class="card">
-            <h3 class="mt-0">Definir limite geral mensal</h3>
-            <form id="budget-form">
-              <div class="field">
-                <label>Mês (AAAA-MM)</label>
-                <input type="text" id="budget-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
-              </div>
-              <div class="field">
-                <label>Limite (R$)</label>
-                <input type="number" step="0.01" min="0" id="budget-limit" required />
-              </div>
-              <button type="submit" class="primary">Salvar orçamento</button>
-            </form>
-          </div>
-
-          <div class="card">
-            <div class="row-between">
-              <h3 class="m-0">Previsto x Realizado por categoria</h3>
-              <div class="field m-0 min-w-160">
-                <input type="text" id="budget-overview-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
-              </div>
-            </div>
-            <p class="small-muted">
-              Previsto = orçamento importado na <strong>Página 1</strong> para o mês selecionado. Realizado = soma
-              das despesas de verdade registradas na <strong>Página 2</strong> nesse mês (todos os membros da conta).
-            </p>
-            <p id="budget-overview-empty" class="small-muted hidden">
-              Nenhum orçamento importado para este mês ainda — vá à <strong>Página 1</strong> e use "Usar este
-              orçamento no app".
-            </p>
-            <div id="budget-overview-summary" class="alert-ok mb-14"></div>
-            <table>
-              <thead>
-                <tr><th>Categoria</th><th>Previsto</th><th>Realizado</th><th>Saldo</th><th>Status</th></tr>
-              </thead>
-              <tbody id="budget-overview-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="flow-page hidden" id="flow-page-4">
-          <div class="card">
-            <div class="row-between">
-              <h3 class="m-0">Gerenciar orçamentos por categoria</h3>
-              <button type="button" class="secondary" id="budget-manage-refresh-btn">Atualizar</button>
-            </div>
-            <div class="field min-w-160">
-              <label>Mês (AAAA-MM)</label>
-              <input type="text" id="budget-manage-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" required />
-            </div>
-            <p class="small-muted mt-0 mb-10" id="budget-manage-status"></p>
-            <table>
-              <thead>
-                <tr><th>Categoria</th><th>Previsto (R$)</th><th>Ações</th></tr>
-              </thead>
-              <tbody id="budget-manage-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="flow-page hidden" id="flow-page-5">
-          <div class="card">
-            <div class="row-between">
-              <h3 class="m-0">Grupo</h3>
-              <button type="button" class="secondary" id="budget-groups-refresh-btn">Atualizar</button>
-            </div>
-            <p class="small-muted mt-0 mb-10" id="budget-groups-status">
-              Grupos são criados automaticamente quando a categoria de despesa se assemelha ao item de orçamento.
-            </p>
-            <table>
-              <thead>
-                <tr><th>Grupo</th><th>Categoria de orçamento</th><th>Categoria de despesa</th></tr>
-              </thead>
-              <tbody id="budget-groups-tbody"></tbody>
-            </table>
-          </div>
         </div>
       </section>
 
@@ -359,6 +373,14 @@
       <!-- Resumo Mensal -->
       <section class="view hidden" id="view-reports">
         <div class="top-bar"><h1>Resumo Mensal</h1></div>
+        <div class="card">
+          <h3 class="mt-0">DataScience para tomada de decisão</h3>
+          <p class="small-muted mt-0">Grau de porcentagem de consumo do orçamento no mês atual.</p>
+          <div id="datascience-decision-box" class="alert-ok">
+            <strong id="datascience-percentage">0%</strong>
+            <span id="datascience-decision-text"> — Carregando análise...</span>
+          </div>
+        </div>
         <div class="grid-2">
           <div class="card"><canvas id="monthly-chart" height="220"></canvas></div>
           <div class="card"><canvas id="category-chart" height="220"></canvas></div>
@@ -432,7 +454,7 @@
           <h3 class="mt-0">Sua sessão</h3>
           <p class="small-muted mt-0">
             Login com OAuth 2.0 próprio (Authorization Code + PKCE, tokens JWT assinados — ver
-            <code>js/oauth.js</code>), rodando 100% neste navegador (o app não tem servidor).
+            <code>js/oauth.js</code>), com frontend web e dados persistidos em backend na nuvem.
           </p>
           <div id="security-session-box" class="alert-ok mb-14">Carregando…</div>
           <button type="button" class="secondary" id="security-revoke-btn">Encerrar esta sessão em todos os campos (logout)</button>

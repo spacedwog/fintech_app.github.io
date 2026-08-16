@@ -480,8 +480,8 @@
         </div>
       </div>
       <p class="lp-fineprint">
-        Por ser 100% client-side, o isolamento entre contas é lógico, não uma fronteira de
-        segurança real. A confirmação de pagamento Pix combina até duas checagens automáticas —
+        Em arquitetura fullstack web, o isolamento entre contas usa frontend + backend em nuvem.
+        A confirmação de pagamento Pix combina até duas checagens automáticas —
         leitura do comprovante por IA (OCR local) e cruzamento com o Mercado Pago — mas nenhuma das
         duas é um webhook bancário em tempo real; quando nenhuma confirma, o pagamento fica marcado
         para revisão manual. Ideal para demonstração, protótipo ou uso pessoal.
@@ -514,7 +514,7 @@
         </details>
         <details>
           <summary>Dá para importar meu orçamento de uma planilha já pronta?</summary>
-          <p>Sim. Envie o arquivo (.xlsx/.xls/.csv) na tela "Importar Orçamento" — a leitura acontece no seu navegador, sem subir nada para nenhum servidor. Se a planilha fugir do padrão, dá para configurar manualmente onde estão as colunas em um layout que fica salvo para os próximos uploads.</p>
+          <p>Sim. Envie o arquivo (.xlsx/.xls/.csv) na tela "Importar Orçamento" — a leitura acontece no navegador e integra o fluxo fullstack com persistência em nuvem. Se a planilha fugir do padrão, dá para configurar manualmente onde estão as colunas em um layout que fica salvo para os próximos uploads.</p>
         </details>
         <details>
           <summary>Como o Mercado Pago confirma meus pagamentos automaticamente?</summary>
@@ -574,7 +574,7 @@
 
       <p class="lp-footer-legal">
         Fintech Spacecworp é um produto da SPACECWORP — CNPJ 62.904.267/0001-60.
-        Projeto 100% client-side, ideal para demonstração, protótipo ou uso pessoal.
+        Projeto fullstack web, ideal para demonstração, protótipo ou uso pessoal.
       </p>
       <p class="lp-footer-copy">&copy; 2026 Fintech Spacecworp. Todos os direitos reservados.</p>
     </div>
