@@ -8,8 +8,9 @@
   "ads": [],
   "budgetLayouts": [],
   "categoryBudgets": [],
+  "auditEvents": [],
   "_seq": {
     "tenants": 0, "users": 0, "categories": 0, "expenses": 0, "budgets": 0, "payments": 0, "ads": 0,
-    "budgetLayouts": 0, "categoryBudgets": 0
+    "budgetLayouts": 0, "categoryBudgets": 0, "auditEvents": 0
   }
 }

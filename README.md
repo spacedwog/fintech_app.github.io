@@ -786,6 +786,7 @@ Rode de novo sempre que alterar `cobol_bridge.py`.
 ## Grau tecnológico atual
 
 - **Maturidade de produto:** boa para MVP avançado (fluxos de orçamento/despesas, relatórios, integrações e testes automatizados).
+- **Maturidade de engenharia:** média (arquitetura modular em `js/api.js`, `js/db.js` e `js/oauth.js`, com persistência híbrida Firestore + fallback local).
 - **Maturidade de segurança SaaS:** intermediária/limitada para produção crítica (autenticação e isolamento multi-tenant ainda precisam de endurecimento para cenário internet aberta).
 - **Maturidade operacional:** boa em automação pontual (scripts + workflows), porém algumas integrações ainda dependem de execução local/agendada.
 
@@ -795,6 +796,7 @@ Rode de novo sempre que alterar `cobol_bridge.py`.
 1. Autenticação forte e isolamento real por usuário/tenant.
 2. Camada backend/serverless para integrações financeiras (COBOL e demais fontes) sem segredos no front-end.
 3. Governança de dados financeiros (trilha de auditoria, reconciliação e política de consistência).
+   - **Status atual:** trilha de auditoria operacional já ativa no app (`auditEvents`) para ações críticas de despesas, orçamento, pagamentos, plano e equipe, exibida também no Feed.
 
 ### Prioridade média
 1. Observabilidade de integração (auditoria, métricas de reconciliação, falhas e SLA).

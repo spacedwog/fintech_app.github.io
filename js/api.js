@@ -365,6 +365,41 @@ function previousMonth(month) {
   return `${String(year).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
 }
 
+function safeAuditMetadata(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const out = {};
+  Object.keys(payload).forEach((k) => {
+    const v = payload[k];
+    if (v === undefined) return;
+    if (
+      v === null ||
+      typeof v === "string" ||
+      typeof v === "number" ||
+      typeof v === "boolean"
+    ) {
+      out[k] = v;
+    }
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+function appendAuditEvent(db, { tenant_id, user_id, action, entity, message, metadata }) {
+  if (!tenant_id || !action || !entity) return null;
+  if (!Array.isArray(db.auditEvents)) db.auditEvents = [];
+  const event = {
+    id: nextId(db, "auditEvents"),
+    tenant_id: String(tenant_id),
+    user_id: user_id ? String(user_id) : null,
+    action: String(action),
+    entity: String(entity),
+    message: String(message || "").trim() || null,
+    metadata: safeAuditMetadata(metadata),
+    created_at: nowIso(),
+  };
+  db.auditEvents.push(event);
+  return event;
+}
+
 // ---------- AuthService: signup/login/me ----------
 
 class AuthService {
@@ -407,6 +442,14 @@ class AuthService {
     db.users.push(user);
 
     seedDefaultCategories(db, tenant.id);
+    appendAuditEvent(db, {
+      tenant_id: tenant.id,
+      user_id: user.id,
+      action: "account.signup",
+      entity: "tenant",
+      message: "Conta criada",
+      metadata: { tenant_name: tenant.name, user_email: user.email },
+    });
     await saveDb(db);
 
     const tokens = await this._issueOAuthTokens({
@@ -514,7 +557,16 @@ class PlanService {
 
     const db = await loadDb();
     const tenant = TenantRepository.find(db, session.tenant_id);
+    const previousPlan = tenant.plan;
     tenant.plan = plan;
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "plan.changed",
+      entity: "tenant_plan",
+      message: `Plano alterado de ${previousPlan} para ${plan}`,
+      metadata: { previous_plan: previousPlan, new_plan: plan },
+    });
     await saveDb(db);
     return TenantRepository.serialize(tenant);
   }
@@ -560,6 +612,14 @@ class UserService {
       role: role || "member",
       created_at: nowIso(),
     });
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "team.user_invited",
+      entity: "user",
+      message: `Usuário convidado para a equipe (${email})`,
+      metadata: { email, role: role || "member" },
+    });
     await saveDb(db);
     return { ok: true };
   }
@@ -582,7 +642,16 @@ class CategoryService {
     const db = await loadDb();
     const exists = db.categories.some((c) => c.tenant_id === session.tenant_id && c.name === name);
     if (!exists) {
-      db.categories.push({ id: nextId(db, "categories"), tenant_id: session.tenant_id, name });
+      const category = { id: nextId(db, "categories"), tenant_id: session.tenant_id, name };
+      db.categories.push(category);
+      appendAuditEvent(db, {
+        tenant_id: session.tenant_id,
+        user_id: session.user_id,
+        action: "category.created",
+        entity: "category",
+        message: `Categoria criada (${name})`,
+        metadata: { category_id: category.id, category_name: name },
+      });
       await saveDb(db);
     }
     return { ok: true };
@@ -775,6 +844,20 @@ class ExpenseService {
     };
     db.expenses.push(expense);
     ensureBudgetGroupsForTenant(db, session.tenant_id);
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "expense.created",
+      entity: "expense",
+      message: `Despesa registrada (${expense.description || "Sem descrição"})`,
+      metadata: {
+        expense_id: expense.id,
+        amount: Number(expense.amount) || 0,
+        date: expense.date,
+        category_id: expense.category_id || null,
+        is_extra: !!expense.is_extra,
+      },
+    });
     await saveDb(db);
     return { id: expense.id, is_extra: isExtra, extra_charge: extraCharge, plan: tenant.plan };
   }
@@ -782,10 +865,23 @@ class ExpenseService {
   async deleteExpense(id) {
     const session = Auth.requireSession();
     const db = await loadDb();
+    const toDelete = db.expenses.find((e) => e.id === id && e.tenant_id === session.tenant_id);
     const before = db.expenses.length;
     db.expenses = db.expenses.filter((e) => !(e.id === id && e.tenant_id === session.tenant_id));
-    await saveDb(db);
     if (db.expenses.length === before) throw new Error("Despesa não encontrada");
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "expense.deleted",
+      entity: "expense",
+      message: `Despesa excluída (${id})`,
+      metadata: {
+        expense_id: id,
+        amount: toDelete ? Number(toDelete.amount) || 0 : null,
+        date: toDelete ? toDelete.date : null,
+      },
+    });
+    await saveDb(db);
     return { ok: true };
   }
 
@@ -804,6 +900,19 @@ class ExpenseService {
     if (transaction_number !== undefined) expense.transaction_number = transaction_number || null;
 
     ensureBudgetGroupsForTenant(db, session.tenant_id);
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "expense.updated",
+      entity: "expense",
+      message: `Despesa atualizada (${expense.id})`,
+      metadata: {
+        expense_id: expense.id,
+        amount: Number(expense.amount) || 0,
+        date: expense.date,
+        category_id: expense.category_id || null,
+      },
+    });
     await saveDb(db);
     return { ok: true };
   }
@@ -853,6 +962,14 @@ class BudgetService {
         month,
       });
     }
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "budget.monthly_set",
+      entity: "budget",
+      message: `Limite geral mensal definido para ${month}`,
+      metadata: { month, limit_value: Number(limit_value) || 0 },
+    });
     await saveDb(db);
     return { ok: true };
   }
@@ -869,12 +986,23 @@ class BudgetService {
   async deleteBudget(id) {
     const session = Auth.requireSession();
     const db = await loadDb();
+    const removed = db.budgets.find(
+      (b) => b.id === id && b.tenant_id === session.tenant_id && b.user_id === session.user_id
+    );
     const before = db.budgets.length;
     db.budgets = db.budgets.filter(
       (b) => !(b.id === id && b.tenant_id === session.tenant_id && b.user_id === session.user_id)
     );
-    await saveDb(db);
     if (db.budgets.length === before) throw new Error("Orçamento não encontrado");
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "budget.monthly_deleted",
+      entity: "budget",
+      message: `Limite geral mensal removido (${id})`,
+      metadata: { budget_id: id, month: removed ? removed.month : null },
+    });
+    await saveDb(db);
     return { ok: true };
   }
 
@@ -978,6 +1106,20 @@ class CategoryBudgetService {
       db.categoryBudgets.push(record);
     }
     ensureBudgetGroupsForTenant(db, session.tenant_id);
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "budget.category_set",
+      entity: "category_budget",
+      message: `Orçamento por categoria definido para ${month}`,
+      metadata: {
+        category_budget_id: record.id,
+        month,
+        category_id: record.category_id || null,
+        category_name: record.category_name || null,
+        previsto: Number(record.previsto) || 0,
+      },
+    });
     await saveDb(db);
     return record;
   }
@@ -992,6 +1134,19 @@ class CategoryBudgetService {
       (g) => !(g.tenant_id === session.tenant_id && g.budget_category_id === toDelete.category_id)
     );
     ensureBudgetGroupsForTenant(db, session.tenant_id);
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "budget.category_deleted",
+      entity: "category_budget",
+      message: `Orçamento por categoria removido (${id})`,
+      metadata: {
+        category_budget_id: id,
+        month: toDelete.month,
+        category_id: toDelete.category_id || null,
+        category_name: toDelete.category_name || null,
+      },
+    });
     await saveDb(db);
     return { ok: true };
   }
@@ -1063,6 +1218,14 @@ class CategoryBudgetService {
     });
 
     ensureBudgetGroupsForTenant(db, session.tenant_id);
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "budget.category_imported",
+      entity: "category_budget",
+      message: `Importação de orçamento por categoria (${month})`,
+      metadata: { month, categories_count: applied.length },
+    });
     await saveDb(db);
     return { month, created_categories: 0, categories_count: applied.length, rows: applied };
   }
@@ -1200,6 +1363,19 @@ class CategoryBudgetService {
     });
 
     ensureBudgetGroupsForTenant(db, session.tenant_id);
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "budget.category_copied_recurring",
+      entity: "category_budget",
+      message: `Orçamento recorrente copiado para ${targetMonth}`,
+      metadata: {
+        target_month: targetMonth,
+        source_month: effectiveSourceMonth,
+        adjustment_percent: Number(adjustmentPercent || 0),
+        copied_rows: sourceRows.length,
+      },
+    });
     await saveDb(db);
     return {
       target_month: targetMonth,
@@ -1237,6 +1413,38 @@ class BudgetGroupService {
         };
       })
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }
+}
+
+// ---------- AuditTrailService: trilha de auditoria financeira ----------
+
+class AuditTrailService {
+  async listAuditTrail({ limit = 100, allUsers = true } = {}) {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const max = Math.max(1, Math.min(Number(limit) || 100, 500));
+    let scoped = (db.auditEvents || []).filter((e) => e.tenant_id === session.tenant_id);
+    if (!(allUsers && session.role === "admin")) {
+      scoped = scoped.filter((e) => e.user_id === session.user_id);
+    }
+    return scoped
+      .slice()
+      .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+      .slice(0, max)
+      .map((event) => {
+        const actor = db.users.find((u) => u.id === event.user_id);
+        return {
+          id: event.id,
+          tenant_id: event.tenant_id,
+          user_id: event.user_id || null,
+          user_name: actor ? actor.name : null,
+          action: event.action,
+          entity: event.entity,
+          message: event.message || null,
+          metadata: event.metadata || null,
+          created_at: event.created_at || null,
+        };
+      });
   }
 }
 
@@ -1505,6 +1713,21 @@ class PaymentService {
       date: nowIso(),
     };
     db.payments.push(payment);
+    appendAuditEvent(db, {
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      action: "payment.created",
+      entity: "payment",
+      message: `Pagamento registrado (${type || "desconhecido"})`,
+      metadata: {
+        payment_id: payment.id,
+        type: payment.type || null,
+        plan: payment.plan || null,
+        amount: Number(payment.amount) || 0,
+        txid: payment.txid || null,
+        verified_by_ai: !!payment.verifiedByAI,
+      },
+    });
     await saveDb(db);
     return payment;
   }
@@ -1792,6 +2015,7 @@ class ApiFacade {
     this.budgetService = new BudgetService();
     this.categoryBudgetService = new CategoryBudgetService();
     this.budgetGroupService = new BudgetGroupService();
+    this.auditTrailService = new AuditTrailService();
     this.reportService = new ReportService();
     this.budgetLayoutService = new BudgetLayoutService();
     this.paymentService = new PaymentService();
@@ -1900,6 +2124,9 @@ class ApiFacade {
   }
   listBudgetGroups() {
     return this.budgetGroupService.listBudgetGroups();
+  }
+  listAuditTrail(filters) {
+    return this.auditTrailService.listAuditTrail(filters);
   }
 
   // ---------- Reports ----------
