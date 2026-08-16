@@ -153,16 +153,16 @@ class SessionManager {
       err.status = 403;
       throw err;
     }
+    return session;
+  }
 
-    requireScope(scopeName) {
-      const session = this.requireSession();
-      const scopes = Array.isArray(session.scope) ? session.scope : [];
-      if (!scopes.includes(scopeName)) {
-        const err = new Error(`Escopo OAuth obrigatório: ${scopeName}`);
-        err.status = 403;
-        throw err;
-      }
-      return session;
+  requireScope(scopeName) {
+    const session = this.requireSession();
+    const scopes = Array.isArray(session.scope) ? session.scope : [];
+    if (!scopes.includes(scopeName)) {
+      const err = new Error(`Escopo OAuth obrigatório: ${scopeName}`);
+      err.status = 403;
+      throw err;
     }
     return session;
   }
