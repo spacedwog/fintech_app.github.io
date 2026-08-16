@@ -22,8 +22,12 @@ Gestão de despesas pessoais em arquitetura **fullstack web**: frontend em HTML/
   - [⚙️ Configurações](#️-configurações)
 - [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)
 - [Landing page: anúncios Google (AdSense x Google Ads)](#landing-page-anúncios-google-adsense-x-google-ads)
+- [Escopo funcional mínimo (core x complementar)](#escopo-funcional-mínimo-core-x-complementar)
+- [Integração IBM COBOL via camada intermediária](#integração-ibm-cobol-via-camada-intermediária)
 - [Nota Fiscal (NFS-e): emissão real via Focus NFe](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe)
 - [Como o sistema funciona por baixo dos panos](#como-o-sistema-funciona-por-baixo-dos-panos)
+- [Grau tecnológico atual](#grau-tecnológico-atual)
+- [Priorização tecnológica (sem perder o foco)](#priorização-tecnológica-sem-perder-o-foco)
 - [Conectando ao Firebase](#conectando-ao-firebase)
 - [Como rodar](#como-rodar)
 - [Primeiro uso](#primeiro-uso)
@@ -66,6 +70,66 @@ A landing (`index.html`) já está preparada com dois slots na seção **Patroci
 
 - **Google AdSense**: sim — é o produto para exibir anúncios de terceiros no seu site.
 - **Google Ads**: não para monetizar a sua página; ele serve para você comprar tráfego para seu produto.
+
+## Escopo funcional mínimo (core x complementar)
+
+Para manter foco em **Gestão de Despesas Pessoais**, o produto passa a seguir esta separação explícita:
+
+### Core do produto (prioridade máxima)
+- Orçamento (importação, gestão e comparação Previsto x Realizado)
+- Despesas (lançamento, categorização, regras automáticas e histórico)
+- Alertas (limite geral e por categoria)
+- Pagamentos do plano (Pix real + confirmação)
+- Relatórios e feed operacional
+
+### Complementar (suporte ao core)
+- Ads na landing page
+- Chatbot de apoio
+- Integrações externas opcionais (Mercado Pago, Open Finance, legado/COBOL)
+- Automações administrativas fora do navegador (`orcamento_agent/`)
+
+## Integração IBM COBOL via camada intermediária
+
+A integração com legado **não** é feita no front-end. O fluxo suportado é:
+
+1. Sistema legado (ex.: IBM COBOL) publica eventos financeiros em uma camada intermediária.
+2. A camada intermediária exporta eventos em JSON (contrato versionável).
+3. O agente local `orcamento_agent/cobol_bridge.py` reconcilia esses eventos com o banco do painel (Firestore ou `db.json`).
+4. O painel passa a refletir status de quitação/liquidação sem expor credenciais no navegador.
+
+### Casos de uso priorizados
+- Conciliação de pagamentos
+- Atualização de status de quitação
+- Histórico de liquidação para auditoria
+
+### Contrato mínimo de evento (idempotente por `event_id`)
+```json
+{
+  "event_id": "cbl-evt-2026-08-16-0001",
+  "tenant_id": "global",
+  "payment_id": "42",
+  "txid": "PIX-EXEMPLO-0001",
+  "amount": 19.99,
+  "status_quitacao": "QUITADO",
+  "settled_at": "2026-08-16T12:00:00Z",
+  "liquidation_reference": "LQ-20260816-0001",
+  "source_system": "IBM_COBOL"
+}
+```
+
+### Segurança e rastreabilidade
+- Sem acoplamento direto COBOL ↔ navegador
+- Idempotência por `event_id` (`cobol_bridge_state`)
+- Trilha por pagamento (`settlementHistory`, `cobolSettlement`)
+- Execução com `--dry-run` para validação sem gravação
+
+### Comandos rápidos
+```bash
+cd orcamento_agent
+cp cobol_bridge_config.example.json cobol_bridge_config.json
+python3 cobol_bridge.py --events-json cobol_events.example.json --db-json ../db.json --dry-run
+python3 test_cobol_bridge.py
+```
 
 ## Navegue pelo painel (`dashboard.html`)
 
@@ -703,20 +767,72 @@ python3 test_mp_open_finance_sync.py
 Rode de novo sempre que alterar `mp_open_finance_sync.py`.
 </details>
 
+<details>
+<summary><strong>Ponte COBOL (camada intermediária) — <code>orcamento_agent/test_cobol_bridge.py</code></strong></summary>
+
+Testa `cobol_bridge.py` com dados simulados (sem Firestore real), cobrindo:
+validação do contrato mínimo de evento, idempotência por `event_id`,
+conciliação por `payment_id`/`txid`/`amount`, atualização de status de quitação e
+modo `--dry-run` sem gravação:
+
+```bash
+cd orcamento_agent
+python3 test_cobol_bridge.py
+```
+
+Rode de novo sempre que alterar `cobol_bridge.py`.
+</details>
+
+## Grau tecnológico atual
+
+- **Maturidade de produto:** boa para MVP avançado (fluxos de orçamento/despesas, relatórios, integrações e testes automatizados).
+- **Maturidade de segurança SaaS:** intermediária/limitada para produção crítica (autenticação e isolamento multi-tenant ainda precisam de endurecimento para cenário internet aberta).
+- **Maturidade operacional:** boa em automação pontual (scripts + workflows), porém algumas integrações ainda dependem de execução local/agendada.
+
+## Priorização tecnológica (sem perder o foco)
+
+### Prioridade alta (curto prazo)
+1. Autenticação forte e isolamento real por usuário/tenant.
+2. Camada backend/serverless para integrações financeiras (COBOL e demais fontes) sem segredos no front-end.
+3. Governança de dados financeiros (trilha de auditoria, reconciliação e política de consistência).
+
+### Prioridade média
+1. Observabilidade de integração (auditoria, métricas de reconciliação, falhas e SLA).
+2. Expansão de conectores financeiros compatíveis com o foco em despesas pessoais.
+
+### Prioridade baixa
+1. Tecnologias que não aumentem diretamente o controle de despesas (evitar dispersão).
+
 ## Roadmap
 
-- ~~Cruzar os pagamentos do painel web com dados reais do Mercado Pago~~ — feito com `orcamento_agent/mp_reconcile.py` (best-effort, por valor+data, roda localmente). Ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
-- Confirmação automática **em tempo real** (webhook de verdade, sem depender de rodar um script) exigiria criar as cobranças via API do Mercado Pago (Payment Brick/Preferences) em vez de um Pix estático, e isso depende de um backend/serverless para guardar o Access Token com segurança — fora do escopo 100% front-end estático atual.
-- Com o Firebase já conectado como banco de dados, os próximos passos naturais para uma segurança real de multi-tenant seriam: (1) trocar a autenticação client-side (PBKDF2 em `crypto-utils.js`) por **Firebase Authentication**, e (2) escrever regras do Firestore por usuário (`request.auth.uid`), em vez do documento único e aberto usado hoje. Isso continua sendo possível sem sair do modelo 100% front-end estático (Firebase Auth também roda no navegador).
-- ~~Deixar o "Importar Orçamento" do painel web também gravar histórico~~ — feito: a Página 1 do fluxo [🔄 Orçamento & Despesas](#-orçamento--despesas-fluxo-em-3-páginas) agora persiste o Previsto por categoria (`Api.importCategoryBudgets`), comparado na Página 3 com despesas reais. Falta persistir o Realizado *original da própria planilha* lado a lado (hoje ele só aparece na pré-visualização da Página 1, sem gravar).
-- ~~Usar os dados do Mercado Pago para gerar despesas~~ — feito com `orcamento_agent/mp_expenses.py`: pagamentos reais que não são receita da conta viram despesas de verdade na Página 2, categorizadas por palavra-chave. Ver [Gerar despesas automaticamente (`mp_expenses.py`)](#gerar-despesas-automaticamente-mp_expensespy).
-- ~~Ver as atividades da conta antes de gerar despesas de verdade~~ — feito com `orcamento_agent/mp_list_activities.py`: lista os pagamentos reais dos últimos N dias via Access Token, só leitura, sem Firebase. Ver [Ver as atividades da conta (`mp_list_activities.py`)](#ver-as-atividades-da-conta-mp_list_activitiespy).
-- Editar a categoria de uma despesa já lançada (hoje só dá para excluir e relançar) — ajudaria a corrigir categorizações erradas do `mp_expenses.py` sem reimportar.
-- Deixar a Página 3 comparar mais de um mês ao mesmo tempo (hoje é um seletor de mês por vez) e exportar o comparativo Previsto x Realizado de volta para planilha.
-- Conectar outros bancos além do Mercado Pago: para bancos sem API pública para pessoa física, o caminho realista é importar extrato exportado (CSV/OFX).
-- ~~Emitir nota fiscal dos pagamentos~~ — feito com `orcamento_agent/nfse_issuer.py` (Focus NFe, roda localmente, exige conta real + certificado digital do usuário). Ver [Nota Fiscal (NFS-e)](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe).
-- Emissão de NFS-e **automática logo após o pagamento** (hoje depende de rodar/agendar `nfse_issuer.py`, como os agentes do Mercado Pago) — daria para incluir no mesmo workflow do GitHub Actions que já roda `mp_reconcile.py`/`mp_expenses.py`.
-- Perseguir certificação ISO de verdade (27001 é a mais natural, dado o produto); depende de trabalho fora do código (políticas, auditoria externa paga).
+### Fase 1 — segurança e base de integração
+- Endurecer autenticação e isolamento multi-tenant.
+- Consolidar governança de dados financeiros no fluxo principal.
+- Padronizar contratos de integração e idempotência.
+
+### Fase 2 — integração COBOL para pagamentos e conciliação
+- Operar `orcamento_agent/cobol_bridge.py` com eventos da camada intermediária.
+- Cobrir status de quitação e histórico de liquidação com trilha auditável.
+- Evoluir reconciliação para cenários de ambiguidade/reprocessamento.
+
+### Fase 3 — unificação sistema ↔ landing page
+- Garantir que toda promessa comercial reflita capacidade implementada no painel.
+- Padronizar jornada: landing → login → onboarding → primeiro lançamento de despesa.
+- Manter separação explícita entre funcionalidades core e complementares.
+
+### Fase 4 — expansão com foco
+- Evoluir observabilidade de integrações (métricas/SLA).
+- Expandir conectores financeiros sem perder foco em despesas pessoais.
+- Incluir automações adicionais somente quando reduzirem esforço operacional no core.
+
+### Backlog técnico adicional (já existente)
+- Confirmação automática **em tempo real** via webhook exige backend/serverless dedicado para segredos.
+- Persistir o Realizado original da planilha lado a lado com o Previsto importado.
+- Permitir edição de categoria de despesa já lançada sem exclusão/recadastro.
+- Comparar múltiplos meses no Previsto x Realizado e exportar o comparativo.
+- Conectar novos bancos por APIs públicas ou importação de extrato (CSV/OFX).
+- Automatizar emissão de NFS-e no mesmo pipeline das reconciliações.
+- Avançar compliance para trilha de certificação ISO com auditoria externa.
 
 ## Limitações
 
