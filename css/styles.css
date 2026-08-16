@@ -407,6 +407,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .mp-status {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 11px;
   margin: -12px 0 20px;
@@ -440,6 +441,11 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .mp-refresh-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
 
 .mp-refresh-btn.spinning { animation: mp-spin 0.7s linear infinite; }
+
+.mp-customer-profile {
+  flex-basis: 100%;
+  line-height: 1.35;
+}
 
 @keyframes mp-spin {
   from { transform: rotate(0deg); }

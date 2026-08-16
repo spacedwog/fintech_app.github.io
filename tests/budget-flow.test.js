@@ -101,7 +101,7 @@ function check(name, cond) {
   `
   );
 
-  // ---------- 1) Importar orçamento cria categorias novas + Previsto ----------
+  // ---------- 1) Importar orçamento grava Previsto sem criar categorias ----------
   const importResult = await run(
     dev,
     `
@@ -119,12 +119,12 @@ function check(name, cond) {
   );
   check("importCategoryBudgets aplicou as 3 categorias", importResult.result.categories_count === 3);
   check(
-    'criou só a categoria que não existia ("Categoria Nova Da Planilha"), reaproveitando "Alimentação"/"Transporte" já seedadas',
-    importResult.result.created_categories === 1
+    "não cria categorias novas a partir do orçamento importado",
+    importResult.result.created_categories === 0
   );
   check(
-    "a categoria nova realmente existe no app depois de importar",
-    importResult.categories.some((c) => c.name === "Categoria Nova Da Planilha")
+    "a categoria nova da planilha não é criada na base de categorias do app",
+    !importResult.categories.some((c) => c.name === "Categoria Nova Da Planilha")
   );
 
   // ---------- 2) Despesa real se torna o Realizado (não o da planilha) ----------

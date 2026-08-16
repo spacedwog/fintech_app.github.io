@@ -59,6 +59,69 @@ const ID_FIELDS_BY_COLLECTION = {
 // ---------- Schema: forma dos dados (schema vazio + normalização) ----------
 
 class Schema {
+  static normalizeText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  static detachBudgetGeneratedCategories(db) {
+    const expenses = Array.isArray(db.expenses) ? db.expenses : [];
+    const rules = Array.isArray(db.expenseRules) ? db.expenseRules : [];
+    const budgets = Array.isArray(db.categoryBudgets) ? db.categoryBudgets : [];
+    const budgetGroups = Array.isArray(db.budgetGroups) ? db.budgetGroups : [];
+    const categories = Array.isArray(db.categories) ? db.categories : [];
+
+    const usedByExpense = new Set(expenses.map((e) => e.category_id).filter(Boolean));
+    const usedByRule = new Set(rules.map((r) => r.category_id).filter(Boolean));
+    const defaultByName = new Set(DEFAULT_CATEGORIES.map((name) => Schema.normalizeText(name)));
+    const budgetCategoryIds = new Set(budgets.map((b) => b.category_id).filter(Boolean));
+
+    const removableIds = new Set();
+    categories.forEach((category) => {
+      const categoryName = Schema.normalizeText(category.name);
+      const referencedByBudgetOnly =
+        budgetCategoryIds.has(category.id) &&
+        !usedByExpense.has(category.id) &&
+        !usedByRule.has(category.id);
+      const explicitlyBudgetCreated = !!category.created_from_budget;
+      if ((explicitlyBudgetCreated || referencedByBudgetOnly) && !defaultByName.has(categoryName)) {
+        removableIds.add(category.id);
+      }
+    });
+
+    if (!removableIds.size) {
+      budgets.forEach((budget) => {
+        if (!budget.category_name && budget.category_id) {
+          const category = categories.find((c) => c.id === budget.category_id);
+          if (category) budget.category_name = category.name;
+        }
+        budget.category_name_normalized = Schema.normalizeText(budget.category_name);
+      });
+      return db;
+    }
+
+    db.categories = categories.filter((c) => !removableIds.has(c.id));
+    db.categoryBudgets = budgets.map((budget) => {
+      const clone = { ...budget };
+      if (removableIds.has(clone.category_id)) {
+        const oldCategory = categories.find((c) => c.id === clone.category_id);
+        clone.category_name = clone.category_name || (oldCategory ? oldCategory.name : null);
+        clone.category_id = null;
+      }
+      clone.category_name_normalized = Schema.normalizeText(clone.category_name);
+      return clone;
+    });
+    db.budgetGroups = budgetGroups.filter(
+      (group) => !removableIds.has(group.budget_category_id) && !removableIds.has(group.expense_category_id)
+    );
+    return db;
+  }
+
   static empty() {
     return {
       tenants: [], // { id, name, plan, created_at }
@@ -119,6 +182,7 @@ class Schema {
   static normalize(parsed) {
     const base = Schema.empty();
     const merged = { ...base, ...parsed, _seq: { ...base._seq, ...(parsed._seq || {}) } };
+    Schema.detachBudgetGeneratedCategories(merged);
     return Schema.coerceIds(merged);
   }
 }
