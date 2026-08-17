@@ -574,6 +574,20 @@ class DashboardController {
         this.showView(viewName);
       });
     });
+
+    document.querySelectorAll(".budget-submenu-btn[data-budget-flow-page]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const page = parseInt(btn.dataset.budgetFlowPage, 10);
+        const focusId = String(btn.dataset.budgetFocusId || "").trim();
+        if (!Number.isFinite(page)) return;
+        this.currentBudgetFlowPage = page;
+        this.showView("budget-flow");
+        if (focusId) {
+          const target = document.getElementById(focusId);
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    });
   }
 
   _setActiveNav(viewName) {
@@ -595,6 +609,10 @@ class DashboardController {
   }
 
   showView(viewName) {
+    if (viewName === "expense-rules") {
+      this.currentBudgetFlowPage = 6;
+      return this.showView("budget-flow");
+    }
     if (viewName === "security") {
       this.currentSecurityPrivacyPage = 1;
       return this.showView("security-privacy");
@@ -721,13 +739,27 @@ class DashboardController {
   }
 
   _bindBudgetFlowPager() {
-    document.querySelectorAll(".budget-flow-page-dot").forEach((btn) => {
-      btn.addEventListener("click", () => this._goToBudgetFlowPage(parseInt(btn.dataset.budgetFlowPage, 10)));
+    document.querySelectorAll(".budget-flow-main-dot[data-budget-main-page]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mainPage = parseInt(btn.dataset.budgetMainPage, 10);
+        const targetFlowPage = mainPage === 2 ? 5 : 1;
+        this._goToBudgetFlowPage(targetFlowPage);
+      });
     });
     const prevBtn = document.getElementById("budget-flow-prev-btn");
     const nextBtn = document.getElementById("budget-flow-next-btn");
-    if (prevBtn) prevBtn.addEventListener("click", () => this._goToBudgetFlowPage(this.currentBudgetFlowPage - 1));
-    if (nextBtn) nextBtn.addEventListener("click", () => this._goToBudgetFlowPage(this.currentBudgetFlowPage + 1));
+    if (prevBtn) {
+      prevBtn.addEventListener("click", () => {
+        const currentMain = this.currentBudgetFlowPage <= 4 ? 1 : 2;
+        if (currentMain === 2) this._goToBudgetFlowPage(1);
+      });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        const currentMain = this.currentBudgetFlowPage <= 4 ? 1 : 2;
+        if (currentMain === 1) this._goToBudgetFlowPage(5);
+      });
+    }
   }
 
   _loadExpensesFlowView() {
@@ -962,19 +994,30 @@ class DashboardController {
     page = Math.min(6, Math.max(1, page));
     this.currentBudgetFlowPage = page;
     this._setActiveNav("budget-flow");
+    const mainPage = page <= 4 ? 1 : 2;
 
     document.querySelectorAll(".budget-flow-page").forEach((el, idx) => {
       el.classList.toggle("hidden", idx + 1 !== page);
     });
-    document.querySelectorAll(".budget-flow-page-dot").forEach((btn) => {
+    document.querySelectorAll(".budget-flow-main-dot").forEach((btn) => {
+      btn.classList.toggle("active", parseInt(btn.dataset.budgetMainPage, 10) === mainPage);
+    });
+    document.querySelectorAll(".budget-submenu-btn").forEach((btn) => {
       btn.classList.toggle("active", parseInt(btn.dataset.budgetFlowPage, 10) === page);
     });
+    const budgetSubmenu = document.getElementById("budget-submenu-budget");
+    const expensesSubmenu = document.getElementById("budget-submenu-expenses");
+    if (budgetSubmenu) budgetSubmenu.classList.toggle("hidden", mainPage !== 1);
+    if (expensesSubmenu) expensesSubmenu.classList.toggle("hidden", mainPage !== 2);
+    document.querySelectorAll(".budget-flow-main-dot").forEach((btn) => {
+      btn.disabled = parseInt(btn.dataset.budgetMainPage, 10) === mainPage;
+    });
     const indicator = document.getElementById("budget-flow-page-indicator");
-    if (indicator) indicator.textContent = `Página ${page} de 6`;
+    if (indicator) indicator.textContent = `Página ${mainPage} de 2`;
     const prevBtn = document.getElementById("budget-flow-prev-btn");
     const nextBtn = document.getElementById("budget-flow-next-btn");
-    if (prevBtn) prevBtn.disabled = page === 1;
-    if (nextBtn) nextBtn.disabled = page === 6;
+    if (prevBtn) prevBtn.disabled = mainPage === 1;
+    if (nextBtn) nextBtn.disabled = mainPage === 2;
 
     if (page === 1) this._loadBudgetView();
     if (page === 2) {
@@ -984,6 +1027,7 @@ class DashboardController {
     if (page === 3) this._loadBudgetManageView();
     if (page === 4) this._loadBudgetGroupsView();
     if (page === 5) this._loadExpensesView();
+    if (page === 6) this._loadExpenseRules();
   }
 
   _goToExpensesFlowPage(page) {
