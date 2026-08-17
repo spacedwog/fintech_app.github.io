@@ -99,10 +99,10 @@
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="4">Grupo</button>
         </div>
         <div class="button-row-wrap mb-14 hidden" id="budget-submenu-expenses">
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="5" data-budget-focus-id="budget-spacehub-card">SpaceHub</button>
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="5" data-budget-focus-id="budget-expenses-card">Minhas Despesas</button>
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6" data-budget-focus-id="budget-payment-card">Pagamento Despesas</button>
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6" data-budget-focus-id="budget-rules-card">Regras Automáticas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="5">SpaceHub</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6">Minhas Despesas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="7">Pagamento Despesas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="8">Regras Automáticas</button>
         </div>
 
         <!-- Página 1: Importar Orçamento -->
@@ -155,7 +155,7 @@
             <p class="small-muted mt-0">
               Grava o <strong>Previsto</strong> de cada categoria acima no app (cria categorias que não existirem)
               para o mês escolhido. A partir daqui, o <strong>Realizado</strong> passa a ser calculado com despesas
-              reais — registre-as na <strong>Página 5</strong> deste fluxo e confira o resultado na
+              reais — registre-as na <strong>Página 6</strong> deste fluxo e confira o resultado na
               <strong>Página 2</strong>.
             </p>
             <div class="grid-2">
@@ -204,7 +204,7 @@
             </div>
             <p class="small-muted">
               Previsto = orçamento importado na <strong>Página 1</strong> para o mês selecionado. Realizado = soma
-              das despesas de verdade registradas na <strong>Página 5</strong> desse fluxo nesse mês (todos os membros da conta).
+              das despesas de verdade registradas na <strong>Página 6</strong> desse fluxo nesse mês (todos os membros da conta).
             </p>
             <p id="budget-overview-empty" class="small-muted hidden">
               Nenhum orçamento importado para este mês ainda — vá à <strong>Página 1</strong> e use "Usar este
@@ -298,6 +298,9 @@
             </div>
           </div>
 
+        </div>
+
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-6">
           <div class="card" id="budget-expenses-card">
             <div class="row-between">
               <h3 class="m-0">Minhas despesas</h3>
@@ -311,7 +314,7 @@
           </div>
         </div>
 
-        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-6">
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-7">
           <div class="card" id="budget-payment-card">
             <h3 class="mt-0">Pagamento de despesa</h3>
             <p class="small-muted mt-0 mb-12">
@@ -360,6 +363,9 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-8">
           <div class="card" id="budget-rules-card">
           <div class="row-between">
             <h3 class="m-0">Regras automáticas de categoria</h3>
@@ -388,6 +394,7 @@
             </thead>
             <tbody id="expense-rules-tbody"></tbody>
           </table>
+        </div>
         </div>
       </section>
 
