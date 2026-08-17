@@ -610,7 +610,7 @@ class DashboardController {
 
   showView(viewName) {
     if (viewName === "expense-rules") {
-      this.currentBudgetFlowPage = 6;
+      this.currentBudgetFlowPage = 8;
       return this.showView("budget-flow");
     }
     if (viewName === "security") {
@@ -991,7 +991,7 @@ class DashboardController {
   }
 
   _goToBudgetFlowPage(page) {
-    page = Math.min(6, Math.max(1, page));
+    page = Math.min(8, Math.max(1, page));
     this.currentBudgetFlowPage = page;
     this._setActiveNav("budget-flow");
     const mainPage = page <= 4 ? 1 : 2;
@@ -1026,8 +1026,8 @@ class DashboardController {
     }
     if (page === 3) this._loadBudgetManageView();
     if (page === 4) this._loadBudgetGroupsView();
-    if (page === 5) this._loadExpensesView();
-    if (page === 6) this._loadExpenseRules();
+    if (page === 6) this._loadExpensesView();
+    if (page === 8) this._loadExpenseRules();
   }
 
   _goToExpensesFlowPage(page) {
