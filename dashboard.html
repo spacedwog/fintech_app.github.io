@@ -60,17 +60,7 @@
         <div id="mp-customer-profile" class="mp-customer-profile small-muted"></div>
       </div>
 
-      <div class="sidebar-menu-label">Orçamento</div>
-      <button class="nav-item nav-sub-item active" data-view="budget-flow" data-budget-flow-page="1">Importar Orçamento</button>
-      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="2">Alertas Orçamento</button>
-      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="3">Gerenciar Orçamento</button>
-      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="4">Grupo</button>
-
-      <div class="sidebar-menu-label">Despesas</div>
-      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="5" data-budget-focus-id="budget-spacehub-card">SpaceHub</button>
-      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="5" data-budget-focus-id="budget-expenses-card">Minhas despesas</button>
-      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="6">Pagamento de Despesas</button>
-      <button class="nav-item nav-sub-item" data-view="expense-rules">Regras automáticas</button>
+      <button class="nav-item active" data-view="budget-flow">Orçamento &amp; Despesas</button>
       <button class="nav-item" data-view="feed">Feed</button>
       <button class="nav-item" data-view="reports">Resumo Mensal</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
@@ -90,25 +80,34 @@
 
       <!-- Orçamento + Despesas — fluxo paginado -->
       <section class="view" id="view-budget-flow">
-        <div class="top-bar"><h1>Orçamento e Despesas</h1></div>
+        <div class="top-bar"><h1>Orçamento &amp; Despesas</h1></div>
 
         <div class="flow-pager">
           <button type="button" class="secondary" id="budget-flow-prev-btn">‹ Anterior</button>
           <div class="flow-pager-dots">
-            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="1">1. Importar Orçamento</button>
-            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="2">2. Alertas / Orçamento</button>
-            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="3">3. Gerenciar Orçamentos</button>
-            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="4">4. Grupo</button>
-            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="5">5. SpaceHub e Minhas despesas</button>
-            <button type="button" class="flow-page-dot budget-flow-page-dot" data-budget-flow-page="6">6. Pagamento de despesa</button>
+            <button type="button" class="flow-page-dot budget-flow-main-dot active" data-budget-main-page="1">1. Orçamento</button>
+            <button type="button" class="flow-page-dot budget-flow-main-dot" data-budget-main-page="2">2. Despesas</button>
           </div>
           <button type="button" class="secondary" id="budget-flow-next-btn">Próxima ›</button>
         </div>
-        <p class="small-muted text-center mt-4 mb-18" id="budget-flow-page-indicator">Página 1 de 6</p>
+        <p class="small-muted text-center mt-4 mb-18" id="budget-flow-page-indicator">Página 1 de 2</p>
+
+        <div class="button-row-wrap mb-14" id="budget-submenu-budget">
+          <button type="button" class="secondary budget-submenu-btn active" data-budget-flow-page="1">Importar Orçamento</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="2">Alertas Orçamento</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="3">Gerenciar Orçamento</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="4">Grupo</button>
+        </div>
+        <div class="button-row-wrap mb-14 hidden" id="budget-submenu-expenses">
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="5" data-budget-focus-id="budget-spacehub-card">SpaceHub</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="5" data-budget-focus-id="budget-expenses-card">Minhas Despesas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6" data-budget-focus-id="budget-payment-card">Pagamento Despesas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6" data-budget-focus-id="budget-rules-card">Regras Automáticas</button>
+        </div>
 
         <!-- Página 1: Importar Orçamento -->
         <div class="flow-page budget-flow-page" id="budget-flow-page-1">
-          <div class="card" id="budget-spacehub-card">
+          <div class="card" id="budget-import-card">
             <p class="small-muted mt-0">
               Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita no
               navegador, integrada ao backend em nuvem (arquitetura fullstack), sem depender de um arquivo fixo. Funciona com uma
@@ -176,7 +175,7 @@
 
         <!-- Página 2: Alertas / Orçamento -->
         <div class="flow-page budget-flow-page hidden" id="budget-flow-page-2">
-          <div class="card" id="budget-expenses-card">
+          <div class="card" id="budget-alerts-card">
             <h3 class="mt-0">Limite geral do mês</h3>
             <p class="small-muted mt-0">Um único valor total por mês, independente de categoria — mais simples, mas menos detalhado que a comparação por categoria abaixo.</p>
             <div id="alerts-box" class="alert-ok">Carregando...</div>
@@ -271,7 +270,7 @@
           </div>
         </div>
         <div class="flow-page budget-flow-page hidden" id="budget-flow-page-5">
-          <div class="card">
+          <div class="card" id="budget-spacehub-card">
             <h3 class="mt-0">SpaceHub</h3>
             <p class="small-muted mt-0 mb-12">
               Converse com o SpaceHub para gerar despesas e importar direto em Minhas despesas.
@@ -299,7 +298,7 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card" id="budget-expenses-card">
             <div class="row-between">
               <h3 class="m-0">Minhas despesas</h3>
             </div>
@@ -313,7 +312,7 @@
         </div>
 
         <div class="flow-page budget-flow-page hidden" id="budget-flow-page-6">
-          <div class="card">
+          <div class="card" id="budget-payment-card">
             <h3 class="mt-0">Pagamento de despesa</h3>
             <p class="small-muted mt-0 mb-12">
               Informe a chave Pix do destinatário para gerar QR Code e código copia-e-cola da despesa.
@@ -361,12 +360,7 @@
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="view hidden" id="view-expense-rules">
-        <div class="top-bar"><h1>Regras automáticas</h1></div>
-        <div class="card">
+          <div class="card" id="budget-rules-card">
           <div class="row-between">
             <h3 class="m-0">Regras automáticas de categoria</h3>
             <button type="button" class="secondary" id="expense-rules-apply-btn">Aplicar em despesas sem categoria</button>
