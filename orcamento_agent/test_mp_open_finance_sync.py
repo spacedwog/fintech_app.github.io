@@ -46,6 +46,7 @@ snapshot_with_sensitive = {
             "direction": "debit",
             "status": "posted",
             "description": "UBER TRIP 001",
+            "category": "benefício",
             "merchant_name": "Uber",
             "posted_at": "2026-08-08T10:00:00.000-03:00",
             "installments": 1,
@@ -86,7 +87,7 @@ summary1 = engine.sync(db, snapshot_with_sensitive, "t1", "u1")
 assert summary1["cards_created"] == 1, summary1
 assert summary1["transactions_created"] == 2, summary1
 assert summary1["expenses_created"] == 1, summary1
-assert summary1["categories_created"] == 0, summary1
+assert summary1["categories_created"] == 1, summary1
 assert summary1["removed_sensitive_fields"] == ["cvv", "security_code"], summary1
 
 card_row = db["openFinanceCards"][0]
@@ -96,6 +97,8 @@ assert "cvv" not in json.dumps(card_row).lower()
 expense = db["expenses"][0]
 assert expense["openFinanceTransactionId"] == "tx-1"
 assert expense["mercadoPagoSource"] == "open_finance"
+expense_category = next(c for c in db["categories"] if c["id"] == expense["category_id"])
+assert expense_category["name"] == "Orçamento"
 print("OK sync gera cartão/transações/despesa sem vazar CVV")
 
 summary2 = engine.sync(db, snapshot_with_sensitive, "t1", "u1")

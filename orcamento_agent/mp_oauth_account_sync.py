@@ -365,6 +365,7 @@ class OAuthAccountSyncEngine:
                 {
                     "id": str(self._pick(p, ["id", "payment_id", "external_reference"]) or ""),
                     "description": str(self._pick(p, ["description", "statement_descriptor", "reason"]) or "Pagamento Mercado Pago"),
+                    "expense_type": str(self._pick(p, ["type", "operation_type", "transaction_type", "credit_debit_type", "creditDebitType"]) or ""),
                     "amount": amount,
                     "date": self._to_iso_date(self._pick(p, ["date_approved", "date_created", "date_last_updated"])),
                 }
@@ -386,6 +387,7 @@ class OAuthAccountSyncEngine:
                 {
                     "id": external_id,
                     "description": str(self._pick(m, ["description", "detail", "merchant_name", "counterparty"]) or "Movimentação Mercado Pago"),
+                    "expense_type": str(self._pick(m, ["type", "operation_type", "transaction_type", "credit_debit_type", "creditDebitType"]) or ""),
                     "amount": amount,
                     "date": self._to_iso_date(self._pick(m, ["date", "created_at", "date_created", "posted_at"])),
                 }
@@ -407,7 +409,7 @@ class OAuthAccountSyncEngine:
             if self.categorizer.should_ignore(c["description"]):
                 continue
 
-            categoria_nome = self.categorizer.categorize(c["description"])
+            categoria_nome = self.categorizer.categorize(c["description"], c.get("expense_type"))
             categoria, cat_created = mp_expenses.find_or_create_category(db, tenant_id, categoria_nome)
             if cat_created:
                 categories_created += 1

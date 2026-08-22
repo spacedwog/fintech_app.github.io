@@ -66,6 +66,7 @@ import mp_reconcile  # build_source, day_range, FirestoreSource/LocalJsonSource
 
 DEFAULT_IGNORAR_DESCRICOES = ["despesa extra", "assinatura", "fintech spacecworp"]
 DEFAULT_CATEGORIA_PADRAO = "Mercado Pago (não categorizado)"
+DEFAULT_CATEGORIA_ORCAMENTO = "Orçamento"
 
 
 def log(linha):
@@ -116,6 +117,7 @@ class ExpenseCategorizer:
         self.ignorar_descricoes = (
             DEFAULT_IGNORAR_DESCRICOES if ignorar_descricoes is None else ignorar_descricoes
         )
+        self._tipos_orcamento = ("recebimento", "beneficio", "benefício")
 
     # Só a correspondência por palavra-chave -- None quando nenhuma regra bate
     # (quem chama decide o que fazer no fallback; ver categorize() abaixo).
@@ -129,7 +131,18 @@ class ExpenseCategorizer:
         return None
 
     # Correspondência por palavra-chave, com fallback pra categoria padrão.
-    def categorize(self, description):
+    def _is_budget_type(self, expense_type):
+        tipo_norm = mp_sync.normalize(expense_type)
+        if not tipo_norm:
+            return False
+        for termo in self._tipos_orcamento:
+            if mp_sync.normalize(termo) in tipo_norm:
+                return True
+        return False
+
+    def categorize(self, description, expense_type=None):
+        if self._is_budget_type(expense_type):
+            return DEFAULT_CATEGORIA_ORCAMENTO
         return self.match_keyword(description) or self.categoria_padrao
 
     def should_ignore(self, description):
