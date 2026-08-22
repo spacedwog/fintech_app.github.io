@@ -1,4 +1,7 @@
 import transaction_classifier_agent as agent
+import tempfile
+import os
+import json
 
 cfg = {
     "default_category": "Não categorizado",
@@ -16,6 +19,13 @@ cfg = {
         {"name": "PIX", "keywords": ["pix", "transferencia pix"]},
         {"name": "API", "keywords": ["api", "checkout", "subscription"]},
     ],
+    "movement_type_profiles": [
+        {"name": "Feed", "keywords": ["feed", "historico"]},
+        {"name": "Orçamento", "keywords": ["orcamento", "budget", "recebimento"]},
+        {"name": "Despesas", "keywords": ["despesa", "compra", "pagamento"]},
+        {"name": "PIX", "keywords": ["pix", "transferencia pix", "qr"]},
+    ],
+    "mercado_pago_budget": {"monthly_limit": 683.0, "target_email": "felipersantos1988@gmail.com"},
 }
 
 runner = agent.TransactionClassificationRunner(cfg)
@@ -32,10 +42,12 @@ transactions = [
         "merchant_order_id": "444555666",
         "description": "partition_payment checkout assinatura",
         "transaction_amount": -120.0,
+        "date_created": "2026-08-05T10:15:00Z",
         "transaction_type": "Pagamento importado (Mercado Pago)",
         "generated_by_mercado_pago": True,
         "generated_by_mercado_pago_source": "api",
         "status": "approved",
+        "user_email": "felipersantos1988@gmail.com",
     },
     {
         "id": "111222333",
@@ -43,9 +55,33 @@ transactions = [
         "transaction_number": "ABC123",
         "description": "partition_payment",
         "transaction_amount": -90.0,
+        "date_created": "2026-08-12T08:00:00Z",
         "generated_by_mercado_pago": True,
         "generated_by_mercado_pago_source": "api",
         "status": "approved",
+        "user_email": "felipersantos1988@gmail.com",
+    },
+    {
+        "id": "222333444",
+        "payment_id": "222333444",
+        "description": "Pagamento importado (Mercado Pago) compra loja",
+        "transaction_amount": -500.0,
+        "date_created": "2026-08-20T13:00:00Z",
+        "generated_by_mercado_pago": True,
+        "generated_by_mercado_pago_source": "api",
+        "status": "approved",
+        "user_email": "outro.usuario@example.com",
+    },
+    {
+        "id": "333444555",
+        "payment_id": "333444555",
+        "description": "Recebimento Mercado Pago saldo conta",
+        "transaction_amount": 150.0,
+        "date_created": "2026-08-22T18:30:00Z",
+        "generated_by_mercado_pago": True,
+        "generated_by_mercado_pago_source": "api",
+        "status": "approved",
+        "user_email": "felipersantos1988@gmail.com",
     },
 ]
 
@@ -65,6 +101,7 @@ assert r3["classification"]["category"] == "Receitas", r3
 assert r3["classification"]["direction"] == "credit", r3
 assert r3["classification"]["payment_type"] == "PIX", r3
 assert r3["classification"]["transaction_type"] == "PIX_ENTRADA", r3
+assert r3["classification"]["movement_type"] == "PIX", r3
 assert r3["classification"]["verification"]["transaction_verified"] is True, r3
 print("OK classifica entrada PIX como Receitas")
 
@@ -72,6 +109,7 @@ r4 = next(r for r in results if r["id"] == "t4")
 assert r4["classification"]["category"] == "Não categorizado", r4
 assert r4["classification"]["payment_type"] == "API", r4
 assert r4["classification"]["transaction_type"] == "API_SAIDA", r4
+assert r4["classification"]["movement_type"] == "Despesas", r4
 assert r4["classification"]["verification"]["verification_status"] == "pending", r4
 print("OK fallback de categoria e classifica tipo API/pendente")
 
@@ -90,5 +128,29 @@ v6 = r6["classification"]["verification"]
 assert v6["transaction_number_verification"]["numbers_verified"] is False, r6
 assert v6["transaction_verified"] is False, r6
 print("OK reprova número de transação inválido no Mercado Pago")
+
+r8 = next(r for r in results if r["id"] == "333444555")
+assert r8["classification"]["movement_type"] == "Orçamento", r8
+print("OK classifica recebimento Mercado Pago como Orçamento")
+
+with tempfile.TemporaryDirectory() as td:
+    input_path = os.path.join(td, "in.json")
+    output_path = os.path.join(td, "out.json")
+    with open(input_path, "w", encoding="utf-8") as f:
+        json.dump({"transactions": transactions}, f)
+    payload = runner.run(input_path, output_path)
+    summary = payload["summary"]
+    assert summary["movement_type_counts"]["Despesas"] >= 4, summary
+    assert summary["movement_type_counts"]["PIX"] >= 1, summary
+    assert summary["movement_type_counts"]["Orçamento"] >= 1, summary
+    mp_budget = summary["mercado_pago_budget"]
+    assert mp_budget["monthly_limit"] == 683.0, mp_budget
+    assert mp_budget["target_email"] == "felipersantos1988@gmail.com", mp_budget
+    agosto = mp_budget["monthly"]["2026-08"]
+    assert agosto["spent"] == 210.0, agosto
+    assert agosto["overage"] == 0.0, agosto
+    assert agosto["within_budget"] is True, agosto
+    assert agosto["status"] == "DENTRO_DO_ORCAMENTO", agosto
+print("OK gera verificação de orçamento Mercado Pago (R$ 683/mês)")
 
 print("\nTODOS OS TESTES PASSARAM ✅")

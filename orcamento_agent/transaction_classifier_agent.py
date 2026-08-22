@@ -11,12 +11,16 @@ import json
 import os
 import re
 import unicodedata
+from datetime import datetime
 from typing import Dict, List, Optional
 
 DEFAULT_CATEGORY = "Não categorizado"
 DEFAULT_MIN_CONFIDENCE = 0.35
 DEFAULT_PAYMENT_TYPE = "OUTROS"
 DEFAULT_TX_TYPE = "OUTROS"
+DEFAULT_MOVEMENT_TYPE = "Feed"
+DEFAULT_MP_MONTHLY_BUDGET = 683.0
+DEFAULT_MP_BUDGET_EMAIL = "felipersantos1988@gmail.com"
 DEFAULT_KNOWN_MP_STATUSES = {
     "approved",
     "pending",
@@ -36,12 +40,14 @@ class TransactionClassifierAgent:
         default_category=DEFAULT_CATEGORY,
         payment_type_profiles=None,
         transaction_type_profiles=None,
+        movement_type_profiles=None,
         known_mp_statuses=None,
     ):
         self.default_category = default_category or DEFAULT_CATEGORY
         self.category_profiles = category_profiles or []
         self.payment_type_profiles = payment_type_profiles or []
         self.transaction_type_profiles = transaction_type_profiles or []
+        self.movement_type_profiles = movement_type_profiles or []
         self.known_mp_statuses = set(known_mp_statuses or DEFAULT_KNOWN_MP_STATUSES)
 
     @staticmethod
@@ -65,6 +71,25 @@ class TransactionClassifierAgent:
             return False
         text = str(value).strip()
         return bool(text) and re.fullmatch(r"\d+", text) is not None
+
+    @staticmethod
+    def _normalize_email(value):
+        text = str(value or "").strip().lower()
+        return text
+
+    @classmethod
+    def _extract_email(cls, transaction):
+        for key in ("user_email", "account_email", "conta_email", "payer_email", "email"):
+            value = transaction.get(key)
+            normalized = cls._normalize_email(value)
+            if normalized:
+                return normalized
+        payer = transaction.get("payer")
+        if isinstance(payer, dict):
+            normalized = cls._normalize_email(payer.get("email"))
+            if normalized:
+                return normalized
+        return ""
 
     def _infer_direction(self, tx):
         raw = self._normalize(" ".join([
@@ -172,6 +197,63 @@ class TransactionClassifierAgent:
             return f"{base}_SAIDA"
         return base
 
+    def _is_mercado_pago_transaction(self, transaction):
+        raw = self._normalize(" ".join([
+            str(transaction.get("description") or ""),
+            str(transaction.get("statement_descriptor") or ""),
+            str(transaction.get("transaction_type") or ""),
+            str(transaction.get("type") or ""),
+            str(transaction.get("operation_type") or ""),
+            str(transaction.get("external_reference") or ""),
+            str(transaction.get("generated_by_mercado_pago_source") or ""),
+            str(transaction.get("payment_method_id") or ""),
+            str(transaction.get("payment_type_id") or ""),
+        ]))
+        return bool(transaction.get("generated_by_mercado_pago")) or bool(transaction.get("payment_id")) or "mercado pago" in raw
+
+    @staticmethod
+    def _extract_month_key(transaction):
+        for field in ("date_created", "created_at", "transaction_date", "date", "approved_at", "last_modified"):
+            value = transaction.get(field)
+            if value is None:
+                continue
+            text = str(value).strip()
+            if not text:
+                continue
+            try:
+                dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+                return dt.strftime("%Y-%m")
+            except ValueError:
+                pass
+            iso_match = re.search(r"(\d{4})-(\d{2})", text)
+            if iso_match:
+                return f"{iso_match.group(1)}-{iso_match.group(2)}"
+            br_match = re.search(r"(\d{2})/(\d{2})/(\d{4})", text)
+            if br_match:
+                return f"{br_match.group(3)}-{br_match.group(2)}"
+        return None
+
+    def _infer_movement_type(self, transaction, direction, payment_type, transaction_type):
+        raw = self._normalize(" ".join([
+            str(transaction.get("description") or ""),
+            str(transaction.get("statement_descriptor") or ""),
+            str(transaction.get("transaction_type") or ""),
+            str(transaction.get("type") or ""),
+            str(transaction.get("operation_type") or ""),
+            str(transaction.get("external_reference") or ""),
+        ]))
+        tokens = set(self._tokenize(raw))
+        prof = self._score_profiles(raw, tokens, self.movement_type_profiles)
+        if prof["name"] and prof["score"] > 0:
+            return prof["name"]
+        if payment_type == "PIX" or str(transaction_type).startswith("PIX_") or "pix" in raw:
+            return "PIX"
+        if direction == "credit" and self._is_mercado_pago_transaction(transaction):
+            return "Orçamento"
+        if direction == "debit":
+            return "Despesas"
+        return DEFAULT_MOVEMENT_TYPE
+
     def _verify_mercado_pago(self, transaction):
         status = self._normalize(transaction.get("status"))
         amount = transaction.get("transaction_amount", transaction.get("amount"))
@@ -265,6 +347,7 @@ class TransactionClassifierAgent:
         amount = self._safe_float(transaction.get("transaction_amount", transaction.get("amount", 0)))
         payment_type = self._infer_payment_channel(transaction)
         transaction_type = self._infer_transaction_type(transaction, direction)
+        movement_type = self._infer_movement_type(transaction, direction, payment_type, transaction_type)
         verification = self._verify_mercado_pago(transaction)
 
         best = {
@@ -329,6 +412,7 @@ class TransactionClassifierAgent:
                 "direction": direction,
                 "payment_type": payment_type,
                 "transaction_type": transaction_type,
+                "movement_type": movement_type,
                 "verification": verification,
                 "matched_keywords": best["matched_keywords"],
                 "reason": "Confiança abaixo do mínimo; mantido fallback em categoria padrão.",
@@ -340,6 +424,7 @@ class TransactionClassifierAgent:
             "direction": direction,
             "payment_type": payment_type,
             "transaction_type": transaction_type,
+            "movement_type": movement_type,
             "verification": verification,
             "matched_keywords": best["matched_keywords"],
             "reason": best["reason"],
@@ -354,6 +439,7 @@ class TransactionClassificationRunner:
             default_category=self.cfg.get("default_category") or DEFAULT_CATEGORY,
             payment_type_profiles=self.cfg.get("payment_type_profiles") or [],
             transaction_type_profiles=self.cfg.get("transaction_type_profiles") or [],
+            movement_type_profiles=self.cfg.get("movement_type_profiles") or [],
             known_mp_statuses=self.cfg.get("known_mp_statuses") or list(DEFAULT_KNOWN_MP_STATUSES),
         )
         self.min_confidence = float(self.cfg.get("min_confidence", DEFAULT_MIN_CONFIDENCE))
@@ -380,6 +466,64 @@ class TransactionClassificationRunner:
             })
         return out
 
+    def _build_summary(self, transactions, results):
+        summary = {
+            "total_transactions": len(results),
+            "classified": sum(1 for r in results if r["classification"]["category"] != self.classifier.default_category),
+            "defaulted": sum(1 for r in results if r["classification"]["category"] == self.classifier.default_category),
+        }
+
+        movement_type_counts = {}
+        for result in results:
+            movement_type = result["classification"].get("movement_type") or DEFAULT_MOVEMENT_TYPE
+            movement_type_counts[movement_type] = movement_type_counts.get(movement_type, 0) + 1
+        summary["movement_type_counts"] = movement_type_counts
+
+        budget_cfg = self.cfg.get("mercado_pago_budget") or {}
+        monthly_limit = self.classifier._safe_float(
+            budget_cfg.get("monthly_limit", self.cfg.get("mercado_pago_monthly_budget", DEFAULT_MP_MONTHLY_BUDGET)),
+            DEFAULT_MP_MONTHLY_BUDGET,
+        )
+        budget_email = self.classifier._normalize_email(
+            budget_cfg.get("target_email", self.cfg.get("mercado_pago_budget_email", DEFAULT_MP_BUDGET_EMAIL))
+        )
+
+        monthly = {}
+        for tx in transactions:
+            if not self.classifier._is_mercado_pago_transaction(tx):
+                continue
+            tx_email = self.classifier._extract_email(tx)
+            if budget_email and tx_email != budget_email:
+                continue
+            month = self.classifier._extract_month_key(tx) or "sem_data"
+            amount = self.classifier._safe_float(tx.get("transaction_amount", tx.get("amount", 0)))
+            spent = abs(amount) if amount < 0 else 0.0
+            row = monthly.setdefault(month, {"spent": 0.0, "transactions": 0})
+            row["spent"] += spent
+            row["transactions"] += 1
+
+        monthly_summary = {}
+        for month, row in sorted(monthly.items()):
+            spent = round(row["spent"], 2)
+            remaining = round(max(0.0, monthly_limit - spent), 2)
+            overage = round(max(0.0, spent - monthly_limit), 2)
+            monthly_summary[month] = {
+                "spent": spent,
+                "remaining": remaining,
+                "overage": overage,
+                "transactions": row["transactions"],
+                "within_budget": spent <= monthly_limit,
+                "status": "DENTRO_DO_ORCAMENTO" if spent <= monthly_limit else "ESTOURADO",
+            }
+
+        summary["mercado_pago_budget"] = {
+            "monthly_limit": round(monthly_limit, 2),
+            "currency": "BRL",
+            "target_email": budget_email,
+            "monthly": monthly_summary,
+        }
+        return summary
+
     def run(self, input_path, output_path):
         payload = self._read_json(input_path)
         transactions = payload.get("transactions") if isinstance(payload, dict) else payload
@@ -387,11 +531,7 @@ class TransactionClassificationRunner:
             raise RuntimeError("Entrada inválida: esperado JSON com lista de transações ou {'transactions': [...]}.")
 
         results = self.classify_transactions(transactions)
-        summary = {
-            "total_transactions": len(results),
-            "classified": sum(1 for r in results if r["classification"]["category"] != self.classifier.default_category),
-            "defaulted": sum(1 for r in results if r["classification"]["category"] == self.classifier.default_category),
-        }
+        summary = self._build_summary(transactions, results)
         output = {"summary": summary, "results": results}
         self._write_json(output_path, output)
         return output

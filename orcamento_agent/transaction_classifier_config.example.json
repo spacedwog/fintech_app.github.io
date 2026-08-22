@@ -50,6 +50,28 @@
       "keywords": ["refund", "chargeback", "estorno", "devolucao"]
     }
   ],
+  "movement_type_profiles": [
+    {
+      "name": "Feed",
+      "keywords": ["feed", "historico", "timeline"]
+    },
+    {
+      "name": "Orçamento",
+      "keywords": ["orcamento", "budget", "recebimento"]
+    },
+    {
+      "name": "Despesas",
+      "keywords": ["despesa", "compra", "pagamento"]
+    },
+    {
+      "name": "PIX",
+      "keywords": ["pix", "transferencia pix", "qr"]
+    }
+  ],
+  "mercado_pago_budget": {
+    "monthly_limit": 683.0,
+    "target_email": "felipersantos1988@gmail.com"
+  },
   "known_mp_statuses": [
     "approved",
     "pending",

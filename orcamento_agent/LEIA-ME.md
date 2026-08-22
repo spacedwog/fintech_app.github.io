@@ -132,7 +132,10 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
   números de transação e verificação da natureza da transação (incluindo origem
   `Integração Mercado Pago API`, descrição `partition_payment` e tipo
   `Pagamento importado (Mercado Pago)`), além de classificação de tipo de
-  pagamento/transação (PIX, API e outros).
+  pagamento/transação (PIX, API e outros), classificação de movimentação por
+  tipo (`Feed`, `Orçamento`, `Despesas`, `PIX` e afins) e resumo de orçamento
+  mensal do Mercado Pago (limite padrão de R$ 683,00/mês) atrelado ao e-mail
+  `felipersantos1988@gmail.com`.
 - `transaction_classifier_config.example.json` — modelo de perfis de categoria para
   o `transaction_classifier_agent.py`.
 - `test_transaction_classifier_agent.py` — teste automatizado do classificador.
