@@ -157,7 +157,7 @@ Envie uma planilha de orçamento (.xlsx/.xls/.csv) direto do navegador — a lei
 
 - **Detecção automática**: tenta reconhecer a planilha sozinha (coluna Categoria + Previsto/Realizado, formato largo ou longo).
 - **Layout de leitura manual** ("+ Criar layout de leitura"): quando a heurística não reconhece o formato, um modal deixa você descrever exatamente onde está cada coisa (aba, linhas, colunas). O layout fica salvo por conta (sincroniza como o resto do app) e reaplica em uploads futuros.
-- **"Usar este orçamento no app"** (novo): depois de ler a planilha, um cartão deixa escolher o mês (do app) em que aplicar o Previsto lido e grava isso de verdade — criando categorias que não existirem (`Api.importCategoryBudgets` em `js/api.js`). É esse passo que conecta a planilha ao restante do fluxo; sem ele, a leitura continua sendo só uma prévia pontual, como antes.
+- **"Usar este orçamento no app"** (novo): depois de ler a planilha, um cartão deixa escolher o mês (do app) em que aplicar o Previsto lido e grava isso de verdade (`Api.importCategoryBudgets` em `js/api.js`). No plano **Free**, esse passo inclui **3 importações/dia** por usuário; a partir da 4ª no mesmo dia, cada importação adicional custa **R$ 10,00** via Pix. No **Premium**, é ilimitado sem cobrança adicional. É esse passo que conecta a planilha ao restante do fluxo; sem ele, a leitura continua sendo só uma prévia pontual, como antes.
 - Existe uma versão equivalente em linha de comando para quem administra a planilha de orçamento fora do navegador — ver `orcamento_agent/LEIA-ME.md` (`--criar-layout`/`--ler-orcamento` do `mp_sync.py`). É um projeto separado (agente de orçamento do casamento), documentado por conta própria; o layout de leitura é o único conceito compartilhado com este app.
 
 Código: `js/dashboard.js` (`loadBudgetView`, `handleBudgetFileUpload`, `showBudgetAdoptCard`, `handleBudgetAdopt`), `js/budget-ai.js`, `Api.importCategoryBudgets` em `js/api.js`.
@@ -170,7 +170,7 @@ Registra despesas com valor, data, categoria e descrição — igual a antes, co
 
 - A página usa o **SpaceHub - Chatbot de Financiamento (sem token)** para gerar despesas e importar direto em "Minhas despesas". O campo "Usuário GitHub" é opcional e só adiciona contexto usando APIs públicas do GitHub; o chatbot também expõe uma API interna de metodologias da linguagem portuguesa (verbos, adjetivos, provérbios e orações subordinadas) e executa o fluxo por uma VM interna de instruções (`ChatbotVirtualMachine` em `js/google-ai-chatbot.js`).
 - **Regras automáticas de categoria**: ficam em menu próprio na sidebar, mantendo a mesma lógica (`Api.addExpenseRule`, `Api.applyExpenseRulesToUncategorized`).
-- O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — a 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
+- O limite diário do plano é checado a cada envio (`Api.getExpenseQuota()`). O plano Free tem 6 despesas/dia — da 7ª em diante abre o modal de pagamento Pix (ver [💳 Plano](#-plano)) antes de salvar.
 - Categorias são criadas na mesma tela (`category-form`) e ficam por conta (tenant) — inclusive as criadas automaticamente ao importar um orçamento na Página 1 ou ao gerar despesas via Mercado Pago (ver abaixo).
 - Excluir uma despesa (botão "Excluir" na tabela) não devolve cota do dia, mas atualiza o Realizado mostrado na hora (aqui e na Página 3).
 - Despesas com o selo **Mercado Pago (API)** na tabela não foram digitadas por ninguém — foram geradas automaticamente a partir de um pagamento real no Mercado Pago via API (`orcamento_agent/mp_expenses.py`, com Access Token, fora do navegador) — e não contam para o limite diário do plano Free (é importação de histórico, não uma ação em tempo real do usuário). Ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos).
@@ -240,7 +240,7 @@ Mostra os dois planos e o histórico de pagamentos.
 
 | Plano | Preço | Despesas/dia |
 |---|---|---|
-| Free | R$ 0,00 | 6 (cada despesa extra: cobrança real de R$ 5,00/unidade via Pix) |
+| Free | R$ 0,00 | 3 (cada despesa extra: cobrança real de R$ 5,00/unidade via Pix) |
 | Premium | R$ 19,99/mês | Ilimitadas |
 
 Trocar de plano (ou pagar a despesa extra) abre o **modal de Pix real**: QR Code + "copia e cola" válidos no formato do Banco Central (BR Code, CRC16), apontando pra chave Pix real da SPACECWORP (CNPJ 62.904.267/0001-60). Quem escanear/pagar transfere dinheiro de verdade.
@@ -539,7 +539,7 @@ Cada conta que se cadastra vira um "tenant" isolado dentro do mesmo banco (Fires
 
 O sistema só pode ser usado com login (a tela `dashboard.html` redireciona para `login.html` se não houver sessão ativa). Depois de logado, todo usuário tem acesso completo ao sistema — a única diferença entre os planos é o limite diário de despesas (tabela em [💳 Plano](#-plano)).
 
-O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atingir 6 despesas no dia, a despesa não é salva imediatamente — abre-se um QR Code Pix real (mesma chave usada no site, CNPJ 62.904.267/0001-60) de R$ 5,00. O usuário paga no app do próprio banco e envia o comprovante; uma IA local (OCR, `js/receipt-ai.js`) confere se o valor e o recebedor batem com a cobrança antes de habilitar a confirmação — se a leitura automática falhar, ainda é possível confirmar manualmente. Trocar para o plano Premium funciona do mesmo jeito, com um QR Code Pix de R$ 19,99/mês.
+O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atingir 3 despesas no dia, a despesa não é salva imediatamente — abre-se um QR Code Pix real (mesma chave usada no site, CNPJ 62.904.267/0001-60) de R$ 5,00. O usuário paga no app do próprio banco e envia o comprovante; uma IA local (OCR, `js/receipt-ai.js`) confere se o valor e o recebedor batem com a cobrança antes de habilitar a confirmação — se a leitura automática falhar, ainda é possível confirmar manualmente. Trocar para o plano Premium funciona do mesmo jeito, com um QR Code Pix de R$ 19,99/mês.
 
 **Importante sobre o Pix:** o QR Code e o código "copia e cola" são gerados no formato oficial do Banco Central (BR Code, com CRC16) e apontam para uma chave Pix real — ou seja, quem pagar transfere dinheiro de verdade. A confirmação em "Já paguei" é uma declaração do próprio usuário; o que a valida de fato depois é a IA de OCR (na hora) e/ou o agente `mp_reconcile.py` (depois do fato, ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)) — nenhum dos dois é um webhook bancário em tempo real.
 </details>

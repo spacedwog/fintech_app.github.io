@@ -2307,15 +2307,42 @@ class DashboardController {
     status.style.color = "";
 
     try {
-      const result = await Api.importCategoryBudgets({
-        month: targetMonth,
-        rows: rows.map((r) => ({ categoria: r.categoria, previsto: r.previsto })),
-      });
-      status.style.color = "var(--success)";
-      status.textContent =
-        `✅ Orçamento de ${result.categories_count} categoria(s) aplicado para ${result.month}` +
-        (result.created_categories ? ` (${result.created_categories} categoria(s) nova(s) criada(s))` : "") +
-        `. Vá para o menu Despesas para registrar gastos e para a Página 2 de Orçamento para ver a comparação.`;
+      const quota = await Api.getBudgetImportQuota();
+      const willBeExtra = !quota.unlimited && quota.used_today >= quota.max_per_day;
+      const finalize = async (txid, analysis) => {
+        const result = await Api.importCategoryBudgets({
+          month: targetMonth,
+          rows: rows.map((r) => ({ categoria: r.categoria, previsto: r.previsto })),
+        });
+        if (result.is_extra) {
+          await this._recordPayment({
+            type: "importacao_orcamento_extra",
+            amount: result.extra_charge,
+            txid,
+            verifiedByAI: !!(analysis && analysis.amountMatches && analysis.merchantMatches),
+            aiClassification: analysis ? analysis.classification : null,
+            manualTxnNumber: analysis ? analysis.manualTxnNumber : null,
+          });
+        }
+        status.style.color = "var(--success)";
+        status.textContent =
+          `✅ Orçamento de ${result.categories_count} categoria(s) aplicado para ${result.month}` +
+          (result.is_extra ? ` (importação adicional: R$ ${result.extra_charge.toFixed(2)})` : "") +
+          (result.created_categories ? ` (${result.created_categories} categoria(s) nova(s) criada(s))` : "") +
+          `. Vá para o menu Despesas para registrar gastos e para a Página 2 de Orçamento para ver a comparação.`;
+      };
+
+      if (willBeExtra) {
+        this.pixModal.open({
+          amount: quota.overage_price,
+          description: "Importação extra de orçamento — limite diário do plano Free",
+          txidPrefix: "ORCA",
+          expectedType: "despesa",
+          onConfirm: (txid, analysis) => finalize(txid, analysis),
+        });
+      } else {
+        await finalize(null, null);
+      }
     } catch (err) {
       status.style.color = "#b45309";
       status.textContent = err.message || "Não foi possível aplicar este orçamento.";
@@ -2513,6 +2540,9 @@ class DashboardController {
         const expensesLabel = isFinite(p.max_expenses_day)
           ? `${p.max_expenses_day} despesas/dia (extra: R$ ${p.overage_price.toFixed(2)}/unidade)`
           : "Despesas ilimitadas";
+        const budgetImportsLabel = isFinite(p.max_budget_imports_day)
+          ? `${p.max_budget_imports_day} importações de orçamento/dia (extra: R$ ${(p.budget_import_overage_price || 0).toFixed(2)}/unidade)`
+          : "Importações de orçamento ilimitadas";
         const buttonLabel = key === "free" ? "Fazer downgrade" : "Assinar com Pix";
         return `
         <div class="plan-card ${isCurrent ? "current" : ""}">
@@ -2520,6 +2550,7 @@ class DashboardController {
           <div class="plan-price">R$ ${p.price_month.toFixed(2)} <span>/mês</span></div>
           <p class="small-muted">Acesso completo ao sistema</p>
           <p class="small-muted">${expensesLabel}</p>
+          <p class="small-muted">${budgetImportsLabel}</p>
           ${isCurrent ? '<p class="small-muted"><strong>Plano atual</strong></p>' : ""}
           ${canChange ? `<button class="primary" onclick="selectPlan('${key}')">${buttonLabel}</button>` : ""}
         </div>`;
@@ -2619,7 +2650,11 @@ class DashboardController {
     }
     container.innerHTML = payments
       .map((p) => {
-        const label = p.type === "plano" ? `Assinatura ${p.plan === "premium" ? "Premium" : p.plan}` : "Despesa extra (limite diário)";
+        const label = p.type === "plano"
+          ? `Assinatura ${p.plan === "premium" ? "Premium" : p.plan}`
+          : p.type === "importacao_orcamento_extra"
+            ? "Importação extra de orçamento (limite diário)"
+            : "Despesa extra (limite diário)";
         const dt = new Date(p.date);
         const typeLabel = window.ReceiptAI && ReceiptAI.TYPE_LABELS[p.aiClassification];
         // Um pagamento pode ser confirmado por até duas fontes independentes:

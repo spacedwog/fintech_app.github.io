@@ -795,7 +795,7 @@ class ExpenseService {
       });
   }
 
-  // Uso do limite diário de despesas do plano (para exibir "3/6 hoje" etc.)
+  // Uso do limite diário de despesas do plano (para exibir "2/6 hoje" etc.)
   async getExpenseQuota() {
     const session = Auth.requireSession();
     const db = await loadDb();
@@ -1164,6 +1164,30 @@ class CategoryBudgetService {
     return { ok: true };
   }
 
+  // Uso do limite diário de importações de orçamento do plano (para exibir
+  // "2/3 hoje", saber quando é extra e qual cobrança aplicar).
+  async getBudgetImportQuota() {
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const tenant = TenantRepository.find(db, session.tenant_id);
+    const planDetails = TenantRepository.planDetails(tenant);
+    const today = nowIso().slice(0, 10);
+    const usedToday = (db.auditEvents || []).filter(
+      (e) =>
+        e.tenant_id === session.tenant_id
+        && e.user_id === session.user_id
+        && e.action === "budget.category_imported"
+        && String(e.created_at || "").slice(0, 10) === today
+    ).length;
+    return {
+      plan: tenant.plan,
+      used_today: usedToday,
+      max_per_day: planDetails.max_budget_imports_day,
+      overage_price: planDetails.budget_import_overage_price || 0,
+      unlimited: !isFinite(planDetails.max_budget_imports_day),
+    };
+  }
+
   // Fecha o fluxo Importar Orçamento -> Previsto por categoria: recebe as
   // linhas lidas de uma planilha (js/budget-ai.js: [{ categoria, previsto }])
   // e, para o mês informado, cria as categorias que ainda não existirem
@@ -1176,6 +1200,19 @@ class CategoryBudgetService {
     if (!Array.isArray(rows) || !rows.length) throw new Error("Nenhuma linha de orçamento para importar.");
 
     const db = await loadDb();
+    const tenant = TenantRepository.find(db, session.tenant_id);
+    const planDetails = TenantRepository.planDetails(tenant);
+    const maxImportsPerDay = Number(planDetails.max_budget_imports_day);
+    const today = nowIso().slice(0, 10);
+    const usedToday = (db.auditEvents || []).filter(
+      (e) =>
+        e.tenant_id === session.tenant_id
+        && e.user_id === session.user_id
+        && e.action === "budget.category_imported"
+        && String(e.created_at || "").slice(0, 10) === today
+    ).length;
+    const isExtra = isFinite(maxImportsPerDay) && usedToday >= maxImportsPerDay;
+    const extraCharge = isExtra ? planDetails.budget_import_overage_price || 0 : 0;
 
     // Agrupa por nome de categoria (case-insensitive), somando o Previsto --
     // cobre o caso de a planilha ter mais de uma linha para a mesma
@@ -1237,10 +1274,10 @@ class CategoryBudgetService {
       action: "budget.category_imported",
       entity: "category_budget",
       message: `Importação de orçamento por categoria (${month})`,
-      metadata: { month, categories_count: applied.length },
+      metadata: { month, categories_count: applied.length, is_extra: isExtra, extra_charge: extraCharge },
     });
     await saveDb(db);
-    return { month, created_categories: 0, categories_count: applied.length, rows: applied };
+    return { month, created_categories: 0, categories_count: applied.length, rows: applied, is_extra: isExtra, extra_charge: extraCharge };
   }
 
   // Visão completa do fluxo: Previsto (importado, por categoria) x
@@ -2125,6 +2162,9 @@ class ApiFacade {
   }
   deleteCategoryBudget(id) {
     return this.categoryBudgetService.deleteCategoryBudget(id);
+  }
+  getBudgetImportQuota() {
+    return this.categoryBudgetService.getBudgetImportQuota();
   }
   importCategoryBudgets(payload) {
     return this.categoryBudgetService.importCategoryBudgets(payload);

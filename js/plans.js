@@ -4,12 +4,14 @@
 // ===============================
 //
 // Regras de negócio:
-// - Free: acesso completo ao sistema, mas limitado a 6 despesas/dia.
+// - Free: acesso completo ao sistema, mas limitado a 6 despesas/dia
+//   e 3 importações de orçamento/dia.
 //   Cada despesa que exceder esse limite diário exige um pagamento real
 //   via Pix (QR Code/copia-e-cola gerado com a chave Pix da SPACECWORP)
 //   de R$ 5,00/unidade antes de ser registrada — ver js/pix.js e
 //   openPixPayment() em dashboard.js.
-// - Premium: acesso completo ao sistema, com despesas ilimitadas,
+// - Premium: acesso completo ao sistema, com despesas e importações
+//   de orçamento ilimitadas,
 //   por R$ 19,99/mês (também pago via Pix real).
 //
 // Reescrito em POO: Plan (entidade, um plano) + PlanCatalog (coleção de
@@ -19,13 +21,18 @@
 // sistema (js/api.js, js/dashboard.js, tests/*.test.js) não precisa mudar.
 
 class Plan {
-  constructor(key, { label, price_month, max_users, max_expenses_day, overage_price }) {
+  constructor(
+    key,
+    { label, price_month, max_users, max_expenses_day, max_budget_imports_day, overage_price, budget_import_overage_price }
+  ) {
     this.key = key;
     this.label = label;
     this.price_month = price_month;
     this.max_users = max_users;
     this.max_expenses_day = max_expenses_day;
+    this.max_budget_imports_day = max_budget_imports_day;
     this.overage_price = overage_price || 0;
+    this.budget_import_overage_price = budget_import_overage_price || 0;
   }
 
   get hasUnlimitedExpenses() {
@@ -34,6 +41,10 @@ class Plan {
 
   get hasUnlimitedUsers() {
     return !isFinite(this.max_users);
+  }
+
+  get hasUnlimitedBudgetImports() {
+    return !isFinite(this.max_budget_imports_day);
   }
 
   // Quanto custa registrar mais uma despesa além do limite diário (0 se
@@ -51,7 +62,9 @@ class Plan {
       price_month: this.price_month,
       max_users: this.max_users,
       max_expenses_day: this.max_expenses_day,
+      max_budget_imports_day: this.max_budget_imports_day,
       overage_price: this.overage_price,
+      budget_import_overage_price: this.budget_import_overage_price,
     };
   }
 }
@@ -94,14 +107,18 @@ const PLAN_DEFINITIONS = {
     price_month: 0,
     max_users: Infinity,
     max_expenses_day: 6,
+    max_budget_imports_day: 3,
     overage_price: 5.0, // cobrança real via Pix por despesa extra além do limite diário
+    budget_import_overage_price: 10.0, // cobrança real via Pix por importação extra de orçamento além do limite diário
   },
   premium: {
     label: "Premium",
     price_month: 19.99,
     max_users: Infinity,
     max_expenses_day: Infinity,
+    max_budget_imports_day: Infinity,
     overage_price: 0,
+    budget_import_overage_price: 0,
   },
 };
 
