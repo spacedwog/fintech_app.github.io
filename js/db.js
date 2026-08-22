@@ -48,7 +48,7 @@ function secureRandomBase36(size = 6) {
   return Array.from(bytes, (b) => (b % 36).toString(36)).join("");
 }
 
-const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros"];
+const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros", "Mercado Pago"];
 const DB_COLLECTIONS = [
   "tenants", "users", "categories", "expenses", "budgets", "payments", "ads", "budgetLayouts", "categoryBudgets", "budgetGroups", "expenseRules", "auditEvents",
 ];
