@@ -240,7 +240,7 @@ Mostra os dois planos e o histórico de pagamentos.
 
 | Plano | Preço | Despesas/dia |
 |---|---|---|
-| Free | R$ 0,00 | 3 (cada despesa extra: cobrança real de R$ 10,00/unidade via Pix) |
+| Free | R$ 0,00 | 3 (cada despesa extra: cobrança real de R$ 5,00/unidade via Pix) |
 | Premium | R$ 19,99/mês | Ilimitadas |
 
 Trocar de plano (ou pagar a despesa extra) abre o **modal de Pix real**: QR Code + "copia e cola" válidos no formato do Banco Central (BR Code, CRC16), apontando pra chave Pix real da SPACECWORP (CNPJ 62.904.267/0001-60). Quem escanear/pagar transfere dinheiro de verdade.
@@ -539,7 +539,7 @@ Cada conta que se cadastra vira um "tenant" isolado dentro do mesmo banco (Fires
 
 O sistema só pode ser usado com login (a tela `dashboard.html` redireciona para `login.html` se não houver sessão ativa). Depois de logado, todo usuário tem acesso completo ao sistema — a única diferença entre os planos é o limite diário de despesas (tabela em [💳 Plano](#-plano)).
 
-O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atingir 3 despesas no dia, a despesa não é salva imediatamente — abre-se um QR Code Pix real (mesma chave usada no site, CNPJ 62.904.267/0001-60) de R$ 10,00. O usuário paga no app do próprio banco e envia o comprovante; uma IA local (OCR, `js/receipt-ai.js`) confere se o valor e o recebedor batem com a cobrança antes de habilitar a confirmação — se a leitura automática falhar, ainda é possível confirmar manualmente. Trocar para o plano Premium funciona do mesmo jeito, com um QR Code Pix de R$ 19,99/mês.
+O limite é checado em `js/api.js` (`addExpense`) ao criar cada despesa: ao atingir 3 despesas no dia, a despesa não é salva imediatamente — abre-se um QR Code Pix real (mesma chave usada no site, CNPJ 62.904.267/0001-60) de R$ 5,00. O usuário paga no app do próprio banco e envia o comprovante; uma IA local (OCR, `js/receipt-ai.js`) confere se o valor e o recebedor batem com a cobrança antes de habilitar a confirmação — se a leitura automática falhar, ainda é possível confirmar manualmente. Trocar para o plano Premium funciona do mesmo jeito, com um QR Code Pix de R$ 19,99/mês.
 
 **Importante sobre o Pix:** o QR Code e o código "copia e cola" são gerados no formato oficial do Banco Central (BR Code, com CRC16) e apontam para uma chave Pix real — ou seja, quem pagar transfere dinheiro de verdade. A confirmação em "Já paguei" é uma declaração do próprio usuário; o que a valida de fato depois é a IA de OCR (na hora) e/ou o agente `mp_reconcile.py` (depois do fato, ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)) — nenhum dos dois é um webhook bancário em tempo real.
 </details>
