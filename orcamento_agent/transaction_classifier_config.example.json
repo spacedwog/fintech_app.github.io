@@ -17,5 +17,47 @@
       "keywords": ["pix", "transferencia recebida", "deposito", "cashback"],
       "direction": "credit"
     }
+  ],
+  "payment_type_profiles": [
+    {
+      "name": "PIX",
+      "keywords": ["pix", "qr", "copia e cola", "instant payment"]
+    },
+    {
+      "name": "API",
+      "keywords": ["api", "sdk", "checkout", "assinatura", "subscription"]
+    },
+    {
+      "name": "BOLETO",
+      "keywords": ["boleto", "ticket"]
+    },
+    {
+      "name": "CARTAO",
+      "keywords": ["credit_card", "debit_card", "visa", "master", "elo", "amex"]
+    }
+  ],
+  "transaction_type_profiles": [
+    {
+      "name": "PIX",
+      "keywords": ["pix", "transferencia pix"]
+    },
+    {
+      "name": "API",
+      "keywords": ["api", "checkout", "subscription", "external_reference"]
+    },
+    {
+      "name": "ESTORNO",
+      "keywords": ["refund", "chargeback", "estorno", "devolucao"]
+    }
+  ],
+  "known_mp_statuses": [
+    "approved",
+    "pending",
+    "in_process",
+    "authorized",
+    "rejected",
+    "cancelled",
+    "refunded",
+    "charged_back"
   ]
 }

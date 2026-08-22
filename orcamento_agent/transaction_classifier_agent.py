@@ -15,12 +15,34 @@ from typing import Dict, List, Optional
 
 DEFAULT_CATEGORY = "Não categorizado"
 DEFAULT_MIN_CONFIDENCE = 0.35
+DEFAULT_PAYMENT_TYPE = "OUTROS"
+DEFAULT_TX_TYPE = "OUTROS"
+DEFAULT_KNOWN_MP_STATUSES = {
+    "approved",
+    "pending",
+    "in_process",
+    "authorized",
+    "rejected",
+    "cancelled",
+    "refunded",
+    "charged_back",
+}
 
 
 class TransactionClassifierAgent:
-    def __init__(self, category_profiles=None, default_category=DEFAULT_CATEGORY):
+    def __init__(
+        self,
+        category_profiles=None,
+        default_category=DEFAULT_CATEGORY,
+        payment_type_profiles=None,
+        transaction_type_profiles=None,
+        known_mp_statuses=None,
+    ):
         self.default_category = default_category or DEFAULT_CATEGORY
         self.category_profiles = category_profiles or []
+        self.payment_type_profiles = payment_type_profiles or []
+        self.transaction_type_profiles = transaction_type_profiles or []
+        self.known_mp_statuses = set(known_mp_statuses or DEFAULT_KNOWN_MP_STATUSES)
 
     @staticmethod
     def _normalize(value):
@@ -63,12 +85,123 @@ class TransactionClassifierAgent:
     def _tokenize(desc_norm):
         return [t for t in re.split(r"[^a-z0-9]+", desc_norm) if t]
 
+    def _score_profiles(self, haystack, tokens, profiles):
+        best = {"name": None, "score": 0.0, "matched_keywords": []}
+        for profile in profiles or []:
+            profile_name = str(profile.get("name") or "").strip()
+            if not profile_name:
+                continue
+            score = 0.0
+            matches = []
+            for kw in profile.get("keywords") or []:
+                kw_norm = self._normalize(kw)
+                if not kw_norm:
+                    continue
+                if " " in kw_norm:
+                    if kw_norm in haystack:
+                        score += 1.5
+                        matches.append(kw)
+                elif kw_norm in tokens:
+                    score += 1.0
+                    matches.append(kw)
+            if score > best["score"]:
+                best = {"name": profile_name, "score": score, "matched_keywords": matches}
+        return best
+
+    def _infer_payment_channel(self, transaction):
+        raw = self._normalize(" ".join([
+            str(transaction.get("payment_type_id") or ""),
+            str(transaction.get("payment_method_id") or ""),
+            str(transaction.get("description") or ""),
+            str(transaction.get("statement_descriptor") or ""),
+            str(transaction.get("operation_type") or ""),
+            str(transaction.get("transaction_type") or ""),
+            str(transaction.get("type") or ""),
+            str(transaction.get("external_reference") or ""),
+        ]))
+        tokens = set(self._tokenize(raw))
+
+        if any(t in raw for t in ("pix", "instant payment", "qr code", "copia e cola")):
+            return "PIX"
+        if any(t in raw for t in ("credit_card", "debit_card", "cartao", "visa", "master", "elo", "amex")):
+            return "CARTAO"
+        if any(t in raw for t in ("ticket", "boleto")):
+            return "BOLETO"
+        if any(t in raw for t in ("account_money", "saldo")):
+            return "SALDO_CONTA"
+        if any(t in raw for t in ("api", "sdk", "checkout", "subscription", "assinatura", "link de pagamento")):
+            return "API"
+
+        prof = self._score_profiles(raw, tokens, self.payment_type_profiles)
+        if prof["name"] and prof["score"] > 0:
+            return prof["name"]
+        return DEFAULT_PAYMENT_TYPE
+
+    def _infer_transaction_type(self, transaction, direction):
+        raw = self._normalize(" ".join([
+            str(transaction.get("transaction_type") or ""),
+            str(transaction.get("operation_type") or ""),
+            str(transaction.get("type") or ""),
+            str(transaction.get("description") or ""),
+            str(transaction.get("statement_descriptor") or ""),
+            str(transaction.get("external_reference") or ""),
+        ]))
+        tokens = set(self._tokenize(raw))
+
+        if any(t in raw for t in ("refund", "refunded", "chargeback", "devolucao", "estorno")):
+            return "ESTORNO"
+
+        prof = self._score_profiles(raw, tokens, self.transaction_type_profiles)
+        if prof["name"] and prof["score"] > 0:
+            base = prof["name"]
+        else:
+            base = self._infer_payment_channel(transaction)
+            if base == DEFAULT_PAYMENT_TYPE:
+                base = DEFAULT_TX_TYPE
+
+        if direction == "credit":
+            return f"{base}_ENTRADA"
+        if direction == "debit":
+            return f"{base}_SAIDA"
+        return base
+
+    def _verify_mercado_pago(self, transaction):
+        status = self._normalize(transaction.get("status"))
+        amount = transaction.get("transaction_amount", transaction.get("amount"))
+        has_payment_id = transaction.get("id") is not None or transaction.get("payment_id") is not None
+        amount_is_numeric = isinstance(amount, (int, float)) or str(amount).replace(".", "", 1).replace("-", "", 1).isdigit()
+        known_status = status in self.known_mp_statuses if status else False
+
+        payment_verified = bool(has_payment_id and known_status)
+        transaction_verified = bool(payment_verified and amount_is_numeric)
+
+        verification_status = "unknown"
+        if status == "approved":
+            verification_status = "approved"
+        elif status in ("pending", "in_process", "authorized"):
+            verification_status = "pending"
+        elif status in ("rejected", "cancelled"):
+            verification_status = "rejected"
+        elif status in ("refunded", "charged_back"):
+            verification_status = "reversed"
+
+        return {
+            "payment_verified": payment_verified,
+            "transaction_verified": transaction_verified,
+            "mercado_pago_status": status or "desconhecido",
+            "verification_status": verification_status,
+            "reason": "Status do Mercado Pago e dados mínimos (id + valor) verificados." if transaction_verified else "Dados insuficientes ou status desconhecido no Mercado Pago.",
+        }
+
     def classify(self, transaction, min_confidence=DEFAULT_MIN_CONFIDENCE):
         desc = transaction.get("description") or transaction.get("statement_descriptor") or ""
         desc_norm = self._normalize(desc)
         tokens = set(self._tokenize(desc_norm))
         direction = self._infer_direction(transaction)
         amount = self._safe_float(transaction.get("transaction_amount", transaction.get("amount", 0)))
+        payment_type = self._infer_payment_channel(transaction)
+        transaction_type = self._infer_transaction_type(transaction, direction)
+        verification = self._verify_mercado_pago(transaction)
 
         best = {
             "category": self.default_category,
@@ -130,6 +263,9 @@ class TransactionClassifierAgent:
                 "category": self.default_category,
                 "confidence": round(confidence, 4),
                 "direction": direction,
+                "payment_type": payment_type,
+                "transaction_type": transaction_type,
+                "verification": verification,
                 "matched_keywords": best["matched_keywords"],
                 "reason": "Confiança abaixo do mínimo; mantido fallback em categoria padrão.",
             }
@@ -138,6 +274,9 @@ class TransactionClassifierAgent:
             "category": best["category"],
             "confidence": round(confidence, 4),
             "direction": direction,
+            "payment_type": payment_type,
+            "transaction_type": transaction_type,
+            "verification": verification,
             "matched_keywords": best["matched_keywords"],
             "reason": best["reason"],
         }
@@ -149,6 +288,9 @@ class TransactionClassificationRunner:
         self.classifier = TransactionClassifierAgent(
             category_profiles=self.cfg.get("category_profiles") or [],
             default_category=self.cfg.get("default_category") or DEFAULT_CATEGORY,
+            payment_type_profiles=self.cfg.get("payment_type_profiles") or [],
+            transaction_type_profiles=self.cfg.get("transaction_type_profiles") or [],
+            known_mp_statuses=self.cfg.get("known_mp_statuses") or list(DEFAULT_KNOWN_MP_STATUSES),
         )
         self.min_confidence = float(self.cfg.get("min_confidence", DEFAULT_MIN_CONFIDENCE))
 

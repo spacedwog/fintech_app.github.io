@@ -127,7 +127,9 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
   simulados (sem Firestore real). Rode `python3 test_cobol_bridge.py` depois de
   qualquer alteração no script.
 - `transaction_classifier_agent.py` — agente de classificação de transações
-  (entrada em JSON, saída em JSON com categoria + confiança + evidências).
+  (entrada em JSON, saída em JSON com categoria + confiança + evidências), além
+  de verificação de pagamento/transação no contexto Mercado Pago e classificação
+  de tipo de pagamento/transação (PIX, API e outros).
 - `transaction_classifier_config.example.json` — modelo de perfis de categoria para
   o `transaction_classifier_agent.py`.
 - `test_transaction_classifier_agent.py` — teste automatizado do classificador.
