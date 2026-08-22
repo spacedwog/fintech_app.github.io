@@ -303,6 +303,10 @@ function normalizeLegacyMercadoPagoCategory(value) {
     : raw;
 }
 
+function normalizeCategoryKey(value) {
+  return normalizeGroupText(normalizeLegacyMercadoPagoCategory(value));
+}
+
 function areCategoriesSimilar(a, b) {
   const left = normalizeGroupText(a);
   const right = normalizeGroupText(b);
@@ -665,7 +669,10 @@ class CategoryService {
     const session = Auth.requireSession();
     const db = await loadDb();
     const safeName = normalizeLegacyMercadoPagoCategory(name);
-    const exists = db.categories.some((c) => c.tenant_id === session.tenant_id && c.name === safeName);
+    const safeKey = normalizeCategoryKey(safeName);
+    const exists = db.categories.some(
+      (c) => c.tenant_id === session.tenant_id && normalizeCategoryKey(c.name) === safeKey
+    );
     if (!exists) {
       const category = { id: nextId(db, "categories"), tenant_id: session.tenant_id, name: safeName };
       db.categories.push(category);
