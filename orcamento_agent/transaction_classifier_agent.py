@@ -59,6 +59,13 @@ class TransactionClassifierAgent:
         except (TypeError, ValueError):
             return fallback
 
+    @staticmethod
+    def _is_numeric_identifier(value):
+        if value is None:
+            return False
+        text = str(value).strip()
+        return bool(text) and re.fullmatch(r"\d+", text) is not None
+
     def _infer_direction(self, tx):
         raw = self._normalize(" ".join([
             str(tx.get("direction") or ""),
@@ -171,9 +178,45 @@ class TransactionClassifierAgent:
         has_payment_id = transaction.get("id") is not None or transaction.get("payment_id") is not None
         amount_is_numeric = isinstance(amount, (int, float)) or str(amount).replace(".", "", 1).replace("-", "", 1).isdigit()
         known_status = status in self.known_mp_statuses if status else False
+        is_mercado_pago = bool(transaction.get("generated_by_mercado_pago")) or bool(transaction.get("payment_id"))
+
+        number_fields = ("id", "payment_id", "transaction_number", "merchant_order_id", "collector_id", "operation_id")
+        transaction_numbers = {}
+        for field in number_fields:
+            value = transaction.get(field)
+            if value is None or str(value).strip() == "":
+                continue
+            transaction_numbers[field] = {
+                "value": str(value),
+                "is_numeric": self._is_numeric_identifier(value),
+            }
+        all_numbers_numeric = bool(transaction_numbers) and all(item["is_numeric"] for item in transaction_numbers.values())
+        numbers_verified = all_numbers_numeric
+
+        nature_raw = self._normalize(" ".join([
+            str(transaction.get("description") or ""),
+            str(transaction.get("statement_descriptor") or ""),
+            str(transaction.get("transaction_type") or ""),
+            str(transaction.get("type") or ""),
+            str(transaction.get("operation_type") or ""),
+            str(transaction.get("external_reference") or ""),
+            str(transaction.get("generated_by_mercado_pago_source") or ""),
+        ]))
+        has_partition_payment = "partition_payment" in nature_raw
+        has_imported_mp_type = "pagamento importado" in nature_raw and "mercado pago" in nature_raw
+        source = self._normalize(transaction.get("generated_by_mercado_pago_source"))
+        source_api = source == "api" or "integracao mercado pago api" in nature_raw
+        nature_is_mp = is_mercado_pago or has_imported_mp_type or has_partition_payment or "mercado pago" in nature_raw
+        if source_api:
+            detected_origin = "Integração Mercado Pago API"
+        elif nature_is_mp:
+            detected_origin = "Integração Mercado Pago"
+        else:
+            detected_origin = "Origem não identificada"
+        nature_verified = bool(nature_is_mp and (has_imported_mp_type or is_mercado_pago))
 
         payment_verified = bool(has_payment_id and known_status)
-        transaction_verified = bool(payment_verified and amount_is_numeric)
+        transaction_verified = bool(payment_verified and amount_is_numeric and (numbers_verified if is_mercado_pago else True))
 
         verification_status = "unknown"
         if status == "approved":
@@ -190,7 +233,28 @@ class TransactionClassifierAgent:
             "transaction_verified": transaction_verified,
             "mercado_pago_status": status or "desconhecido",
             "verification_status": verification_status,
-            "reason": "Status do Mercado Pago e dados mínimos (id + valor) verificados." if transaction_verified else "Dados insuficientes ou status desconhecido no Mercado Pago.",
+            "transaction_number_verification": {
+                "numbers_verified": numbers_verified,
+                "all_numbers_numeric": all_numbers_numeric,
+                "numbers_checked": transaction_numbers,
+                "reason": "Todos os números de transação identificados estão no formato numérico."
+                if numbers_verified
+                else "Há números de transação ausentes ou com formato inválido.",
+            },
+            "transaction_nature_verification": {
+                "nature_verified": nature_verified,
+                "is_imported_mercado_pago_payment": bool(nature_is_mp),
+                "detected_origin": detected_origin,
+                "source_api": source_api,
+                "partition_payment_detected": has_partition_payment,
+                "expected_transaction_type": "Pagamento importado (Mercado Pago)" if nature_is_mp else "Não identificado",
+                "reason": "Natureza da transação Mercado Pago validada (origem/tipo/descrição)."
+                if nature_verified
+                else "Sem evidências suficientes para validar a natureza da transação Mercado Pago.",
+            },
+            "reason": "Status do Mercado Pago, dados mínimos (id + valor) e números/natureza da transação verificados."
+            if transaction_verified
+            else "Dados insuficientes, números inválidos ou status desconhecido no Mercado Pago.",
         }
 
     def classify(self, transaction, min_confidence=DEFAULT_MIN_CONFIDENCE):
