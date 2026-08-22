@@ -140,6 +140,11 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
   o `transaction_classifier_agent.py`.
 - `test_transaction_classifier_agent.py` — teste automatizado do classificador.
   Rode `python3 test_transaction_classifier_agent.py` depois de qualquer alteração.
+- `mp_expense_verifier_agent.py` — agente dedicado para verificar despesa Mercado
+  Pago (PIX, cartão, boleto, saldo em conta e API), consolidar comprovante +
+  número de transação e gerar saída JSON padronizada por transação.
+- `test_mp_expense_verifier_agent.py` — teste automatizado do agente de
+  verificação de despesa/comprovante.
 
 ## Ver as atividades do Mercado Pago sem gerar despesas (`mp_list_activities.py`)
 Antes de configurar o Firebase para `mp_reconcile.py`/`mp_expenses.py` valer a pena,
@@ -328,6 +333,10 @@ palavra-chave.
 3. O que sobra é categorizado por palavra-chave (`mapeamento` do config, mesma ideia
    da aba Mapeamento do `mp_sync.py`) — sem correspondência, cai em `categoria_padrao`
    (cria a categoria automaticamente se não existir).
+4. Antes de gravar, cada pagamento passa por uma validação completa de despesa:
+   status aprovado, direção de saída (debit), valor válido, origem Mercado Pago
+   confirmada, forma de pagamento permitida (PIX/cartão/boleto/saldo/API),
+   identificador único e consistência opcional com comprovante.
 
 **Configurar:**
 1. Copie `mp_expenses_config.example.json` → `mp_expenses_config.json`, cole o Access
@@ -346,7 +355,8 @@ palavra-chave.
    python3 mp_expenses.py                   # gera as despesas de verdade
    python3 mp_expenses.py --dias 90         # janela maior
    ```
-6. Rode `python3 test_mp_expenses.py` depois de qualquer alteração no script.
+6. Rode `python3 test_mp_expenses.py` e `python3 test_mp_expense_verifier_agent.py`
+   depois de qualquer alteração no script.
 
 **Idempotência:** cada despesa gerada guarda o id do pagamento no Mercado Pago
 (`mercadoPagoPaymentId`) — rodar de novo nunca duplica. No painel web, essas despesas
@@ -356,6 +366,33 @@ do painel (abaixo do indicador de sincronização, em qualquer tela) — resume 
 despesas foram geradas e quantos pagamentos foram confirmados via Mercado Pago
 (`mp_reconcile.py`), com a data da atualização mais recente. Ver `Api.getMercadoPagoStatus()`
 em `js/api.js` e `MercadoPagoStatusIndicator` em `js/dashboard.js`.
+
+**Auditoria e padronização JSON:** cada despesa gerada também grava um bloco
+`mercadoPagoVerification` com os campos mínimos padronizados:
+`transaction_id`, `transaction_number`, `payment_type`, `verified`,
+`verification_reason`, `receipt_detected` e `receipt_confidence`.
+
+## Verificação de despesas + comprovante (`mp_expense_verifier_agent.py`)
+Este agente dedicado pode rodar isolado para validar transações Mercado Pago e
+consolidar número de transação por API + comprovante OCR (texto extraído, por
+exemplo, pelo `js/receipt-ai.js` no painel).
+
+**Rodar:**
+```bash
+cd orcamento_agent
+python3 mp_expense_verifier_agent.py --input-json entrada.json --output-json saida.json
+python3 test_mp_expense_verifier_agent.py
+```
+
+Formato esperado em `entrada.json`:
+```json
+{
+  "transactions": [{ "id": "...", "payment_id": "...", "status": "approved" }],
+  "receipts_by_transaction_id": {
+    "123": { "rawText": "Número da transação: 123", "confidence": 0.92 }
+  }
+}
+```
 
 **Limitações (por design):** não roda em tempo real (depende de executar o script, ou
 do agendamento/GitHub Actions — ver "Automação sem depender do seu computador"

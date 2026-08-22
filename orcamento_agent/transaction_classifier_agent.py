@@ -19,6 +19,7 @@ DEFAULT_MIN_CONFIDENCE = 0.35
 DEFAULT_PAYMENT_TYPE = "OUTROS"
 DEFAULT_TX_TYPE = "OUTROS"
 DEFAULT_MOVEMENT_TYPE = "Feed"
+SUPPORTED_EXPENSE_PAYMENT_TYPES = {"PIX", "CARTAO", "BOLETO", "SALDO_CONTA", "API"}
 DEFAULT_MP_MONTHLY_BUDGET = 683.0
 DEFAULT_MP_BUDGET_EMAIL = "felipersantos1988@gmail.com"
 DEFAULT_KNOWN_MP_STATUSES = {
@@ -337,6 +338,90 @@ class TransactionClassifierAgent:
             "reason": "Status do Mercado Pago, dados mínimos (id + valor) e números/natureza da transação verificados."
             if transaction_verified
             else "Dados insuficientes, números inválidos ou status desconhecido no Mercado Pago.",
+        }
+
+    @staticmethod
+    def _extract_primary_transaction_number(transaction):
+        for field in ("transaction_number", "payment_id", "id", "merchant_order_id", "operation_id", "collector_id"):
+            value = transaction.get(field)
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return ""
+
+    def verify_expense_transaction(self, transaction, existing_transaction_ids=None, receipt_data=None):
+        classification = self.classify(transaction, min_confidence=0.0)
+        verification = classification.get("verification") or {}
+        tx_id = transaction.get("id") or transaction.get("payment_id")
+        transaction_id = str(tx_id).strip() if tx_id is not None else ""
+        transaction_number = self._extract_primary_transaction_number(transaction)
+        payment_type = classification.get("payment_type") or DEFAULT_PAYMENT_TYPE
+        direction = classification.get("direction")
+        status = verification.get("mercado_pago_status")
+        amount = abs(self._safe_float(transaction.get("transaction_amount", transaction.get("amount", 0))))
+
+        receipt_data = receipt_data if isinstance(receipt_data, dict) else {}
+        receipt_detected = bool(receipt_data.get("receipt_detected") or receipt_data.get("rawText"))
+        receipt_confidence = self._safe_float(receipt_data.get("receipt_confidence", receipt_data.get("confidence")), 0.0)
+        receipt_transaction_number = str(receipt_data.get("transaction_number") or "").strip()
+
+        existing = {str(item).strip() for item in (existing_transaction_ids or []) if str(item).strip()}
+        unique_identifier = bool(transaction_id) and transaction_id not in existing
+        status_ok = status == "approved"
+        direction_ok = direction == "debit"
+        amount_ok = amount > 0
+        payment_type_ok = payment_type in SUPPORTED_EXPENSE_PAYMENT_TYPES
+        source_ok = bool((verification.get("transaction_nature_verification") or {}).get("is_imported_mercado_pago_payment"))
+        transaction_ok = bool(verification.get("transaction_verified"))
+        receipt_number_matches = (
+            not receipt_transaction_number
+            or not transaction_number
+            or receipt_transaction_number == transaction_number
+        )
+
+        checks = {
+            "status": status_ok,
+            "direction": direction_ok,
+            "amount": amount_ok,
+            "payment_type": payment_type_ok,
+            "source": source_ok,
+            "transaction_verified": transaction_ok,
+            "unique_identifier": unique_identifier,
+            "receipt_transaction_number": receipt_number_matches,
+        }
+
+        verified = all(checks.values())
+        reasons = []
+        if not status_ok:
+            reasons.append("status não aprovado")
+        if not direction_ok:
+            reasons.append("transação não é despesa (debit)")
+        if not amount_ok:
+            reasons.append("valor inválido")
+        if not payment_type_ok:
+            reasons.append("forma de pagamento fora do escopo de despesa")
+        if not source_ok:
+            reasons.append("origem Mercado Pago não validada")
+        if not transaction_ok:
+            reasons.append("validação básica da transação falhou")
+        if not unique_identifier:
+            reasons.append("identificador de transação ausente/duplicado")
+        if not receipt_number_matches:
+            reasons.append("número de transação do comprovante não confere")
+
+        return {
+            "transaction_id": transaction_id,
+            "transaction_number": transaction_number,
+            "payment_type": payment_type,
+            "verified": verified,
+            "verification_reason": "Verificação concluída com sucesso." if verified else "; ".join(reasons),
+            "receipt_detected": receipt_detected,
+            "receipt_confidence": round(max(0.0, min(1.0, receipt_confidence)), 4),
+            "receipt_transaction_number": receipt_transaction_number or None,
+            "checks": checks,
+            "classification": classification,
         }
 
     def classify(self, transaction, min_confidence=DEFAULT_MIN_CONFIDENCE):

@@ -133,6 +133,17 @@ r8 = next(r for r in results if r["id"] == "333444555")
 assert r8["classification"]["movement_type"] == "Orçamento", r8
 print("OK classifica recebimento Mercado Pago como Orçamento")
 
+v_expense = runner.classifier.verify_expense_transaction(transactions[4])
+assert v_expense["verified"] is True, v_expense
+assert v_expense["payment_type"] == "API", v_expense
+assert v_expense["transaction_number"] == "987654321", v_expense
+print("OK verificação completa de despesa Mercado Pago (tipo + status + direção + origem)")
+
+v_duplicate = runner.classifier.verify_expense_transaction(transactions[4], existing_transaction_ids=["123456789"])
+assert v_duplicate["verified"] is False, v_duplicate
+assert v_duplicate["checks"]["unique_identifier"] is False, v_duplicate
+print("OK verificação reprova identificação duplicada")
+
 with tempfile.TemporaryDirectory() as td:
     input_path = os.path.join(td, "in.json")
     output_path = os.path.join(td, "out.json")

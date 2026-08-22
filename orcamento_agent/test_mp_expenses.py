@@ -57,11 +57,12 @@ cfg = {
 db1 = json.loads(json.dumps(fixture_db))  # cópia profunda
 resultado1 = mp_expenses.generate_expenses(db1, fake_mp_payments, "t1", "u1", cfg)
 
-assert len(resultado1["criadas"]) == 3, resultado1["criadas"]
+assert len(resultado1["criadas"]) == 2, resultado1["criadas"]
 assert resultado1["ignoradas_receita"] == 1, resultado1
 assert resultado1["ignoradas_filtro"] == 1, resultado1
-assert resultado1["categorias_novas"] == 2, resultado1  # "Mercado Pago" + "Orçamento"
-print("OK generate_expenses: gerou 3 despesas, ignorou receita/filtro e classificou entrada como Orçamento")
+assert resultado1["ignoradas_verificacao"] == 1, resultado1
+assert resultado1["categorias_novas"] == 1, resultado1  # "Mercado Pago"
+print("OK generate_expenses: gerou 2 despesas, ignorou receita/filtro e bloqueou entrada por validação")
 
 uber_expense = next(e for e in resultado1["criadas"] if e["mercadoPagoPaymentId"] == 5002)
 categoria_uber = next(c for c in db1["categories"] if c["id"] == uber_expense["category_id"])
@@ -74,11 +75,8 @@ categoria_loja = next(c for c in db1["categories"] if c["id"] == loja_expense["c
 assert categoria_loja["name"] == "Mercado Pago", categoria_loja
 print("OK pagamento sem regra de mapeamento cai na categoria padrão (criada automaticamente)")
 
-orcamento_expense = next(e for e in resultado1["criadas"] if e["mercadoPagoPaymentId"] == 5006)
-categoria_orcamento = next(c for c in db1["categories"] if c["id"] == orcamento_expense["category_id"])
-assert categoria_orcamento["name"] == "Orçamento", categoria_orcamento
-assert orcamento_expense.get("mercadoPagoTransactionDirection") == "credit", orcamento_expense
-print("OK transação recebida na conta Mercado Pago é classificada como Orçamento")
+assert not any(e["mercadoPagoPaymentId"] == 5006 for e in resultado1["criadas"]), resultado1["criadas"]
+print("OK transação de entrada (cash-in) é rejeitada na verificação de despesa")
 
 assert uber_expense["is_extra"] is False and uber_expense["extra_charge"] == 0
 assert uber_expense["generatedByMercadoPago"] is True
@@ -88,7 +86,8 @@ print("OK despesas geradas não cobram taxa de extra e ficam marcadas como gerad
 
 resultado2 = mp_expenses.generate_expenses(db1, fake_mp_payments, "t1", "u1", cfg)
 assert len(resultado2["criadas"]) == 0, resultado2["criadas"]
-assert resultado2["ignoradas_duplicadas"] == 3, resultado2
+assert resultado2["ignoradas_duplicadas"] == 2, resultado2
+assert resultado2["ignoradas_verificacao"] == 1, resultado2
 print("OK idempotência: rodar generate_expenses de novo não duplica despesas já importadas")
 
 # ---------- run() end-to-end (fonte db.json local, Mercado Pago monkeypatchado) ----------
@@ -109,7 +108,7 @@ assert resultado == "ok", (resultado, msg)
 with open(TEST_DB_PATH, encoding="utf-8") as f:
     depois = json.load(f)
 novas_despesas = [e for e in depois["expenses"] if e.get("generatedByMercadoPago")]
-assert len(novas_despesas) == 3, novas_despesas
+assert len(novas_despesas) == 2, novas_despesas
 print("OK run() end-to-end (fonte db.json local): despesas gravadas de verdade no arquivo")
 
 # rodar de novo (run completo) não duplica
@@ -117,7 +116,7 @@ resultado_dup, _ = mp_expenses.run(Args)
 assert resultado_dup == "sem_novidades", resultado_dup
 with open(TEST_DB_PATH, encoding="utf-8") as f:
     depois2 = json.load(f)
-assert len([e for e in depois2["expenses"] if e.get("generatedByMercadoPago")]) == 3
+assert len([e for e in depois2["expenses"] if e.get("generatedByMercadoPago")]) == 2
 print("OK run() end-to-end rodado de novo não duplica despesas (idempotente de ponta a ponta)")
 
 # e-mail de conta inexistente -> erro claro
@@ -184,7 +183,7 @@ with open(TEST_DB_PATH, encoding="utf-8") as f:
     depois_status = json.load(f)
 status_tenant = depois_status.get("mercado_pago_status", {}).get("t1", {})
 assert "last_expenses_api" in status_tenant, depois_status.get("mercado_pago_status")
-assert status_tenant["last_expenses_api"]["criadas"] == 3, status_tenant
+assert status_tenant["last_expenses_api"]["criadas"] == 2, status_tenant
 assert "at" in status_tenant["last_expenses_api"]
 print("OK StatusTracker: run() grava mercado_pago_status.t1.last_expenses_api (contagem + horário) para o painel web ler")
 
