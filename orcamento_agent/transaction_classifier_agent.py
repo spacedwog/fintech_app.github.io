@@ -10,9 +10,8 @@ import argparse
 import json
 import os
 import re
+import unicodedata
 from typing import Dict, List, Optional
-
-import mp_sync
 
 DEFAULT_CATEGORY = "Não categorizado"
 DEFAULT_MIN_CONFIDENCE = 0.35
@@ -25,7 +24,11 @@ class TransactionClassifierAgent:
 
     @staticmethod
     def _normalize(value):
-        return mp_sync.normalize(value)
+        if value is None:
+            return ""
+        text = str(value).lower().strip()
+        text = unicodedata.normalize("NFKD", text)
+        return "".join(c for c in text if not unicodedata.combining(c))
 
     @staticmethod
     def _safe_float(value, fallback=0.0):
