@@ -218,6 +218,28 @@ function check(name, cond) {
     !manageBudgets.afterDelete.some((b) => b.category_name === "Transporte")
   );
 
+  // ---------- normalização legada Mercado Pago ----------
+  const legadoMercadoPago = await run(
+    dev,
+    `
+    await Api.addCategory("Mercado Pago (não categorizado)");
+    await Api.setCategoryBudget({ month: "2026-08", previsto: 99, category_name: "Mercado Pago (não categorizado)" });
+    const categories = await Api.listCategories();
+    const budgets = await Api.listCategoryBudgets("2026-08");
+    return { categories, budgets };
+  `
+  );
+  check(
+    "normaliza categoria legada Mercado Pago (não categorizado) para Mercado Pago",
+    !legadoMercadoPago.categories.some((c) => c.name === "Mercado Pago (não categorizado)")
+      && legadoMercadoPago.categories.some((c) => c.name === "Mercado Pago")
+  );
+  check(
+    "normaliza orçamento com categoria legada Mercado Pago (não categorizado)",
+    !legadoMercadoPago.budgets.some((b) => b.category_name === "Mercado Pago (não categorizado)")
+      && legadoMercadoPago.budgets.some((b) => b.category_name === "Mercado Pago")
+  );
+
   // ---------- mês sem nenhum orçamento importado ----------
   const overviewMesVazio = await run(dev, `const overview = await Api.getBudgetOverview("2099-01"); return { overview };`);
   check("mês sem nenhum orçamento nem despesa -> hasAnyBudget=false e rows vazio", overviewMesVazio.overview.hasAnyBudget === false && overviewMesVazio.overview.rows.length === 0);

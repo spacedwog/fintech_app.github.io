@@ -295,6 +295,14 @@ function normalizeGroupText(value) {
     .trim();
 }
 
+function normalizeLegacyMercadoPagoCategory(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return raw;
+  return /^mercado\s+pago\s*\(\s*n[aã]o\s+categorizado\s*\)$/i.test(raw)
+    ? "Mercado Pago"
+    : raw;
+}
+
 function areCategoriesSimilar(a, b) {
   const left = normalizeGroupText(a);
   const right = normalizeGroupText(b);
@@ -656,17 +664,18 @@ class CategoryService {
   async addCategory(name) {
     const session = Auth.requireSession();
     const db = await loadDb();
-    const exists = db.categories.some((c) => c.tenant_id === session.tenant_id && c.name === name);
+    const safeName = normalizeLegacyMercadoPagoCategory(name);
+    const exists = db.categories.some((c) => c.tenant_id === session.tenant_id && c.name === safeName);
     if (!exists) {
-      const category = { id: nextId(db, "categories"), tenant_id: session.tenant_id, name };
+      const category = { id: nextId(db, "categories"), tenant_id: session.tenant_id, name: safeName };
       db.categories.push(category);
       appendAuditEvent(db, {
         tenant_id: session.tenant_id,
         user_id: session.user_id,
         action: "category.created",
         entity: "category",
-        message: `Categoria criada (${name})`,
-        metadata: { category_id: category.id, category_name: name },
+        message: `Categoria criada (${safeName})`,
+        metadata: { category_id: category.id, category_name: safeName },
       });
       await saveDb(db);
     }
@@ -1078,11 +1087,12 @@ class CategoryBudgetService {
       throw new Error("Informe ao menos orçamento, categoria ou nome da categoria.");
     }
     const db = await loadDb();
-    const normalizedName = normalizeGroupText(category_name);
+    const safeCategoryName = normalizeLegacyMercadoPagoCategory(category_name);
+    const normalizedName = normalizeGroupText(safeCategoryName);
     const category = category_id
       ? db.categories.find((c) => c.id === category_id && c.tenant_id === session.tenant_id)
       : null;
-    const resolvedName = String(category_name || (category && category.name) || "").trim() || null;
+    const resolvedName = String(safeCategoryName || (category && category.name) || "").trim() || null;
 
     let record = budget_id
       ? db.categoryBudgets.find((b) => b.id === budget_id && b.tenant_id === session.tenant_id)
@@ -1222,7 +1232,7 @@ class CategoryBudgetService {
     // categoria (ex.: uma planilha "larga" com vários meses lidos juntos).
     const byName = new Map();
     rows.forEach((r) => {
-      const name = String((r && r.categoria) || "").trim();
+      const name = normalizeLegacyMercadoPagoCategory((r && r.categoria) || "");
       if (!name) return;
       const key = name.toLowerCase();
       const current = byName.get(key) || { name, previsto: 0 };
