@@ -453,6 +453,8 @@ class DashboardController {
     this.budgetGroupsBound = false;
     this.feedBound = false;
     this.reportsBound = false;
+    this.reportsPagerBound = false;
+    this.currentReportsPage = 1;
 
     this.budgetInputBound = false;
     this.pixKeyPaymentBound = false;
@@ -686,6 +688,41 @@ class DashboardController {
 
     if (isSecurity) this._loadSecurityView();
     else this._loadPrivacyView();
+  }
+
+  _bindReportsPager() {
+    document.querySelectorAll("[data-report-page]").forEach((btn) => {
+      btn.addEventListener("click", () => this._goToReportsPage(parseInt(btn.dataset.reportPage, 10)));
+    });
+    document.querySelectorAll('[data-report-nav="prev"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToReportsPage(this.currentReportsPage - 1));
+    });
+    document.querySelectorAll('[data-report-nav="next"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToReportsPage(this.currentReportsPage + 1));
+    });
+  }
+
+  _goToReportsPage(page) {
+    const totalPages = 4;
+    const nextPage = Math.max(1, Math.min(totalPages, Number(page) || 1));
+    this.currentReportsPage = nextPage;
+
+    document.querySelectorAll(".reports-flow-page").forEach((el) => {
+      const pageNumber = parseInt(String(el.id || "").replace("reports-flow-page-", ""), 10);
+      el.classList.toggle("hidden", pageNumber !== nextPage);
+    });
+    document.querySelectorAll(".report-page-dot").forEach((btn) => {
+      const btnPage = parseInt(btn.dataset.reportPage, 10);
+      btn.classList.toggle("active", btnPage === nextPage);
+    });
+    const indicator = document.getElementById("report-page-indicator");
+    if (indicator) indicator.textContent = `Página ${nextPage} de ${totalPages}`;
+    document.querySelectorAll('[data-report-nav="prev"]').forEach((btn) => {
+      btn.disabled = nextPage === 1;
+    });
+    document.querySelectorAll('[data-report-nav="next"]').forEach((btn) => {
+      btn.disabled = nextPage === totalPages;
+    });
   }
 
   // Registra, num único lugar, os handlers de submit dos formulários da
@@ -1554,6 +1591,12 @@ class DashboardController {
   }
 
   async _loadReportsView() {
+    if (!this.reportsPagerBound) {
+      this.reportsPagerBound = true;
+      this._bindReportsPager();
+    }
+    this._goToReportsPage(this.currentReportsPage);
+
     const reportMonthInput = document.getElementById("report-export-month");
     if (reportMonthInput && !reportMonthInput.value) reportMonthInput.value = new Date().toISOString().slice(0, 7);
     if (!this.reportsBound && reportMonthInput) {
@@ -1568,12 +1611,13 @@ class DashboardController {
     }
 
     const targetMonth = (reportMonthInput && reportMonthInput.value) || new Date().toISOString().slice(0, 7);
-    const monthly = await Api.monthlyReport();
-    const byCategory = await Api.categoryReport();
-    const [alertData, projection, closeChecklist] = await Promise.all([
+    const [monthly, byCategory, alertData, projection, closeChecklist, transactionOriginReport] = await Promise.all([
+      Api.monthlyReport(),
+      Api.categoryReport(),
       Api.getAlerts(targetMonth),
       Api.getMonthlyProjection(targetMonth),
       Api.getMonthlyCloseChecklist(targetMonth),
+      Api.getTransactionOriginReport(targetMonth),
     ]);
 
     const ctx1 = document.getElementById("monthly-chart").getContext("2d");
@@ -1656,6 +1700,62 @@ class DashboardController {
         )
         .join("");
     }
+
+    this._renderTransactionOriginReport(transactionOriginReport);
+  }
+
+  _escapeHtml(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  _renderTransactionOriginReport(reportData) {
+    const summaryEl = document.getElementById("transaction-origin-summary");
+    const breakdownTbody = document.getElementById("transaction-origin-breakdown-tbody");
+    const detailsTbody = document.getElementById("transaction-origin-details-tbody");
+    if (!summaryEl || !breakdownTbody || !detailsTbody) return;
+
+    if (!reportData || !reportData.summary || !Array.isArray(reportData.details)) {
+      summaryEl.textContent = "Não foi possível carregar o relatório de origem das transações.";
+      breakdownTbody.innerHTML = "";
+      detailsTbody.innerHTML = "";
+      return;
+    }
+
+    const summary = reportData.summary;
+    summaryEl.textContent =
+      `Mês ${reportData.month}: ${summary.total_transactions} transação(ões), total de R$ ${Number(
+        summary.total_amount || 0
+      ).toFixed(2)}, ${summary.with_receipt_count} com comprovante e ${summary.without_receipt_count} sem comprovante.`;
+
+    const breakdown = Array.isArray(reportData.breakdown) ? reportData.breakdown : [];
+    breakdownTbody.innerHTML = breakdown.length
+      ? breakdown
+          .map(
+            (row) =>
+              `<tr><td>${this._escapeHtml(row.transaction_type)}</td><td>${this._escapeHtml(
+                row.detected_origin
+              )}</td><td>${Number(row.count || 0)}</td><td>R$ ${Number(row.total || 0).toFixed(2)}</td></tr>`
+          )
+          .join("")
+      : '<tr><td colspan="4" class="small-muted">Sem dados de transações para o mês selecionado.</td></tr>';
+
+    const details = reportData.details.slice(0, 50);
+    detailsTbody.innerHTML = details.length
+      ? details
+          .map(
+            (item) =>
+              `<tr><td>${this._escapeHtml(item.date || "")}</td><td title="${this._escapeHtml(item.reason)}">${this._escapeHtml(
+                item.description || "-"
+              )}</td><td>${this._escapeHtml(item.transaction_type)}</td><td>${this._escapeHtml(
+                item.detected_origin
+              )}</td><td>${Number(item.confidence_percent || 0)}%</td><td>R$ ${Number(item.amount || 0).toFixed(2)}</td></tr>`
+          )
+          .join("")
+      : '<tr><td colspan="6" class="small-muted">Nenhuma transação no mês selecionado.</td></tr>';
   }
 
   _downloadFile(content, filename, type) {

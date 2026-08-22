@@ -14,7 +14,7 @@ Gestão de despesas pessoais em arquitetura **fullstack web**: frontend em HTML/
 - [Navegue pelo painel (`dashboard.html`)](#navegue-pelo-painel-dashboardhtml)
   - [🔄 Orçamento e Despesas (fluxo paginado)](#-orçamento-e-despesas-fluxo-paginado)
   - [Regras automáticas](#regras-automáticas)
-  - [📊 Resumo Mensal](#-resumo-mensal)
+  - [📊 Relatório](#-relatório)
   - [📰 Feed](#-feed)
   - [👥 Equipe](#-equipe)
   - [💳 Plano](#-plano)
@@ -190,17 +190,23 @@ Duas comparações independentes, uma embaixo da outra:
 Código: `js/dashboard.js` (`loadAlertsView`, `loadBudgetOverview`), `Api.setBudget`/`Api.getAlerts`/`Api.getBudgetOverview` em `js/api.js`.
 </details>
 
-### 📊 Resumo Mensal
+### 📊 Relatório
 
 <details>
 <summary>O que é e como funciona</summary>
 
-Dois gráficos (Chart.js): gasto total por mês (barras) e gasto por categoria no período (rosca). Somam todas as despesas do tenant, sem filtro de usuário — qualquer membro vê o resumo completo da conta.
+A seção **Relatório** agora é paginada por tipo de relatório:
+
+1. **Indicadores**: consumo de orçamento, alerta preditivo e checklist de fechamento mensal.
+2. **Gráficos**: gasto total por mês (barras) e gasto por categoria (rosca).
+3. **Origem das transações (Agente IA)**: classifica cada transação por tipo e origem detectada, com detalhamento.
+4. **Exportação**: relatório consolidado em CSV, Excel e PDF.
 
 Além dos gráficos, a tela inclui:
 
 - **Alerta preditivo do mês**: projeção simples de gasto até o fim do mês com base na média diária (`Api.getMonthlyProjection`).
 - **Checklist de fechamento mensal**: itens guiados para fechar o mês (categorização, comprovantes, limite mensal e orçamento por categoria) (`Api.getMonthlyCloseChecklist`).
+- **Agente IA de origem de transações**: identifica de onde cada tipo de transação ocorreu (`Api.getTransactionOriginReport`).
 - **Exportação consolidada**: relatório de despesas + orçamento em CSV, Excel e PDF (`Api.getConsolidatedExportData` + exportadores no `dashboard.js`).
 
 Código: `js/dashboard.js` (`loadReportsView`), dados vindos de `Api.monthlyReport()`/`Api.categoryReport()` em `js/api.js`.
@@ -662,7 +668,7 @@ Acesse `http://localhost:5500`.
 ## Primeiro uso
 
 1. Abra `index.html` (ou `login.html` diretamente), clique em "Criar conta" e cadastre a primeira conta (você vira `admin` do tenant).
-2. Em [🔄 Orçamento & Despesas](#-orçamento--despesas-fluxo-em-3-páginas): importe uma planilha (Página 1) ou registre categorias/despesas direto (Página 2), veja o resumo mensal e confira os alertas (Página 3).
+2. Em [🔄 Orçamento & Despesas](#-orçamento--despesas-fluxo-em-3-páginas): importe uma planilha (Página 1) ou registre categorias/despesas direto (Página 2), veja a área de [📊 Relatório](#-relatório) e confira os alertas (Página 3).
 3. Como admin, convide outros usuários em [👥 Equipe](#-equipe) (respeitando o limite do plano) e experimente trocar de plano em [💳 Plano](#-plano).
 
 ## Testes automatizados

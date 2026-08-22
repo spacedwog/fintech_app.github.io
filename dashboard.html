@@ -62,7 +62,7 @@
 
       <button class="nav-item active" data-view="budget-flow">Orçamento &amp; Despesas</button>
       <button class="nav-item" data-view="feed">Feed</button>
-      <button class="nav-item" data-view="reports">Resumo Mensal</button>
+      <button class="nav-item" data-view="reports">Relatório</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
       <button class="nav-item" data-view="plan">Plano</button>
 
@@ -412,46 +412,91 @@
         </div>
       </section>
 
-      <!-- Resumo Mensal -->
+      <!-- Relatório -->
       <section class="view hidden" id="view-reports">
-        <div class="top-bar"><h1>Resumo Mensal</h1></div>
-        <div class="card">
-          <h3 class="mt-0">Consumo do orçamento</h3>
-          <p class="small-muted mt-0">Grau de porcentagem de consumo do orçamento no mês atual.</p>
-          <div id="datascience-decision-box" class="alert-ok">
-            <strong id="datascience-percentage">0%</strong>
-            <span id="datascience-decision-text"> — Carregando análise...</span>
+        <div class="top-bar"><h1>Relatório</h1></div>
+        <div class="flow-pager">
+          <button type="button" class="secondary" data-report-nav="prev">‹ Anterior</button>
+          <div class="flow-pager-dots">
+            <button type="button" class="flow-page-dot report-page-dot active" data-report-page="1">1. Indicadores</button>
+            <button type="button" class="flow-page-dot report-page-dot" data-report-page="2">2. Gráficos</button>
+            <button type="button" class="flow-page-dot report-page-dot" data-report-page="3">3. Origem das transações</button>
+            <button type="button" class="flow-page-dot report-page-dot" data-report-page="4">4. Exportação</button>
           </div>
+          <button type="button" class="secondary" data-report-nav="next">Próxima ›</button>
         </div>
-        <div class="card">
-          <div class="row-between">
-            <h3 class="m-0">Alerta preditivo do mês</h3>
-            <div class="field m-0 min-w-160">
-              <input type="text" id="report-export-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+        <p class="small-muted text-center mt-4 mb-18" id="report-page-indicator">Página 1 de 4</p>
+
+        <div class="flow-page reports-flow-page" id="reports-flow-page-1">
+          <div class="card">
+            <h3 class="mt-0">Consumo do orçamento</h3>
+            <p class="small-muted mt-0">Grau de porcentagem de consumo do orçamento no mês atual.</p>
+            <div id="datascience-decision-box" class="alert-ok">
+              <strong id="datascience-percentage">0%</strong>
+              <span id="datascience-decision-text"> — Carregando análise...</span>
             </div>
           </div>
-          <div id="budget-projection-box" class="alert-ok">
-            <strong id="budget-projection-value">R$ 0,00</strong>
-            <span id="budget-projection-text"> — Carregando projeção...</span>
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Alerta preditivo do mês</h3>
+              <div class="field m-0 min-w-160">
+                <input type="text" id="report-export-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+              </div>
+            </div>
+            <div id="budget-projection-box" class="alert-ok">
+              <strong id="budget-projection-value">R$ 0,00</strong>
+              <span id="budget-projection-text"> — Carregando projeção...</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="mt-0">Checklist de fechamento mensal</h3>
+            <p id="monthly-close-summary" class="small-muted mt-0 mb-8">Carregando checklist...</p>
+            <ul class="security-control-list" id="monthly-close-checklist"></ul>
           </div>
         </div>
-        <div class="card">
-          <h3 class="mt-0">Checklist de fechamento mensal</h3>
-          <p id="monthly-close-summary" class="small-muted mt-0 mb-8">Carregando checklist...</p>
-          <ul class="security-control-list" id="monthly-close-checklist"></ul>
-        </div>
-        <div class="card">
-          <h3 class="mt-0">Exportação consolidada (despesas + orçamento)</h3>
-          <p class="small-muted mt-0 mb-12">Use o mês acima para exportar relatório consolidado.</p>
-          <div class="button-row-wrap">
-            <button type="button" class="secondary" id="report-export-csv">Exportar CSV</button>
-            <button type="button" class="secondary" id="report-export-xls">Exportar Excel</button>
-            <button type="button" class="secondary" id="report-export-pdf">Exportar PDF</button>
+
+        <div class="flow-page reports-flow-page hidden" id="reports-flow-page-2">
+          <div class="grid-2">
+            <div class="card"><canvas id="monthly-chart" height="220"></canvas></div>
+            <div class="card"><canvas id="category-chart" height="220"></canvas></div>
           </div>
         </div>
-        <div class="grid-2">
-          <div class="card"><canvas id="monthly-chart" height="220"></canvas></div>
-          <div class="card"><canvas id="category-chart" height="220"></canvas></div>
+
+        <div class="flow-page reports-flow-page hidden" id="reports-flow-page-3">
+          <div class="card">
+            <h3 class="mt-0">Agente IA — origem e tipo de transações</h3>
+            <p class="small-muted mt-0 mb-12">
+              O agente classifica automaticamente cada transação por tipo e origem, destacando confiança e motivo.
+            </p>
+            <div id="transaction-origin-summary" class="small-muted">Carregando análise de transações...</div>
+            <table>
+              <thead>
+                <tr><th>Tipo</th><th>Origem</th><th>Qtd.</th><th>Total</th></tr>
+              </thead>
+              <tbody id="transaction-origin-breakdown-tbody"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h3 class="mt-0">Detalhamento das transações do mês</h3>
+            <table>
+              <thead>
+                <tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Origem detectada</th><th>Confiança</th><th>Valor</th></tr>
+              </thead>
+              <tbody id="transaction-origin-details-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flow-page reports-flow-page hidden" id="reports-flow-page-4">
+          <div class="card">
+            <h3 class="mt-0">Exportação consolidada (despesas + orçamento)</h3>
+            <p class="small-muted mt-0 mb-12">Use o mês da Página 1 para exportar relatório consolidado.</p>
+            <div class="button-row-wrap">
+              <button type="button" class="secondary" id="report-export-csv">Exportar CSV</button>
+              <button type="button" class="secondary" id="report-export-xls">Exportar Excel</button>
+              <button type="button" class="secondary" id="report-export-pdf">Exportar PDF</button>
+            </div>
+          </div>
         </div>
       </section>
 

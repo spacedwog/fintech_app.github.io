@@ -1501,6 +1501,56 @@ class AuditTrailService {
 // ---------- ReportService ----------
 
 class ReportService {
+  _inferTransactionTypeAndOrigin(expense) {
+    const description = String(expense.description || "").toLowerCase();
+    const transactionNumber = String(expense.transaction_number || "").trim();
+    const hasTransactionNumber = !!transactionNumber;
+    const isMercadoPago = !!expense.generated_by_mercado_pago;
+    const mpSource = String(expense.generated_by_mercado_pago_source || "").toLowerCase();
+
+    if (isMercadoPago) {
+      if (mpSource === "api") {
+        return {
+          transaction_type: "Pagamento importado (Mercado Pago)",
+          detected_origin: "Integração Mercado Pago API",
+          confidence_percent: 99,
+          reason: "Campo gerado automaticamente pelo integrador Mercado Pago via API.",
+        };
+      }
+      return {
+        transaction_type: "Pagamento importado (Mercado Pago)",
+        detected_origin: "Integração Mercado Pago",
+        confidence_percent: 95,
+        reason: "Despesa marcada como gerada automaticamente pelo Mercado Pago.",
+      };
+    }
+
+    if (/chatbot|ia|copilot/.test(description)) {
+      return {
+        transaction_type: hasTransactionNumber ? "Despesa assistida por IA com comprovante" : "Despesa assistida por IA",
+        detected_origin: "Importação via chatbot",
+        confidence_percent: hasTransactionNumber ? 88 : 80,
+        reason: "Descrição contém indícios de criação automática por chatbot/IA.",
+      };
+    }
+
+    if (hasTransactionNumber) {
+      return {
+        transaction_type: "Despesa com comprovante",
+        detected_origin: "Lançamento manual no painel",
+        confidence_percent: 90,
+        reason: "Número de transação informado e sem marcação de origem automática.",
+      };
+    }
+
+    return {
+      transaction_type: "Despesa sem comprovante",
+      detected_origin: "Lançamento manual no painel",
+      confidence_percent: 75,
+      reason: "Não há sinal de integração automática e não foi informado número de transação.",
+    };
+  }
+
   async monthlyReport(allUsers = false) {
     const session = Auth.requireSession();
     const db = await loadDb();
@@ -1636,6 +1686,60 @@ class ReportService {
       budget_overview: budgetOverview,
       monthly_projection: projection,
       monthly_close_checklist: closeChecklist,
+    };
+  }
+
+  async getTransactionOriginReport(month) {
+    const targetMonth = monthRegexOk(month) ? month : nowIso().slice(0, 7);
+    const expenses = await Api.listExpenses();
+    const monthExpenses = expenses.filter((e) => String(e.date || "").slice(0, 7) === targetMonth);
+    const breakdownMap = new Map();
+    let withReceipt = 0;
+
+    const details = monthExpenses
+      .map((expense) => {
+        const analysis = this._inferTransactionTypeAndOrigin(expense);
+        const amount = Number(expense.amount || 0);
+        if (String(expense.transaction_number || "").trim()) withReceipt += 1;
+        const key = `${analysis.transaction_type}::${analysis.detected_origin}`;
+        const current = breakdownMap.get(key) || {
+          transaction_type: analysis.transaction_type,
+          detected_origin: analysis.detected_origin,
+          count: 0,
+          total: 0,
+        };
+        current.count += 1;
+        current.total += amount;
+        breakdownMap.set(key, current);
+        return {
+          id: expense.id,
+          date: expense.date,
+          description: expense.description || "",
+          amount,
+          category_name: expense.category_name || "Sem categoria",
+          transaction_number: expense.transaction_number || null,
+          confidence_percent: analysis.confidence_percent,
+          transaction_type: analysis.transaction_type,
+          detected_origin: analysis.detected_origin,
+          reason: analysis.reason,
+        };
+      })
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+
+    const breakdown = Array.from(breakdownMap.values()).sort((a, b) => b.total - a.total);
+    const totalAmount = details.reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+      month: targetMonth,
+      generated_at: nowIso(),
+      summary: {
+        total_transactions: details.length,
+        total_amount: totalAmount,
+        with_receipt_count: withReceipt,
+        without_receipt_count: Math.max(0, details.length - withReceipt),
+      },
+      breakdown,
+      details,
     };
   }
 }
@@ -2197,6 +2301,9 @@ class ApiFacade {
   }
   getConsolidatedExportData(month) {
     return this.reportService.getConsolidatedExportData(month);
+  }
+  getTransactionOriginReport(month) {
+    return this.reportService.getTransactionOriginReport(month);
   }
 
   // ---------- Budget Layouts ----------
