@@ -823,7 +823,7 @@ class ExpenseService {
     const tenant = TenantRepository.find(db, session.tenant_id);
     const planDetails = TenantRepository.planDetails(tenant);
 
-    // Limite é diário e por usuário (plano Free = 6 despesas/dia).
+    // Limite é diário e por usuário (plano Free = 3 despesas/dia).
     const today = nowIso().slice(0, 10); // "YYYY-MM-DD"
     const maxPerDay = planDetails.max_expenses_day;
     const todayCount = db.expenses.filter(
@@ -834,7 +834,7 @@ class ExpenseService {
     ).length;
 
     // No plano Free, ao atingir o limite diário a despesa é marcada como
-    // "extra" (R$ 5,00/unidade). A camada de UI (dashboard.js) já exige o
+    // "extra" (R$ 10,00/unidade). A camada de UI (dashboard.js) já exige o
     // pagamento real via Pix antes de chamar addExpense nesse caso — aqui
     // só fazemos a marcação/registro do valor cobrado.
     const isExtra = isFinite(maxPerDay) && todayCount >= maxPerDay;

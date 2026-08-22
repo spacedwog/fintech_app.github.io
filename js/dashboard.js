@@ -1342,7 +1342,7 @@ class DashboardController {
 
       if (willBeExtra) {
         // Limite diário do plano Free atingido: só salva a despesa depois
-        // que o comprovante do Pix de R$ 5,00 for enviado e a IA (OCR
+        // que o comprovante do Pix de R$ 10,00 for enviado e a IA (OCR
         // local) validar o pagamento — ver PixPaymentModal.
         this.pixModal.open({
           amount: quota.overage_price,

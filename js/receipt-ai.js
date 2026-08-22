@@ -43,7 +43,7 @@
   // define um "tipo esperado" explícito.
   var REFERENCE_AMOUNTS = [
     { type: 'plano_premium', amount: 19.99 },
-    { type: 'despesa', amount: 5.0 }
+    { type: 'despesa', amount: 10.0 }
   ];
 
   var TYPE_LABELS = {

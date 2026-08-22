@@ -4,10 +4,10 @@
 // ===============================
 //
 // Regras de negócio:
-// - Free: acesso completo ao sistema, mas limitado a 6 despesas/dia.
+// - Free: acesso completo ao sistema, mas limitado a 3 despesas/dia.
 //   Cada despesa que exceder esse limite diário exige um pagamento real
 //   via Pix (QR Code/copia-e-cola gerado com a chave Pix da SPACECWORP)
-//   de R$ 5,00/unidade antes de ser registrada — ver js/pix.js e
+//   de R$ 10,00/unidade antes de ser registrada — ver js/pix.js e
 //   openPixPayment() em dashboard.js.
 // - Premium: acesso completo ao sistema, com despesas ilimitadas,
 //   por R$ 19,99/mês (também pago via Pix real).
@@ -93,8 +93,8 @@ const PLAN_DEFINITIONS = {
     label: "Free",
     price_month: 0,
     max_users: Infinity,
-    max_expenses_day: 6,
-    overage_price: 5.0, // cobrança real via Pix por despesa extra além do limite diário
+    max_expenses_day: 3,
+    overage_price: 10.0, // cobrança real via Pix por despesa extra além do limite diário
   },
   premium: {
     label: "Premium",
