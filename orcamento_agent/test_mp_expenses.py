@@ -49,7 +49,7 @@ cfg = {
     "mercado_pago_access_token": "TEST-fake",
     "conta_email": "DONA@EXAMPLE.COM",  # maiúsculo de propósito, pra testar comparação case-insensitive
     "mapeamento": [{"palavra_chave": "uber", "categoria": "Transporte"}],
-    "categoria_padrao": "Mercado Pago (não categorizado)",
+    "categoria_padrao": "Mercado Pago",
 }
 
 # ---------- generate_expenses() isolado ----------
@@ -60,7 +60,7 @@ resultado1 = mp_expenses.generate_expenses(db1, fake_mp_payments, "t1", "u1", cf
 assert len(resultado1["criadas"]) == 3, resultado1["criadas"]
 assert resultado1["ignoradas_receita"] == 1, resultado1
 assert resultado1["ignoradas_filtro"] == 1, resultado1
-assert resultado1["categorias_novas"] == 2, resultado1  # "Mercado Pago (não categorizado)" + "Orçamento"
+assert resultado1["categorias_novas"] == 2, resultado1  # "Mercado Pago" + "Orçamento"
 print("OK generate_expenses: gerou 3 despesas, ignorou receita/filtro e classificou entrada como Orçamento")
 
 uber_expense = next(e for e in resultado1["criadas"] if e["mercadoPagoPaymentId"] == 5002)
@@ -71,7 +71,7 @@ print("OK categorização por palavra-chave reaproveita categoria já existente 
 
 loja_expense = next(e for e in resultado1["criadas"] if e["mercadoPagoPaymentId"] == 5003)
 categoria_loja = next(c for c in db1["categories"] if c["id"] == loja_expense["category_id"])
-assert categoria_loja["name"] == "Mercado Pago (não categorizado)", categoria_loja
+assert categoria_loja["name"] == "Mercado Pago", categoria_loja
 print("OK pagamento sem regra de mapeamento cai na categoria padrão (criada automaticamente)")
 
 orcamento_expense = next(e for e in resultado1["criadas"] if e["mercadoPagoPaymentId"] == 5006)

@@ -90,7 +90,7 @@ assert "4 atividade(s) encontrada(s)" in msg
 print("OK list_activities() end-to-end: lê o config de teste e devolve o resumo certo (sem chamar a API real)")
 
 # sem "mapeamento" no config, tudo cai na categoria padrão
-assert "Não categorizado" in msg
+assert "Mercado Pago" in msg
 print("OK list_activities(): sem \"mapeamento\" no config, tudo cai na categoria padrão")
 
 # filtro por status
