@@ -69,7 +69,8 @@
     }
   ],
   "mercado_pago_budget": {
-    "monthly_limit": 683.0
+    "monthly_limit": 683.0,
+    "target_email": "felipersantos1988@gmail.com"
   },
   "known_mp_statuses": [
     "approved",

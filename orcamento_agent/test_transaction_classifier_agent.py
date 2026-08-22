@@ -25,7 +25,7 @@ cfg = {
         {"name": "Despesas", "keywords": ["despesa", "compra", "pagamento"]},
         {"name": "PIX", "keywords": ["pix", "transferencia pix", "qr"]},
     ],
-    "mercado_pago_budget": {"monthly_limit": 683.0},
+    "mercado_pago_budget": {"monthly_limit": 683.0, "target_email": "felipersantos1988@gmail.com"},
 }
 
 runner = agent.TransactionClassificationRunner(cfg)
@@ -47,6 +47,7 @@ transactions = [
         "generated_by_mercado_pago": True,
         "generated_by_mercado_pago_source": "api",
         "status": "approved",
+        "user_email": "felipersantos1988@gmail.com",
     },
     {
         "id": "111222333",
@@ -58,6 +59,7 @@ transactions = [
         "generated_by_mercado_pago": True,
         "generated_by_mercado_pago_source": "api",
         "status": "approved",
+        "user_email": "felipersantos1988@gmail.com",
     },
     {
         "id": "222333444",
@@ -68,6 +70,7 @@ transactions = [
         "generated_by_mercado_pago": True,
         "generated_by_mercado_pago_source": "api",
         "status": "approved",
+        "user_email": "outro.usuario@example.com",
     },
     {
         "id": "333444555",
@@ -78,6 +81,7 @@ transactions = [
         "generated_by_mercado_pago": True,
         "generated_by_mercado_pago_source": "api",
         "status": "approved",
+        "user_email": "felipersantos1988@gmail.com",
     },
 ]
 
@@ -141,11 +145,12 @@ with tempfile.TemporaryDirectory() as td:
     assert summary["movement_type_counts"]["Orçamento"] >= 1, summary
     mp_budget = summary["mercado_pago_budget"]
     assert mp_budget["monthly_limit"] == 683.0, mp_budget
+    assert mp_budget["target_email"] == "felipersantos1988@gmail.com", mp_budget
     agosto = mp_budget["monthly"]["2026-08"]
-    assert agosto["spent"] == 710.0, agosto
-    assert agosto["overage"] == 27.0, agosto
-    assert agosto["within_budget"] is False, agosto
-    assert agosto["status"] == "ESTOURADO", agosto
+    assert agosto["spent"] == 210.0, agosto
+    assert agosto["overage"] == 0.0, agosto
+    assert agosto["within_budget"] is True, agosto
+    assert agosto["status"] == "DENTRO_DO_ORCAMENTO", agosto
 print("OK gera verificação de orçamento Mercado Pago (R$ 683/mês)")
 
 print("\nTODOS OS TESTES PASSARAM ✅")

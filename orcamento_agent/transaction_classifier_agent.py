@@ -20,6 +20,7 @@ DEFAULT_PAYMENT_TYPE = "OUTROS"
 DEFAULT_TX_TYPE = "OUTROS"
 DEFAULT_MOVEMENT_TYPE = "Feed"
 DEFAULT_MP_MONTHLY_BUDGET = 683.0
+DEFAULT_MP_BUDGET_EMAIL = "felipersantos1988@gmail.com"
 DEFAULT_KNOWN_MP_STATUSES = {
     "approved",
     "pending",
@@ -70,6 +71,25 @@ class TransactionClassifierAgent:
             return False
         text = str(value).strip()
         return bool(text) and re.fullmatch(r"\d+", text) is not None
+
+    @staticmethod
+    def _normalize_email(value):
+        text = str(value or "").strip().lower()
+        return text
+
+    @classmethod
+    def _extract_email(cls, transaction):
+        for key in ("user_email", "account_email", "conta_email", "payer_email", "email"):
+            value = transaction.get(key)
+            normalized = cls._normalize_email(value)
+            if normalized:
+                return normalized
+        payer = transaction.get("payer")
+        if isinstance(payer, dict):
+            normalized = cls._normalize_email(payer.get("email"))
+            if normalized:
+                return normalized
+        return ""
 
     def _infer_direction(self, tx):
         raw = self._normalize(" ".join([
@@ -464,10 +484,16 @@ class TransactionClassificationRunner:
             budget_cfg.get("monthly_limit", self.cfg.get("mercado_pago_monthly_budget", DEFAULT_MP_MONTHLY_BUDGET)),
             DEFAULT_MP_MONTHLY_BUDGET,
         )
+        budget_email = self.classifier._normalize_email(
+            budget_cfg.get("target_email", self.cfg.get("mercado_pago_budget_email", DEFAULT_MP_BUDGET_EMAIL))
+        )
 
         monthly = {}
         for tx in transactions:
             if not self.classifier._is_mercado_pago_transaction(tx):
+                continue
+            tx_email = self.classifier._extract_email(tx)
+            if budget_email and tx_email != budget_email:
                 continue
             month = self.classifier._extract_month_key(tx) or "sem_data"
             amount = self.classifier._safe_float(tx.get("transaction_amount", tx.get("amount", 0)))
@@ -493,6 +519,7 @@ class TransactionClassificationRunner:
         summary["mercado_pago_budget"] = {
             "monthly_limit": round(monthly_limit, 2),
             "currency": "BRL",
+            "target_email": budget_email,
             "monthly": monthly_summary,
         }
         return summary
