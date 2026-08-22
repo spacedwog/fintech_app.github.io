@@ -1576,11 +1576,15 @@ class DashboardController {
       ]);
 
       expenses.forEach((expense) => {
+        const normalizedCategoryName = (expense.category_name || "Sem categoria").replace(
+          /\s*\(não categorizado\)\s*$/i,
+          ""
+        );
         events.push({
           type: "expense",
           date: expense.created_at || expense.date,
           amount: Number(expense.amount) || 0,
-          title: `Despesa · ${expense.category_name || "Sem categoria"}`,
+          title: `Despesa · ${normalizedCategoryName}`,
           subtitle: `${this._formatFeedDate(expense.created_at || expense.date)} · ${expense.description || "Sem descrição"}`,
         });
       });
