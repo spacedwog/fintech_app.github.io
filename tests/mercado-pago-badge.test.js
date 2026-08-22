@@ -171,7 +171,16 @@ function check(name, cond) {
     db.mercado_pago_status = {
       global: { last_reconcile: { at: "2026-08-04T12:05:00.000Z", verificados: 1, ambiguos: 0 } },
       [session.tenant_id]: {
-        last_expenses_api: { at: "2026-08-03T09:00:00.000Z", criadas: 1, categorias_novas: 0 },
+        last_expenses_api: {
+          at: "2026-08-03T09:00:00.000Z",
+          criadas: 1,
+          categorias_novas: 0,
+          ignoradas_verificacao: 2,
+          verificacoes_rejeitadas: [
+            { transaction_id: "MP-9001", payment_type: "PIX", reason: "status não aprovado" },
+            { transaction_id: "MP-9002", payment_type: "CARTAO", reason: "número de transação do comprovante não confere" },
+          ],
+        },
       },
     };
     await saveDb(db);
@@ -189,6 +198,12 @@ function check(name, cond) {
   );
   check("automation.last_reconcile vem de mercado_pago_status.global", statusConectado.automation.last_reconcile && statusConectado.automation.last_reconcile.verificados === 1);
   check("automation.last_expenses_api vem de mercado_pago_status[tenant_id]", statusConectado.automation.last_expenses_api && statusConectado.automation.last_expenses_api.criadas === 1);
+  check(
+    "automation.last_expenses_api inclui motivos de rejeição da verificação",
+    statusConectado.automation.last_expenses_api &&
+      Array.isArray(statusConectado.automation.last_expenses_api.verificacoes_rejeitadas) &&
+      statusConectado.automation.last_expenses_api.verificacoes_rejeitadas.length === 2
+  );
   check("automation_configured=true quando algum agente já rodou", statusConectado.automation_configured === true);
   check("last_run_at é o horário mais recente entre os agentes (2026-08-04T12:05, do reconcile)", statusConectado.last_run_at === "2026-08-04T12:05:00.000Z");
 

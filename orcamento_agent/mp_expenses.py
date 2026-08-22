@@ -550,6 +550,8 @@ class MercadoPagoExpenseAgent:
                     categorias_novas=resultado["categorias_novas"],
                     ignoradas_receita=resultado["ignoradas_receita"],
                     ignoradas_duplicata_cruzada=resultado.get("ignoradas_duplicata_cruzada", 0),
+                    ignoradas_verificacao=resultado.get("ignoradas_verificacao", 0),
+                    verificacoes_rejeitadas=(resultado.get("verificacoes_rejeitadas") or [])[:5],
                 )
                 source.write_fields({
                     "categories": db.get("categories", []),

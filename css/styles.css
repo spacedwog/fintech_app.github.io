@@ -460,6 +460,13 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   line-height: 1.35;
 }
 
+.mp-rejection-reasons {
+  flex-basis: 100%;
+  line-height: 1.35;
+  white-space: pre-line;
+  color: #fca5a5;
+}
+
 @keyframes mp-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

@@ -184,6 +184,9 @@ with open(TEST_DB_PATH, encoding="utf-8") as f:
 status_tenant = depois_status.get("mercado_pago_status", {}).get("t1", {})
 assert "last_expenses_api" in status_tenant, depois_status.get("mercado_pago_status")
 assert status_tenant["last_expenses_api"]["criadas"] == 2, status_tenant
+assert status_tenant["last_expenses_api"]["ignoradas_verificacao"] == 1, status_tenant
+assert len(status_tenant["last_expenses_api"]["verificacoes_rejeitadas"]) == 1, status_tenant
+assert "reason" in status_tenant["last_expenses_api"]["verificacoes_rejeitadas"][0], status_tenant
 assert "at" in status_tenant["last_expenses_api"]
 print("OK StatusTracker: run() grava mercado_pago_status.t1.last_expenses_api (contagem + horário) para o painel web ler")
 
