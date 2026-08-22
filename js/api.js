@@ -644,6 +644,9 @@ class CategoryService {
   async listCategories() {
     const session = Auth.requireSession();
     const db = await loadDb();
+    const beforeCount = db.categories.length;
+    seedDefaultCategories(db, session.tenant_id);
+    if (db.categories.length !== beforeCount) await saveDb(db);
     return db.categories
       .filter((c) => c.tenant_id === session.tenant_id)
       .sort((a, b) => a.name.localeCompare(b.name))

@@ -103,6 +103,7 @@
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6">Minhas Despesas</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="7">Pagamento Despesas</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="8">Regras Automáticas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="9">Integração Categorias</button>
         </div>
 
         <!-- Página 1: Importar Orçamento -->
@@ -307,7 +308,7 @@
             </div>
             <table>
               <thead>
-                <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th></th></tr>
+                <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Verificação</th><th></th></tr>
               </thead>
               <tbody id="expenses-tbody"></tbody>
             </table>
@@ -395,6 +396,36 @@
             <tbody id="expense-rules-tbody"></tbody>
           </table>
         </div>
+        </div>
+
+        <div class="flow-page budget-flow-page hidden" id="budget-flow-page-9">
+          <div class="card" id="budget-categories-card">
+            <div class="row-between">
+              <h3 class="m-0">Integração de categorias</h3>
+              <div class="field m-0 min-w-160">
+                <input type="text" id="categories-integration-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+              </div>
+            </div>
+            <p class="small-muted mt-0 mb-12">
+              Cadastre categorias para o menu Despesas e acompanhe o vínculo com orçamento por categoria no mês.
+            </p>
+            <form id="category-form" class="mb-12">
+              <div class="grid-2">
+                <div class="field">
+                  <label>Nova categoria</label>
+                  <input type="text" id="new-category-name" placeholder="Ex: Mercado Pago" required />
+                </div>
+              </div>
+              <button type="submit" class="primary">Adicionar categoria</button>
+            </form>
+            <p id="categories-integration-status" class="small-muted mt-0 mb-10"></p>
+            <table>
+              <thead>
+                <tr><th>Categoria</th><th>Despesas no mês</th><th>Orçamento no mês</th></tr>
+              </thead>
+              <tbody id="categories-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 

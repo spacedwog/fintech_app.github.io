@@ -1028,7 +1028,7 @@ class DashboardController {
   }
 
   _goToBudgetFlowPage(page) {
-    page = Math.min(8, Math.max(1, page));
+    page = Math.min(9, Math.max(1, page));
     this.currentBudgetFlowPage = page;
     this._setActiveNav("budget-flow");
     const mainPage = page <= 4 ? 1 : 2;
@@ -1065,6 +1065,7 @@ class DashboardController {
     if (page === 4) this._loadBudgetGroupsView();
     if (page === 6) this._loadExpensesView();
     if (page === 8) this._loadExpenseRules();
+    if (page === 9) this._loadCategoryIntegrationView();
   }
 
   _goToExpensesFlowPage(page) {
@@ -1267,6 +1268,11 @@ class DashboardController {
           <td>${e.category_name || "-"}</td>
           <td>${e.description || ""}${e.is_extra ? ' <span class="badge premium" title="Despesa extra (fora do limite diário do plano Free)">extra</span>' : ""}${this._mercadoPagoRowBadgeHtml(e)}${this._expenseTransactionNumberHtml(e)}</td>
           <td>R$ ${e.amount.toFixed(2)}</td>
+          <td>${
+            String(e.transaction_number || "").trim()
+              ? '<span class="badge dentro" title="Comprovante/número de transação informado">VERIFICADO</span>'
+              : '<span class="badge sem-orcamento" title="Sem comprovante/número de transação informado">PENDENTE</span>'
+          }</td>
           <td class="actions-cell">
             <button class="secondary" onclick="editExpense('${e.id}')">Alterar</button>
             <button class="secondary" onclick="removeExpense('${e.id}')">Excluir</button>
@@ -1467,11 +1473,71 @@ class DashboardController {
 
   async _handleCategoryFormSubmit(e) {
     e.preventDefault();
-    const name = document.getElementById("new-category-name").value.trim();
+    const input = document.getElementById("new-category-name");
+    if (!input) return;
+    const name = input.value.trim();
     if (!name) return;
     await Api.addCategory(name);
-    document.getElementById("new-category-name").value = "";
+    input.value = "";
     await this._loadExpensesView();
+    await this._loadExpenseRules();
+    await this._loadCategoryIntegrationView();
+  }
+
+  async _loadCategoryIntegrationView() {
+    const monthInput = document.getElementById("categories-integration-month");
+    if (!monthInput) return;
+    if (!monthInput.value) monthInput.value = new Date().toISOString().slice(0, 7);
+    if (!this.categoriesIntegrationBound) {
+      this.categoriesIntegrationBound = true;
+      monthInput.addEventListener("change", () => this._renderCategoriesIntegrationTable(monthInput.value));
+    }
+    await this._renderCategoriesIntegrationTable(monthInput.value);
+  }
+
+  async _renderCategoriesIntegrationTable(month) {
+    const tbody = document.getElementById("categories-tbody");
+    const status = document.getElementById("categories-integration-status");
+    if (!tbody) return;
+    const targetMonth = /^\d{4}-\d{2}$/.test(String(month || "")) ? String(month) : new Date().toISOString().slice(0, 7);
+    const [categories, expenses, budgets] = await Promise.all([
+      Api.listCategories(),
+      Api.listExpenses(true),
+      Api.listCategoryBudgets(targetMonth),
+    ]);
+    const expenseCountByCategory = new Map();
+    expenses
+      .filter((e) => String(e.date || "").slice(0, 7) === targetMonth)
+      .forEach((e) => {
+        const key = String(e.category_id || "");
+        if (!key) return;
+        expenseCountByCategory.set(key, (expenseCountByCategory.get(key) || 0) + 1);
+      });
+    const budgetByCategory = new Map(
+      budgets
+        .filter((b) => String(b.month || "") === targetMonth)
+        .map((b) => [String(b.category_id || ""), Number(b.previsto || 0)])
+    );
+    tbody.innerHTML = categories
+      .map((c) => {
+        const categoryId = String(c.id || "");
+        const expenseCount = expenseCountByCategory.get(categoryId) || 0;
+        const budgetValue = budgetByCategory.has(categoryId) ? budgetByCategory.get(categoryId) : null;
+        return `
+        <tr>
+          <td>${c.name}</td>
+          <td>${expenseCount}</td>
+          <td>${budgetValue === null ? '<span class="small-muted">Não aplicado</span>' : `R$ ${Number(budgetValue).toFixed(2)}`}</td>
+        </tr>`;
+      })
+      .join("");
+    if (!categories.length) {
+      tbody.innerHTML = '<tr><td colspan="3">Nenhuma categoria cadastrada.</td></tr>';
+    }
+    if (status) {
+      const withBudget = categories.filter((c) => budgetByCategory.has(String(c.id || ""))).length;
+      status.textContent = `${categories.length} categoria(s), ${withBudget} com orçamento aplicado em ${targetMonth}.`;
+    }
   }
 
   // ---------- Resumo Mensal ----------
