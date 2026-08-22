@@ -210,23 +210,6 @@ class ExpenseGenerator:
         alvo_date = mp_reconcile.DateParser.to_utc_date(data_iso) if data_iso else None
         if alvo_date is None:
             return False
-
-    @staticmethod
-    def _infer_transaction_direction(payment):
-            raw = mp_sync.normalize(" ".join([
-                str(payment.get("direction") or ""),
-                str(payment.get("type") or ""),
-                str(payment.get("operation_type") or ""),
-                str(payment.get("transaction_type") or ""),
-                str(payment.get("payment_type_id") or ""),
-                str(payment.get("credit_debit_type") or ""),
-                str(payment.get("creditDebitType") or ""),
-            ]))
-            if any(t in raw for t in ("credit", "entrada", "receb", "deposit", "cashin", "incoming", "transfer_in")):
-                return "credit"
-            if any(t in raw for t in ("debit", "saida", "pagamento", "cashout", "outgoing", "saque", "transfer_out")):
-                return "debit"
-            return None
         for e in existentes_mp:
             try:
                 if abs(float(e.get("amount", 0)) - float(valor)) > self.cross_source_tolerance:
@@ -239,6 +222,23 @@ class ExpenseGenerator:
             if abs((e_date - alvo_date).days) <= self.cross_source_window_days:
                 return True
         return False
+
+    @staticmethod
+    def _infer_transaction_direction(payment):
+        raw = mp_sync.normalize(" ".join([
+            str(payment.get("direction") or ""),
+            str(payment.get("type") or ""),
+            str(payment.get("operation_type") or ""),
+            str(payment.get("transaction_type") or ""),
+            str(payment.get("payment_type_id") or ""),
+            str(payment.get("credit_debit_type") or ""),
+            str(payment.get("creditDebitType") or ""),
+        ]))
+        if any(t in raw for t in ("credit", "entrada", "receb", "deposit", "cashin", "incoming", "transfer_in")):
+            return "credit"
+        if any(t in raw for t in ("debit", "saida", "pagamento", "cashout", "outgoing", "saque", "transfer_out")):
+            return "debit"
+        return None
 
     def generate(self, db, mp_payments, tenant_id, user_id):
         """Gera despesas em `db` (mutado in-place) a partir de `mp_payments`.
