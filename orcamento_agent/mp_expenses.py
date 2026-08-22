@@ -131,6 +131,16 @@ class ExpenseCategorizer:
         return None
 
     # Correspondência por palavra-chave, com fallback pra categoria padrão.
+    def _normalize_direction(self, transaction_direction):
+        direction_norm = mp_sync.normalize(transaction_direction)
+        if not direction_norm:
+            return None
+        if direction_norm in ("credit", "entrada"):
+            return "credit"
+        if direction_norm in ("debit", "saida"):
+            return "debit"
+        return None
+
     def _is_budget_type(self, expense_type):
         tipo_norm = mp_sync.normalize(expense_type)
         if not tipo_norm:
@@ -138,9 +148,14 @@ class ExpenseCategorizer:
         for termo in self._tipos_orcamento:
             if mp_sync.normalize(termo) in tipo_norm:
                 return True
+        if any(t in tipo_norm for t in ("credit", "cashin", "incoming", "deposit", "entrada")):
+            return True
         return False
 
-    def categorize(self, description, expense_type=None):
+    def categorize(self, description, expense_type=None, transaction_direction=None):
+        direction = self._normalize_direction(transaction_direction)
+        if direction == "credit":
+            return DEFAULT_CATEGORIA_ORCAMENTO
         if self._is_budget_type(expense_type):
             return DEFAULT_CATEGORIA_ORCAMENTO
         return self.match_keyword(description) or self.categoria_padrao
@@ -195,6 +210,23 @@ class ExpenseGenerator:
         alvo_date = mp_reconcile.DateParser.to_utc_date(data_iso) if data_iso else None
         if alvo_date is None:
             return False
+
+    @staticmethod
+    def _infer_transaction_direction(payment):
+            raw = mp_sync.normalize(" ".join([
+                str(payment.get("direction") or ""),
+                str(payment.get("type") or ""),
+                str(payment.get("operation_type") or ""),
+                str(payment.get("transaction_type") or ""),
+                str(payment.get("payment_type_id") or ""),
+                str(payment.get("credit_debit_type") or ""),
+                str(payment.get("creditDebitType") or ""),
+            ]))
+            if any(t in raw for t in ("credit", "entrada", "receb", "deposit", "cashin", "incoming", "transfer_in")):
+                return "credit"
+            if any(t in raw for t in ("debit", "saida", "pagamento", "cashout", "outgoing", "saque", "transfer_out")):
+                return "debit"
+            return None
         for e in existentes_mp:
             try:
                 if abs(float(e.get("amount", 0)) - float(valor)) > self.cross_source_tolerance:
@@ -267,7 +299,18 @@ class ExpenseGenerator:
                 ignoradas_duplicata_cruzada += 1
                 continue
 
-            categoria_nome = self.categorizer.categorize(desc)
+            expense_type = (
+                p.get("type")
+                or p.get("operation_type")
+                or p.get("transaction_type")
+                or p.get("payment_type_id")
+                or p.get("credit_debit_type")
+                or p.get("creditDebitType")
+            )
+            transaction_direction = self._infer_transaction_direction(p)
+            categoria_nome = self.categorizer.categorize(
+                desc, expense_type=expense_type, transaction_direction=transaction_direction
+            )
             category, created = find_or_create_category(db, tenant_id, categoria_nome)
             if created:
                 categorias_novas += 1
@@ -293,6 +336,7 @@ class ExpenseGenerator:
                 # Origem da despesa, usada no selo do painel web -- ver
                 # js/dashboard.js.
                 "mercadoPagoSource": "api",
+                "mercadoPagoTransactionDirection": transaction_direction,
             }
             db.setdefault("expenses", []).append(expense)
             existentes_mp.append(expense)
