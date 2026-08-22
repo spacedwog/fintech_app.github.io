@@ -795,7 +795,7 @@ class ExpenseService {
       });
   }
 
-  // Uso do limite diário de despesas do plano (para exibir "3/6 hoje" etc.)
+  // Uso do limite diário de despesas do plano (para exibir "2/6 hoje" etc.)
   async getExpenseQuota() {
     const session = Auth.requireSession();
     const db = await loadDb();
@@ -823,7 +823,7 @@ class ExpenseService {
     const tenant = TenantRepository.find(db, session.tenant_id);
     const planDetails = TenantRepository.planDetails(tenant);
 
-    // Limite é diário e por usuário (plano Free = 3 despesas/dia).
+    // Limite é diário e por usuário (plano Free = 6 despesas/dia).
     const today = nowIso().slice(0, 10); // "YYYY-MM-DD"
     const maxPerDay = planDetails.max_expenses_day;
     const todayCount = db.expenses.filter(
@@ -1176,6 +1176,22 @@ class CategoryBudgetService {
     if (!Array.isArray(rows) || !rows.length) throw new Error("Nenhuma linha de orçamento para importar.");
 
     const db = await loadDb();
+    const tenant = TenantRepository.find(db, session.tenant_id);
+    const planDetails = TenantRepository.planDetails(tenant);
+    const maxImportsPerDay = Number(planDetails.max_budget_imports_day);
+    const today = nowIso().slice(0, 10);
+    const usedToday = (db.auditEvents || []).filter(
+      (e) =>
+        e.tenant_id === session.tenant_id
+        && e.user_id === session.user_id
+        && e.action === "budget.category_imported"
+        && String(e.created_at || "").slice(0, 10) === today
+    ).length;
+    if (isFinite(maxImportsPerDay) && usedToday >= maxImportsPerDay) {
+      throw new Error(
+        `Limite diário de importação de orçamento do plano '${tenant.plan}' atingido (${maxImportsPerDay}/dia). Faça upgrade para Premium para importações ilimitadas.`
+      );
+    }
 
     // Agrupa por nome de categoria (case-insensitive), somando o Previsto --
     // cobre o caso de a planilha ter mais de uma linha para a mesma
