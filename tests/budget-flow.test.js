@@ -242,6 +242,46 @@ function check(name, cond) {
       && legadoMercadoPago.budgets.some((b) => b.category_name === "Mercado Pago")
   );
 
+  // ---------- deduplicação de categorias legadas ----------
+  const dedupeCategorias = await run(
+    dev,
+    `
+    const session = Auth.requireSession();
+    const categoriesBefore = await Api.listCategories();
+    const alimentacao = categoriesBefore.find((c) => c.name === "Alimentação");
+    const db = await loadDb();
+    const categoriaDuplicadaId = nextId(db, "categories");
+    db.categories.push({
+      id: categoriaDuplicadaId,
+      tenant_id: session.tenant_id,
+      name: "  ALIMENTACAO  ",
+    });
+    db.expenses.push({
+      id: nextId(db, "expenses"),
+      tenant_id: session.tenant_id,
+      user_id: session.user_id,
+      category_id: categoriaDuplicadaId,
+      amount: 1,
+      date: "2026-08-20",
+      description: "despesa-categoria-duplicada",
+      created_at: nowIso(),
+    });
+    await saveDb(db);
+    const categoriesAfter = await Api.listCategories();
+    const dbAfter = await loadDb();
+    const categoriasAlimentacao = categoriesAfter.filter(
+      (c) => String(c.name || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").trim().toLowerCase() === "alimentacao"
+    );
+    const despesaMigrada = dbAfter.expenses.find((e) => e.description === "despesa-categoria-duplicada");
+    return { categoriasAlimentacao, despesaMigrada, alimentacaoId: alimentacao ? alimentacao.id : null };
+  `
+  );
+  check("remove categorias duplicadas por nome normalizado", dedupeCategorias.categoriasAlimentacao.length === 1);
+  check(
+    "remapeia referências da categoria duplicada para a categoria canônica",
+    !!dedupeCategorias.despesaMigrada && dedupeCategorias.despesaMigrada.category_id === dedupeCategorias.alimentacaoId
+  );
+
   // ---------- mês sem nenhum orçamento importado ----------
   const overviewMesVazio = await run(dev, `const overview = await Api.getBudgetOverview("2099-01"); return { overview };`);
   check("mês sem nenhum orçamento nem despesa -> hasAnyBudget=false e rows vazio", overviewMesVazio.overview.hasAnyBudget === false && overviewMesVazio.overview.rows.length === 0);

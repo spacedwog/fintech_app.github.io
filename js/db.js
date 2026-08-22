@@ -91,6 +91,73 @@ class Schema {
       .trim();
   }
 
+  static canonicalCategoryName(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return raw;
+    const normalized = Schema.normalizeText(raw);
+    const defaultName = DEFAULT_CATEGORIES.find((name) => Schema.normalizeText(name) === normalized);
+    return defaultName || raw;
+  }
+
+  static deduplicateCategories(db) {
+    const categories = Array.isArray(db.categories) ? db.categories : [];
+    if (!categories.length) return db;
+
+    const canonicalIdByKey = new Map();
+    const duplicateToCanonical = new Map();
+    const deduped = [];
+
+    categories.forEach((category) => {
+      if (!category || category.id === null || category.id === undefined) return;
+      category.id = String(category.id);
+      if (category.tenant_id !== null && category.tenant_id !== undefined) category.tenant_id = String(category.tenant_id);
+      category.name = Schema.canonicalCategoryName(Schema.normalizeLegacyMercadoPagoCategory(category.name));
+      const tenantKey = category.tenant_id || "";
+      const normalizedName = Schema.normalizeText(category.name);
+      const key = normalizedName ? `${tenantKey}::${normalizedName}` : `${tenantKey}::id::${category.id}`;
+
+      if (!canonicalIdByKey.has(key)) {
+        canonicalIdByKey.set(key, category.id);
+        deduped.push(category);
+        return;
+      }
+
+      duplicateToCanonical.set(category.id, canonicalIdByKey.get(key));
+    });
+
+    db.categories = deduped;
+    if (!duplicateToCanonical.size) return db;
+
+    const remapCategoryId = (value) => {
+      if (value === null || value === undefined) return value;
+      const key = String(value);
+      return duplicateToCanonical.get(key) || key;
+    };
+
+    (db.expenses || []).forEach((expense) => {
+      expense.category_id = remapCategoryId(expense.category_id);
+    });
+    (db.categoryBudgets || []).forEach((budget) => {
+      budget.category_id = remapCategoryId(budget.category_id);
+    });
+    (db.expenseRules || []).forEach((rule) => {
+      rule.category_id = remapCategoryId(rule.category_id);
+    });
+    if (Array.isArray(db.budgetGroups)) {
+      const seen = new Set();
+      db.budgetGroups = db.budgetGroups.filter((group) => {
+        group.budget_category_id = remapCategoryId(group.budget_category_id);
+        group.expense_category_id = remapCategoryId(group.expense_category_id);
+        const key = `${String(group.tenant_id || "")}::${String(group.budget_category_id || "")}::${String(group.expense_category_id || "")}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    return db;
+  }
+
   static detachBudgetGeneratedCategories(db) {
     const expenses = Array.isArray(db.expenses) ? db.expenses : [];
     const rules = Array.isArray(db.expenseRules) ? db.expenseRules : [];
@@ -228,6 +295,7 @@ class Schema {
         budget.category_name = Schema.normalizeLegacyMercadoPagoCategory(budget.category_name);
       }
     });
+    Schema.deduplicateCategories(merged);
     Schema.detachBudgetGeneratedCategories(merged);
     return Schema.coerceIds(merged);
   }
@@ -604,10 +672,16 @@ class Database {
   }
 
   seedDefaultCategories(db, tenantId) {
+    const tenantKey = String(tenantId);
     DEFAULT_CATEGORIES.forEach((name) => {
-      const exists = db.categories.some((c) => c.tenant_id === tenantId && c.name === name);
+      const normalizedDefaultName = Schema.normalizeText(name);
+      const exists = db.categories.some((c) => {
+        if (!c) return false;
+        if (String(c.tenant_id || "") !== tenantKey) return false;
+        return Schema.normalizeText(Schema.normalizeLegacyMercadoPagoCategory(c.name)) === normalizedDefaultName;
+      });
       if (!exists) {
-        db.categories.push({ id: this.nextId(db, "categories"), tenant_id: tenantId, name });
+        db.categories.push({ id: this.nextId(db, "categories"), tenant_id: tenantKey, name: Schema.canonicalCategoryName(name) });
       }
     });
   }
