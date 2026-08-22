@@ -222,21 +222,23 @@ function check(name, cond) {
   const legadoMercadoPago = await run(
     dev,
     `
-    await Api.addCategory("Mercado Pago (não categorizado)");
-    await Api.setCategoryBudget({ month: "2026-08", previsto: 99, category_name: "Mercado Pago (não categorizado)" });
+    const sufixoLegado = "(não categorizado)";
+    const categoriaLegada = "Mercado Pago " + sufixoLegado;
+    await Api.addCategory(categoriaLegada);
+    await Api.setCategoryBudget({ month: "2026-08", previsto: 99, category_name: categoriaLegada });
     const categories = await Api.listCategories();
     const budgets = await Api.listCategoryBudgets("2026-08");
-    return { categories, budgets };
+    return { categories, budgets, categoriaLegada };
   `
   );
   check(
-    "normaliza categoria legada Mercado Pago (não categorizado) para Mercado Pago",
-    !legadoMercadoPago.categories.some((c) => c.name === "Mercado Pago (não categorizado)")
+    "normaliza categoria legada de Mercado Pago para Mercado Pago",
+    !legadoMercadoPago.categories.some((c) => c.name === legadoMercadoPago.categoriaLegada)
       && legadoMercadoPago.categories.some((c) => c.name === "Mercado Pago")
   );
   check(
-    "normaliza orçamento com categoria legada Mercado Pago (não categorizado)",
-    !legadoMercadoPago.budgets.some((b) => b.category_name === "Mercado Pago (não categorizado)")
+    "normaliza orçamento com categoria legada de Mercado Pago",
+    !legadoMercadoPago.budgets.some((b) => b.category_name === legadoMercadoPago.categoriaLegada)
       && legadoMercadoPago.budgets.some((b) => b.category_name === "Mercado Pago")
   );
 
