@@ -21,7 +21,10 @@
 // sistema (js/api.js, js/dashboard.js, tests/*.test.js) não precisa mudar.
 
 class Plan {
-  constructor(key, { label, price_month, max_users, max_expenses_day, max_budget_imports_day, overage_price }) {
+  constructor(
+    key,
+    { label, price_month, max_users, max_expenses_day, max_budget_imports_day, overage_price, budget_import_overage_price }
+  ) {
     this.key = key;
     this.label = label;
     this.price_month = price_month;
@@ -29,6 +32,7 @@ class Plan {
     this.max_expenses_day = max_expenses_day;
     this.max_budget_imports_day = max_budget_imports_day;
     this.overage_price = overage_price || 0;
+    this.budget_import_overage_price = budget_import_overage_price || 0;
   }
 
   get hasUnlimitedExpenses() {
@@ -60,6 +64,7 @@ class Plan {
       max_expenses_day: this.max_expenses_day,
       max_budget_imports_day: this.max_budget_imports_day,
       overage_price: this.overage_price,
+      budget_import_overage_price: this.budget_import_overage_price,
     };
   }
 }
@@ -104,6 +109,7 @@ const PLAN_DEFINITIONS = {
     max_expenses_day: 6,
     max_budget_imports_day: 3,
     overage_price: 5.0, // cobrança real via Pix por despesa extra além do limite diário
+    budget_import_overage_price: 10.0, // cobrança real via Pix por importação extra de orçamento além do limite diário
   },
   premium: {
     label: "Premium",
@@ -112,6 +118,7 @@ const PLAN_DEFINITIONS = {
     max_expenses_day: Infinity,
     max_budget_imports_day: Infinity,
     overage_price: 0,
+    budget_import_overage_price: 0,
   },
 };
 

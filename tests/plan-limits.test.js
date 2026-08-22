@@ -4,7 +4,7 @@
 // Teste de integração (Node, sem dependências) das regras de limites dos
 // planos em js/plans.js + js/api.js:
 // - Free: 6 despesas/dia (7ª vira extra)
-// - Free: 3 importações de orçamento/dia
+// - Free: 3 importações de orçamento/dia (4ª vira extra de R$ 10,00)
 // - Premium: importações de orçamento ilimitadas
 //
 // Como rodar:
@@ -111,32 +111,35 @@ function check(name, cond) {
   const budgetImportFree = await run(
     dev,
     `
-    const ok = [];
-    for (let i = 1; i <= 3; i++) {
-      ok.push(
+   const outputs = [];
+   for (let i = 1; i <= 4; i++) {
+     outputs.push(
         await Api.importCategoryBudgets({
           month: "2026-08",
           rows: [{ categoria: "Categoria " + i, previsto: 100 * i }],
         })
       );
     }
-    let blocked = null;
-    try {
-      await Api.importCategoryBudgets({
-        month: "2026-08",
-        rows: [{ categoria: "Categoria 4", previsto: 400 }],
-      });
-    } catch (err) {
-      blocked = String(err.message || "");
-    }
-    return { okCount: ok.length, blocked };
+   const quota = await Api.getBudgetImportQuota();
+   return { outputs, quota };
   `
   );
 
-  check("Free permite até 3 importações de orçamento no dia", budgetImportFree.okCount === 3);
   check(
-    "Free bloqueia a 4ª importação de orçamento no dia",
-    typeof budgetImportFree.blocked === "string" && budgetImportFree.blocked.includes("Limite diário de importação")
+   "Free mantém as 3 primeiras importações de orçamento sem extra",
+   budgetImportFree.outputs.slice(0, 3).every((x) => x.is_extra === false)
+  );
+  check(
+   "Free marca a 4ª importação de orçamento como extra",
+   budgetImportFree.outputs[3].is_extra === true
+  );
+  check(
+   "Free cobra R$ 10,00 na importação de orçamento extra",
+   budgetImportFree.outputs[3].extra_charge === 10
+  );
+  check(
+   "Quota de importação de orçamento no Free mantém limite diário de 3",
+   budgetImportFree.quota.max_per_day === 3
   );
 
   const budgetImportPremium = await run(
