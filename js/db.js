@@ -73,6 +73,14 @@ const ID_FIELDS_BY_COLLECTION = {
 // ---------- Schema: forma dos dados (schema vazio + normalização) ----------
 
 class Schema {
+  static normalizeLegacyMercadoPagoCategory(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return raw;
+    return /^mercado\s+pago\s*\(\s*n[aã]o\s+categorizado\s*\)$/i.test(raw)
+      ? "Mercado Pago"
+      : raw;
+  }
+
   static normalizeText(value) {
     return String(value || "")
       .normalize("NFD")
@@ -200,6 +208,26 @@ class Schema {
   static normalize(parsed) {
     const base = Schema.empty();
     const merged = { ...base, ...parsed, _seq: { ...base._seq, ...(parsed._seq || {}) } };
+    (merged.categories || []).forEach((category) => {
+      if (category && typeof category.name === "string") {
+        category.name = Schema.normalizeLegacyMercadoPagoCategory(category.name);
+      }
+    });
+    (merged.expenses || []).forEach((expense) => {
+      if (expense && typeof expense.category_name === "string") {
+        expense.category_name = Schema.normalizeLegacyMercadoPagoCategory(expense.category_name);
+      }
+    });
+    (merged.budgets || []).forEach((budget) => {
+      if (budget && typeof budget.category_name === "string") {
+        budget.category_name = Schema.normalizeLegacyMercadoPagoCategory(budget.category_name);
+      }
+    });
+    (merged.categoryBudgets || []).forEach((budget) => {
+      if (budget && typeof budget.category_name === "string") {
+        budget.category_name = Schema.normalizeLegacyMercadoPagoCategory(budget.category_name);
+      }
+    });
     Schema.detachBudgetGeneratedCategories(merged);
     return Schema.coerceIds(merged);
   }

@@ -218,6 +218,30 @@ function check(name, cond) {
     !manageBudgets.afterDelete.some((b) => b.category_name === "Transporte")
   );
 
+  // ---------- normalização legada Mercado Pago ----------
+  const legadoMercadoPago = await run(
+    dev,
+    `
+    const sufixoLegado = "(não categorizado)";
+    const categoriaLegada = "Mercado Pago " + sufixoLegado;
+    await Api.addCategory(categoriaLegada);
+    await Api.setCategoryBudget({ month: "2026-08", previsto: 99, category_name: categoriaLegada });
+    const categories = await Api.listCategories();
+    const budgets = await Api.listCategoryBudgets("2026-08");
+    return { categories, budgets, categoriaLegada };
+  `
+  );
+  check(
+    "normaliza categoria legada de Mercado Pago para Mercado Pago",
+    !legadoMercadoPago.categories.some((c) => c.name === legadoMercadoPago.categoriaLegada)
+      && legadoMercadoPago.categories.some((c) => c.name === "Mercado Pago")
+  );
+  check(
+    "normaliza orçamento com categoria legada de Mercado Pago",
+    !legadoMercadoPago.budgets.some((b) => b.category_name === legadoMercadoPago.categoriaLegada)
+      && legadoMercadoPago.budgets.some((b) => b.category_name === "Mercado Pago")
+  );
+
   // ---------- mês sem nenhum orçamento importado ----------
   const overviewMesVazio = await run(dev, `const overview = await Api.getBudgetOverview("2099-01"); return { overview };`);
   check("mês sem nenhum orçamento nem despesa -> hasAnyBudget=false e rows vazio", overviewMesVazio.overview.hasAnyBudget === false && overviewMesVazio.overview.rows.length === 0);
