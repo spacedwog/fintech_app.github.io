@@ -386,7 +386,16 @@ class CardSyncEngine:
             if self.categorizer.should_ignore(desc):
                 continue
 
-            categoria_nome = self.categorizer.categorize(desc)
+            tx_type = (
+                tx.get("category")
+                or tx.get("type")
+                or tx.get("operation_type")
+                or tx.get("transaction_type")
+                or tx.get("credit_debit_type")
+                or tx.get("creditDebitType")
+                or ""
+            )
+            categoria_nome = self.categorizer.categorize(desc, tx_type)
             categoria, created = mp_expenses.find_or_create_category(db, tenant_id, categoria_nome)
             if created:
                 categorias_novas += 1
