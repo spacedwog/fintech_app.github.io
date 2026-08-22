@@ -359,21 +359,39 @@ class TransactionClassifierAgent:
         transaction_number = self._extract_primary_transaction_number(transaction)
         payment_type = classification.get("payment_type") or DEFAULT_PAYMENT_TYPE
         direction = classification.get("direction")
+        direction_raw = self._normalize(" ".join([
+            str(transaction.get("direction") or ""),
+            str(transaction.get("type") or ""),
+            str(transaction.get("operation_type") or ""),
+            str(transaction.get("transaction_type") or ""),
+            str(transaction.get("credit_debit_type") or ""),
+            str(transaction.get("creditDebitType") or ""),
+        ]))
+        if any(t in direction_raw for t in ("debit", "saida", "pagamento", "cashout", "outgoing", "transfer_out")):
+            direction = "debit"
+        elif any(t in direction_raw for t in ("credit", "entrada", "cashin", "incoming", "transfer_in")):
+            direction = "credit"
         status = verification.get("mercado_pago_status")
         amount = abs(self._safe_float(transaction.get("transaction_amount", transaction.get("amount", 0))))
 
         receipt_data = receipt_data if isinstance(receipt_data, dict) else {}
         receipt_detected = bool(receipt_data.get("receipt_detected") or receipt_data.get("rawText"))
         receipt_confidence = self._safe_float(receipt_data.get("receipt_confidence", receipt_data.get("confidence")), 0.0)
-        receipt_transaction_number = str(receipt_data.get("transaction_number") or "").strip()
+        receipt_transaction_number = str(
+            receipt_data.get("receipt_transaction_number")
+            or receipt_data.get("transaction_number")
+            or ""
+        ).strip()
 
         existing = {str(item).strip() for item in (existing_transaction_ids or []) if str(item).strip()}
         unique_identifier = bool(transaction_id) and transaction_id not in existing
         status_ok = status == "approved"
-        direction_ok = direction == "debit"
+        direction_ok = direction != "credit"
         amount_ok = amount > 0
         payment_type_ok = payment_type in SUPPORTED_EXPENSE_PAYMENT_TYPES
         source_ok = bool((verification.get("transaction_nature_verification") or {}).get("is_imported_mercado_pago_payment"))
+        if not source_ok:
+            source_ok = bool(verification.get("payment_verified"))
         transaction_ok = bool(verification.get("transaction_verified"))
         receipt_number_matches = (
             not receipt_transaction_number
@@ -397,7 +415,7 @@ class TransactionClassifierAgent:
         if not status_ok:
             reasons.append("status não aprovado")
         if not direction_ok:
-            reasons.append("transação não é despesa (debit)")
+            reasons.append("transação é de entrada (não despesa)")
         if not amount_ok:
             reasons.append("valor inválido")
         if not payment_type_ok:

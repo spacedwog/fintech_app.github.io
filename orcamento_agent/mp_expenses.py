@@ -297,10 +297,10 @@ class ExpenseGenerator:
             str(payment.get("credit_debit_type") or ""),
             str(payment.get("creditDebitType") or ""),
         ]))
-        if any(t in raw for t in ("credit", "entrada", "receb", "deposit", "cashin", "incoming", "transfer_in")):
-            return "credit"
         if any(t in raw for t in ("debit", "saida", "pagamento", "cashout", "outgoing", "saque", "transfer_out")):
             return "debit"
+        if any(t in raw for t in ("credit", "entrada", "receb", "deposit", "cashin", "incoming", "transfer_in")):
+            return "credit"
         return None
 
     def generate(self, db, mp_payments, tenant_id, user_id):

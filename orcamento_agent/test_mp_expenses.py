@@ -34,15 +34,15 @@ fake_mp_payments = [
     # já é a assinatura reconciliada acima -> deve ser ignorado (ignoradas_receita)
     {"id": 5001, "status": "approved", "transaction_amount": 19.99, "description": "Assinatura Premium — Fintech Spacecworp", "date_approved": "2026-08-02T09:00:00.000-03:00"},
     # bate com a regra de mapeamento "uber" -> categoria Transporte (já existe, não deve duplicar)
-    {"id": 5002, "status": "approved", "transaction_amount": 35.50, "description": "UBER *TRIP 123", "date_approved": "2026-08-03T08:00:00.000-03:00"},
+    {"id": 5002, "status": "approved", "transaction_amount": 35.50, "description": "UBER *TRIP 123", "date_approved": "2026-08-03T08:00:00.000-03:00", "payment_type_id": "pix", "transaction_type": "cashout", "generated_by_mercado_pago": True},
     # não bate com nenhuma regra -> categoria padrão (nova)
-    {"id": 5003, "status": "approved", "transaction_amount": 89.90, "description": "LOJA QUALQUER XYZ", "date_approved": "2026-08-04T12:00:00.000-03:00"},
+    {"id": 5003, "status": "approved", "transaction_amount": 89.90, "description": "LOJA QUALQUER XYZ", "date_approved": "2026-08-04T12:00:00.000-03:00", "payment_type_id": "credit_card", "transaction_type": "cashout", "generated_by_mercado_pago": True},
     # descrição bate com o filtro de reforço "despesa extra" -> ignorado mesmo sem estar em payments
-    {"id": 5004, "status": "approved", "transaction_amount": 5.0, "description": "Despesa extra — limite diário do plano Free", "date_approved": "2026-08-05T10:00:00.000-03:00"},
+    {"id": 5004, "status": "approved", "transaction_amount": 5.0, "description": "Despesa extra — limite diário do plano Free", "date_approved": "2026-08-05T10:00:00.000-03:00", "payment_type_id": "ticket", "transaction_type": "cashout", "generated_by_mercado_pago": True},
     # não aprovado -> ignorado
     {"id": 5005, "status": "rejected", "transaction_amount": 100.0, "description": "PAGAMENTO REJEITADO", "date_approved": "2026-08-06T10:00:00.000-03:00"},
     # entrada na conta Mercado Pago -> deve virar "Orçamento"
-    {"id": 5006, "status": "approved", "transaction_amount": 120.0, "description": "Transferência recebida via Pix", "date_approved": "2026-08-07T10:00:00.000-03:00", "transaction_type": "cashin"},
+    {"id": 5006, "status": "approved", "transaction_amount": 120.0, "description": "Transferência recebida via Pix", "date_approved": "2026-08-07T10:00:00.000-03:00", "transaction_type": "cashin", "payment_type_id": "pix", "generated_by_mercado_pago": True},
 ]
 
 cfg = {
