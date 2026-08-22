@@ -23,13 +23,13 @@ Uso:
   python3 mp_list_activities.py --export atividades.csv   (também salva um CSV)
   python3 mp_list_activities.py --export atividades.json  (ou um JSON, pela extensão)
 
-Categorização: cada pagamento é categorizado pela mesma regra de
-palavra-chave usada por mp_expenses.py (`mp_expenses.ExpenseCategorizer`),
-lendo "mapeamento"/"categoria_padrao" do config carregado (ex.:
+Categorização: cada pagamento é categorizado pelo agente IA heurístico
+de mp_expenses.py (`mp_expenses.ExpenseCategorizer`), com apoio do
+"mapeamento"/"categoria_padrao" do config carregado (ex.:
 mp_expenses_config.json, que já costuma ter essas chaves -- ver
 mp_expenses_config.example.json). Se o config não tiver "mapeamento" (caso de
 um config.json simples, só com o token), todo pagamento cai na categoria
-padrão ("Não categorizado" ou o que estiver em "categoria_padrao").
+padrão ("Mercado Pago" ou o que estiver em "categoria_padrao").
 
 Nunca grava nada no painel web nem no Mercado Pago -- é só leitura.
 
@@ -163,16 +163,26 @@ class MercadoPagoActivityLister:
         except Exception as e:
             return "erro", f"Falha ao consultar o Mercado Pago: {e}"
 
-        # Categoriza cada pagamento pela mesma regra de palavra-chave do
-        # mp_expenses.py, lendo "mapeamento"/"categoria_padrao" do config
-        # carregado (vazio = tudo cai na categoria padrão).
+        # Categoriza cada pagamento pelo mesmo agente IA heurístico do
+        # mp_expenses.py, com apoio de "mapeamento"/"categoria_padrao" do
+        # config carregado (sem mapeamento = fallback na categoria padrão).
         categorizer = mp_expenses.ExpenseCategorizer(
             mapeamento=cfg.get("mapeamento") or [],
-            categoria_padrao=cfg.get("categoria_padrao") or "Não categorizado",
+            categoria_padrao=cfg.get("categoria_padrao") or mp_expenses.DEFAULT_CATEGORIA_PADRAO,
         )
         for p in payments:
             desc = p.get("description") or p.get("statement_descriptor") or "(sem descrição)"
-            p["categoria"] = categorizer.categorize(desc)
+            p["categoria"] = categorizer.categorize(
+                desc,
+                expense_type=(
+                    p.get("type")
+                    or p.get("operation_type")
+                    or p.get("transaction_type")
+                    or p.get("payment_type_id")
+                ),
+                transaction_direction=p.get("direction") or p.get("credit_debit_type") or p.get("creditDebitType"),
+                transaction=p,
+            )
 
         if args.status:
             payments = [p for p in payments if p.get("status") == args.status]

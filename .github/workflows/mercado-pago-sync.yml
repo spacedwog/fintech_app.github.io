@@ -126,7 +126,7 @@ jobs:
               "db_json": None,
               "conta_email": email,
               "janela_dias": dias,
-              "categoria_padrao": "Mercado Pago (não categorizado)",
+              "categoria_padrao": "Mercado Pago",
               "mapeamento": [
                   {"palavra_chave": "uber", "categoria": "Transporte"},
                   {"palavra_chave": "99", "categoria": "Transporte"},

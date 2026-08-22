@@ -63,9 +63,10 @@ from datetime import datetime
 
 import mp_sync  # fetch_mp_payments, normalize
 import mp_reconcile  # build_source, day_range, FirestoreSource/LocalJsonSource
+import transaction_classifier_agent
 
 DEFAULT_IGNORAR_DESCRICOES = ["despesa extra", "assinatura", "fintech spacecworp"]
-DEFAULT_CATEGORIA_PADRAO = "Mercado Pago (não categorizado)"
+DEFAULT_CATEGORIA_PADRAO = "Mercado Pago"
 DEFAULT_CATEGORIA_ORCAMENTO = "Orçamento"
 
 
@@ -111,13 +112,48 @@ class ExpenseCategorizer:
     geração de despesas em si (ExpenseGenerator) para poder ser testada/
     reaproveitada isoladamente."""
 
-    def __init__(self, mapeamento=None, categoria_padrao=None, ignorar_descricoes=None):
+    def __init__(
+        self,
+        mapeamento=None,
+        categoria_padrao=None,
+        ignorar_descricoes=None,
+        ai_min_confidence=transaction_classifier_agent.DEFAULT_MIN_CONFIDENCE,
+    ):
         self.mapeamento = mapeamento or []
         self.categoria_padrao = categoria_padrao or DEFAULT_CATEGORIA_PADRAO
         self.ignorar_descricoes = (
             DEFAULT_IGNORAR_DESCRICOES if ignorar_descricoes is None else ignorar_descricoes
         )
         self._tipos_orcamento = ("recebimento", "beneficio", "benefício")
+        self.ai_min_confidence = float(ai_min_confidence or transaction_classifier_agent.DEFAULT_MIN_CONFIDENCE)
+        self.ai_classifier = transaction_classifier_agent.TransactionClassifierAgent(
+            category_profiles=self._build_category_profiles(),
+            default_category=self.categoria_padrao,
+        )
+
+    def _build_category_profiles(self):
+        grouped = {}
+        for regra in self.mapeamento:
+            kw = str(regra.get("palavra_chave") or regra.get("keyword") or "").strip()
+            categoria = str(regra.get("categoria") or "").strip()
+            if not kw or not categoria:
+                continue
+            grouped.setdefault(categoria, [])
+            if kw not in grouped[categoria]:
+                grouped[categoria].append(kw)
+        return [{"name": categoria, "keywords": keywords} for categoria, keywords in grouped.items()]
+
+    def _classify_with_ai(self, description, expense_type=None, transaction_direction=None, transaction=None):
+        tx = dict(transaction or {})
+        if not tx.get("description"):
+            tx["description"] = description
+        if transaction_direction and not tx.get("direction"):
+            tx["direction"] = transaction_direction
+        if expense_type:
+            tx.setdefault("type", expense_type)
+            tx.setdefault("operation_type", expense_type)
+            tx.setdefault("transaction_type", expense_type)
+        return self.ai_classifier.classify(tx, min_confidence=self.ai_min_confidence)
 
     # Só a correspondência por palavra-chave -- None quando nenhuma regra bate
     # (quem chama decide o que fazer no fallback; ver categorize() abaixo).
@@ -152,13 +188,36 @@ class ExpenseCategorizer:
             return True
         return False
 
-    def categorize(self, description, expense_type=None, transaction_direction=None):
+    def classify_transaction(self, description, expense_type=None, transaction_direction=None, transaction=None):
         direction = self._normalize_direction(transaction_direction)
         if direction == "credit":
-            return DEFAULT_CATEGORIA_ORCAMENTO
+            return {"category": DEFAULT_CATEGORIA_ORCAMENTO, "classification": None, "source": "rule_credit"}
         if self._is_budget_type(expense_type):
-            return DEFAULT_CATEGORIA_ORCAMENTO
-        return self.match_keyword(description) or self.categoria_padrao
+            return {"category": DEFAULT_CATEGORIA_ORCAMENTO, "classification": None, "source": "rule_budget"}
+
+        classification = self._classify_with_ai(
+            description,
+            expense_type=expense_type,
+            transaction_direction=transaction_direction,
+            transaction=transaction,
+        )
+        ai_category = (classification or {}).get("category")
+        if ai_category and ai_category != self.categoria_padrao:
+            return {"category": ai_category, "classification": classification, "source": "ai"}
+
+        keyword_category = self.match_keyword(description)
+        if keyword_category:
+            return {"category": keyword_category, "classification": classification, "source": "keyword"}
+
+        return {"category": self.categoria_padrao, "classification": classification, "source": "default"}
+
+    def categorize(self, description, expense_type=None, transaction_direction=None, transaction=None):
+        return self.classify_transaction(
+            description,
+            expense_type=expense_type,
+            transaction_direction=transaction_direction,
+            transaction=transaction,
+        )["category"]
 
     def should_ignore(self, description):
         desc_norm = mp_sync.normalize(description)
@@ -308,9 +367,13 @@ class ExpenseGenerator:
                 or p.get("creditDebitType")
             )
             transaction_direction = self._infer_transaction_direction(p)
-            categoria_nome = self.categorizer.categorize(
-                desc, expense_type=expense_type, transaction_direction=transaction_direction
+            classification = self.categorizer.classify_transaction(
+                desc,
+                expense_type=expense_type,
+                transaction_direction=transaction_direction,
+                transaction=p,
             )
+            categoria_nome = classification["category"]
             category, created = find_or_create_category(db, tenant_id, categoria_nome)
             if created:
                 categorias_novas += 1
@@ -337,6 +400,16 @@ class ExpenseGenerator:
                 # js/dashboard.js.
                 "mercadoPagoSource": "api",
                 "mercadoPagoTransactionDirection": transaction_direction,
+                "mercadoPagoCategorySource": classification.get("source"),
+                "mercadoPagoCategoryConfidence": (
+                    (classification.get("classification") or {}).get("confidence")
+                ),
+                "mercadoPagoTransactionType": (
+                    (classification.get("classification") or {}).get("transaction_type")
+                ),
+                "mercadoPagoPaymentType": (
+                    (classification.get("classification") or {}).get("payment_type")
+                ),
             }
             db.setdefault("expenses", []).append(expense)
             existentes_mp.append(expense)

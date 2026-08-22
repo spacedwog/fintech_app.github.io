@@ -4,7 +4,7 @@
   "db_json": null,
   "conta_email": "seu-email-de-login-no-painel@exemplo.com",
   "janela_dias": 30,
-  "categoria_padrao": "Mercado Pago (não categorizado)",
+  "categoria_padrao": "Mercado Pago",
   "mapeamento": [
     { "palavra_chave": "uber", "categoria": "Transporte" },
     { "palavra_chave": "99", "categoria": "Transporte" },
