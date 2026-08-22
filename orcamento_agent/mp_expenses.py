@@ -64,6 +64,7 @@ from datetime import datetime
 import mp_sync  # fetch_mp_payments, normalize
 import mp_reconcile  # build_source, day_range, FirestoreSource/LocalJsonSource
 import transaction_classifier_agent
+import mp_expense_verifier_agent
 
 DEFAULT_IGNORAR_DESCRICOES = ["despesa extra", "assinatura", "fintech spacecworp"]
 DEFAULT_CATEGORIA_PADRAO = "Mercado Pago"
@@ -256,10 +257,13 @@ class ExpenseGenerator:
     mercadoPagoPaymentId sozinha não pegue algum caso (ver "Limitações" no
     LEIA-ME.md)."""
 
-    def __init__(self, categorizer, cross_source_window_days=2, cross_source_tolerance=0.01):
+    def __init__(self, categorizer, cross_source_window_days=2, cross_source_tolerance=0.01, verifier=None):
         self.categorizer = categorizer
         self.cross_source_window_days = cross_source_window_days
         self.cross_source_tolerance = cross_source_tolerance
+        self.verifier = verifier or mp_expense_verifier_agent.MercadoPagoExpenseVerifierAgent(
+            classifier=self.categorizer.ai_classifier
+        )
 
     def _is_cross_source_duplicate(self, valor, data_iso, existentes_mp):
         """True se já existe uma despesa gerada via Mercado Pago com valor e
@@ -293,10 +297,10 @@ class ExpenseGenerator:
             str(payment.get("credit_debit_type") or ""),
             str(payment.get("creditDebitType") or ""),
         ]))
-        if any(t in raw for t in ("credit", "entrada", "receb", "deposit", "cashin", "incoming", "transfer_in")):
-            return "credit"
         if any(t in raw for t in ("debit", "saida", "pagamento", "cashout", "outgoing", "saque", "transfer_out")):
             return "debit"
+        if any(t in raw for t in ("credit", "entrada", "receb", "deposit", "cashin", "incoming", "transfer_in")):
+            return "credit"
         return None
 
     def generate(self, db, mp_payments, tenant_id, user_id):
@@ -332,7 +336,14 @@ class ExpenseGenerator:
         ignoradas_duplicata_cruzada = 0
         ignoradas_receita = 0
         ignoradas_filtro = 0
+        ignoradas_verificacao = 0
         categorias_novas = 0
+        verificacoes_rejeitadas = []
+        existing_transaction_ids = {
+            str(item)
+            for item in set(ja_em_payments).union(set(ja_importados))
+            if item is not None and str(item).strip()
+        }
 
         for p in mp_payments:
             if p.get("status") != "approved":
@@ -353,6 +364,20 @@ class ExpenseGenerator:
 
             valor = p.get("transaction_amount", 0) or 0
             data_iso = p.get("date_approved") or p.get("date_created") or ""
+
+            verification = self.verifier.verify_one(
+                p,
+                existing_transaction_ids=existing_transaction_ids,
+                receipt_data=p.get("receipt_data"),
+            )
+            if not verification["verified"]:
+                ignoradas_verificacao += 1
+                verificacoes_rejeitadas.append({
+                    "transaction_id": verification["transaction_id"],
+                    "payment_type": verification["payment_type"],
+                    "reason": verification["verification_reason"],
+                })
+                continue
 
             if self._is_cross_source_duplicate(valor, data_iso, existentes_mp):
                 ignoradas_duplicata_cruzada += 1
@@ -410,10 +435,26 @@ class ExpenseGenerator:
                 "mercadoPagoPaymentType": (
                     (classification.get("classification") or {}).get("payment_type")
                 ),
+                "mercadoPagoTransactionId": verification["transaction_id"],
+                "mercadoPagoTransactionNumber": verification["transaction_number"],
+                "mercadoPagoVerified": verification["verified"],
+                "mercadoPagoVerificationReason": verification["verification_reason"],
+                "mercadoPagoReceiptDetected": verification["receipt_detected"],
+                "mercadoPagoReceiptConfidence": verification["receipt_confidence"],
+                "mercadoPagoVerification": {
+                    "transaction_id": verification["transaction_id"],
+                    "transaction_number": verification["transaction_number"],
+                    "payment_type": verification["payment_type"],
+                    "verified": verification["verified"],
+                    "verification_reason": verification["verification_reason"],
+                    "receipt_detected": verification["receipt_detected"],
+                    "receipt_confidence": verification["receipt_confidence"],
+                },
             }
             db.setdefault("expenses", []).append(expense)
             existentes_mp.append(expense)
             criadas.append(expense)
+            existing_transaction_ids.add(str(mp_id))
 
         return {
             "criadas": criadas,
@@ -422,6 +463,8 @@ class ExpenseGenerator:
             "ignoradas_duplicata_cruzada": ignoradas_duplicata_cruzada,
             "ignoradas_receita": ignoradas_receita,
             "ignoradas_filtro": ignoradas_filtro,
+            "ignoradas_verificacao": ignoradas_verificacao,
+            "verificacoes_rejeitadas": verificacoes_rejeitadas,
         }
 
 
@@ -431,7 +474,10 @@ def generate_expenses(db, mp_payments, tenant_id, user_id, cfg):
         categoria_padrao=cfg.get("categoria_padrao") or DEFAULT_CATEGORIA_PADRAO,
         ignorar_descricoes=cfg.get("ignorar_descricoes_contendo"),
     )
-    return ExpenseGenerator(categorizer).generate(db, mp_payments, tenant_id, user_id)
+    verifier = mp_expense_verifier_agent.MercadoPagoExpenseVerifierAgent(
+        classifier=categorizer.ai_classifier
+    )
+    return ExpenseGenerator(categorizer, verifier=verifier).generate(db, mp_payments, tenant_id, user_id)
 
 
 class MercadoPagoExpenseAgent:
@@ -504,6 +550,8 @@ class MercadoPagoExpenseAgent:
                     categorias_novas=resultado["categorias_novas"],
                     ignoradas_receita=resultado["ignoradas_receita"],
                     ignoradas_duplicata_cruzada=resultado.get("ignoradas_duplicata_cruzada", 0),
+                    ignoradas_verificacao=resultado.get("ignoradas_verificacao", 0),
+                    verificacoes_rejeitadas=(resultado.get("verificacoes_rejeitadas") or [])[:5],
                 )
                 source.write_fields({
                     "categories": db.get("categories", []),
@@ -536,6 +584,11 @@ class MercadoPagoExpenseAgent:
         if resultado["ignoradas_filtro"]:
             linhas.append(
                 f"{resultado['ignoradas_filtro']} pagamento(s) ignorado(s) pelo filtro \"ignorar_descricoes_contendo\"."
+            )
+        if resultado.get("ignoradas_verificacao"):
+            linhas.append(
+                f"{resultado['ignoradas_verificacao']} pagamento(s) ignorado(s) por falha na verificação "
+                "de transação/comprovante."
             )
 
         msg = "\n".join(linhas)

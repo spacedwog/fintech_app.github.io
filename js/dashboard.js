@@ -64,6 +64,7 @@ class MercadoPagoStatusIndicator {
     const box = document.getElementById("mp-status");
     const label = document.getElementById("mp-status-label");
     const profileLabel = document.getElementById("mp-customer-profile");
+    const rejectionReasonsLabel = document.getElementById("mp-rejection-reasons");
     if (!box || !label || typeof Api === "undefined") return;
 
     try {
@@ -106,9 +107,25 @@ class MercadoPagoStatusIndicator {
       if (profileLabel) {
         profileLabel.textContent = profile ? `Perfil IA: ${profile.summary}` : "";
       }
+      if (rejectionReasonsLabel) {
+        const rejected = ((status.automation || {}).last_expenses_api || {}).verificacoes_rejeitadas;
+        if (Array.isArray(rejected) && rejected.length) {
+          rejectionReasonsLabel.textContent = [
+            "Rejeições recentes da verificação:",
+            ...rejected.map((item) => {
+              const reason = String((item && item.reason) || "Motivo não informado");
+              const transactionId = String((item && item.transaction_id) || "").trim();
+              return transactionId ? `• ${reason} (transação ${transactionId})` : `• ${reason}`;
+            }),
+          ].join("\n");
+        } else {
+          rejectionReasonsLabel.textContent = "";
+        }
+      }
     } catch (e) {
       label.textContent = "";
       if (profileLabel) profileLabel.textContent = "";
+      if (rejectionReasonsLabel) rejectionReasonsLabel.textContent = "";
       box.title = "";
     }
   }
