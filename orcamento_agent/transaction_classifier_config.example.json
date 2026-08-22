@@ -25,7 +25,7 @@
     },
     {
       "name": "API",
-      "keywords": ["api", "sdk", "checkout", "assinatura", "subscription"]
+      "keywords": ["api", "sdk", "checkout", "assinatura", "subscription", "partition_payment"]
     },
     {
       "name": "BOLETO",
@@ -43,7 +43,7 @@
     },
     {
       "name": "API",
-      "keywords": ["api", "checkout", "subscription", "external_reference"]
+      "keywords": ["api", "checkout", "subscription", "external_reference", "partition_payment"]
     },
     {
       "name": "ESTORNO",

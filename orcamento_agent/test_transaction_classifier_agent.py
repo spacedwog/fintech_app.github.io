@@ -25,6 +25,28 @@ transactions = [
     {"id": "t2", "description": "IFOOD PEDIDO 998", "transaction_amount": -59.9, "transaction_type": "cashout", "status": "approved"},
     {"id": "t3", "description": "Transferencia recebida via Pix", "transaction_amount": 300.0, "transaction_type": "cashin", "payment_type_id": "pix", "status": "approved"},
     {"id": "t4", "description": "COMPRA API CHECKOUT", "transaction_amount": -20.0, "transaction_type": "cashout", "status": "pending"},
+    {
+        "id": "123456789",
+        "payment_id": "123456789",
+        "transaction_number": "987654321",
+        "merchant_order_id": "444555666",
+        "description": "partition_payment checkout assinatura",
+        "transaction_amount": -120.0,
+        "transaction_type": "Pagamento importado (Mercado Pago)",
+        "generated_by_mercado_pago": True,
+        "generated_by_mercado_pago_source": "api",
+        "status": "approved",
+    },
+    {
+        "id": "111222333",
+        "payment_id": "111222333",
+        "transaction_number": "ABC123",
+        "description": "partition_payment",
+        "transaction_amount": -90.0,
+        "generated_by_mercado_pago": True,
+        "generated_by_mercado_pago_source": "api",
+        "status": "approved",
+    },
 ]
 
 results = runner.classify_transactions(transactions)
@@ -52,5 +74,21 @@ assert r4["classification"]["payment_type"] == "API", r4
 assert r4["classification"]["transaction_type"] == "API_SAIDA", r4
 assert r4["classification"]["verification"]["verification_status"] == "pending", r4
 print("OK fallback de categoria e classifica tipo API/pendente")
+
+r5 = next(r for r in results if r["id"] == "123456789")
+v5 = r5["classification"]["verification"]
+assert v5["transaction_verified"] is True, r5
+assert v5["transaction_number_verification"]["numbers_verified"] is True, r5
+assert v5["transaction_nature_verification"]["nature_verified"] is True, r5
+assert v5["transaction_nature_verification"]["detected_origin"] == "Integração Mercado Pago API", r5
+assert v5["transaction_nature_verification"]["partition_payment_detected"] is True, r5
+assert v5["transaction_nature_verification"]["expected_transaction_type"] == "Pagamento importado (Mercado Pago)", r5
+print("OK valida natureza da transação Mercado Pago (API + partition_payment + importado)")
+
+r6 = next(r for r in results if r["id"] == "111222333")
+v6 = r6["classification"]["verification"]
+assert v6["transaction_number_verification"]["numbers_verified"] is False, r6
+assert v6["transaction_verified"] is False, r6
+print("OK reprova número de transação inválido no Mercado Pago")
 
 print("\nTODOS OS TESTES PASSARAM ✅")
