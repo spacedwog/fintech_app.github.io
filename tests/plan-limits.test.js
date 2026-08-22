@@ -159,7 +159,7 @@ function check(name, cond) {
       imports++;
     }
     const me = await Api.me();
-    return { imports, plan: me.plan };
+    return { imports, plan: me.tenant && me.tenant.plan };
   `
   );
 
