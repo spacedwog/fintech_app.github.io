@@ -1,0 +1,21 @@
+{
+  "default_category": "Não categorizado",
+  "min_confidence": 0.35,
+  "category_profiles": [
+    {
+      "name": "Transporte",
+      "keywords": ["uber", "99", "taxi", "combustivel", "posto"],
+      "direction": "debit"
+    },
+    {
+      "name": "Alimentação",
+      "keywords": ["ifood", "restaurante", "mercado", "padaria"],
+      "direction": "debit"
+    },
+    {
+      "name": "Receitas",
+      "keywords": ["pix", "transferencia recebida", "deposito", "cashback"],
+      "direction": "credit"
+    }
+  ]
+}

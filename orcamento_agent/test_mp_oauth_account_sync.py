@@ -72,7 +72,7 @@ class FakeOAuthClient:
                 "id": "pay-2",
                 "transaction_amount": 19.5,
                 "status": "approved",
-                "description": "Mercado de bairro",
+                "description": "UBER cashback recebido",
                 "date_approved": "2026-08-08T11:00:00.000-03:00",
                 "type": "recebimento_beneficio",
             },
@@ -124,9 +124,10 @@ with open(TEST_DB_PATH, encoding="utf-8") as f:
 
 assert len(db_after.get("payments", [])) == 2
 assert len(db_after.get("expenses", [])) == 3  # 2 pagamentos + 1 movimentação
-orcamento = next(e for e in db_after["expenses"] if e["description"] == "Mercado de bairro")
+orcamento = next(e for e in db_after["expenses"] if e["description"] == "UBER cashback recebido")
 cat_orcamento = next(c for c in db_after["categories"] if c["id"] == orcamento["category_id"])
 assert cat_orcamento["name"] == "Orçamento", cat_orcamento
+assert orcamento.get("mercadoPagoTransactionDirection") == "credit", orcamento
 assert db_after["mercado_pago_oauth_data"]["t1"]["payments_count"] == 2
 assert db_after["mercado_pago_oauth_data"]["t1"]["charges_count"] == 1
 assert db_after["mercado_pago_oauth_data"]["t1"]["movements_count"] == 1

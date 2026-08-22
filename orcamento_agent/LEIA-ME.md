@@ -29,6 +29,9 @@ mesmo cuidado de segurança (nenhum segredo sai da máquina local):
    camada intermediária: lê eventos financeiros em JSON, reconcilia com pagamentos
    do painel, atualiza status de quitação/liquidação, mantém histórico e aplica
    idempotência por `event_id`.
+7. **`transaction_classifier_agent.py`** — classifica transações por categoria com
+   um agente heurístico (palavras-chave + direção + faixa de valor), devolvendo
+   também confiança e evidências da decisão.
 
 Além dos três, **`mp_list_activities.py`** é um utilitário só de leitura: lista as
 atividades (pagamentos) reais da conta do Mercado Pago no terminal (e pode exportar
@@ -123,6 +126,12 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
 - `test_cobol_bridge.py` — teste automatizado do `cobol_bridge.py` com dados
   simulados (sem Firestore real). Rode `python3 test_cobol_bridge.py` depois de
   qualquer alteração no script.
+- `transaction_classifier_agent.py` — agente de classificação de transações
+  (entrada em JSON, saída em JSON com categoria + confiança + evidências).
+- `transaction_classifier_config.example.json` — modelo de perfis de categoria para
+  o `transaction_classifier_agent.py`.
+- `test_transaction_classifier_agent.py` — teste automatizado do classificador.
+  Rode `python3 test_transaction_classifier_agent.py` depois de qualquer alteração.
 
 ## Ver as atividades do Mercado Pago sem gerar despesas (`mp_list_activities.py`)
 Antes de configurar o Firebase para `mp_reconcile.py`/`mp_expenses.py` valer a pena,

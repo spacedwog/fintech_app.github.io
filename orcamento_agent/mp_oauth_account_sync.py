@@ -280,9 +280,11 @@ class OAuthAccountSyncEngine:
             )
             or ""
         ).lower()
-        if "credit" in raw or "entrada" in raw or "deposit" in raw:
+        if any(t in raw for t in ("credit", "entrada", "deposit", "receb", "beneficio", "cashin", "incoming", "transfer_in")):
             return "credit"
-        return "debit"
+        if any(t in raw for t in ("debit", "saida", "pagamento", "cashout", "outgoing", "saque", "transfer_out")):
+            return "debit"
+        return None
 
     @staticmethod
     def _status_ok(record):
@@ -359,13 +361,12 @@ class OAuthAccountSyncEngine:
             if amount <= 0:
                 continue
             direction = self._normalized_direction(p)
-            if direction != "debit":
-                continue
             candidates.append(
                 {
                     "id": str(self._pick(p, ["id", "payment_id", "external_reference"]) or ""),
                     "description": str(self._pick(p, ["description", "statement_descriptor", "reason"]) or "Pagamento Mercado Pago"),
                     "expense_type": str(self._pick(p, ["type", "operation_type", "transaction_type", "credit_debit_type", "creditDebitType"]) or ""),
+                    "transaction_direction": direction,
                     "amount": amount,
                     "date": self._to_iso_date(self._pick(p, ["date_approved", "date_created", "date_last_updated"])),
                 }
@@ -375,8 +376,6 @@ class OAuthAccountSyncEngine:
             if not self._status_ok(m):
                 continue
             direction = self._normalized_direction(m)
-            if direction != "debit":
-                continue
             amount = self._safe_float(self._pick(m, ["amount", "value", "net_amount", "transaction_amount"]))
             if amount <= 0:
                 continue
@@ -388,6 +387,7 @@ class OAuthAccountSyncEngine:
                     "id": external_id,
                     "description": str(self._pick(m, ["description", "detail", "merchant_name", "counterparty"]) or "Movimentação Mercado Pago"),
                     "expense_type": str(self._pick(m, ["type", "operation_type", "transaction_type", "credit_debit_type", "creditDebitType"]) or ""),
+                    "transaction_direction": direction,
                     "amount": amount,
                     "date": self._to_iso_date(self._pick(m, ["date", "created_at", "date_created", "posted_at"])),
                 }
@@ -409,7 +409,11 @@ class OAuthAccountSyncEngine:
             if self.categorizer.should_ignore(c["description"]):
                 continue
 
-            categoria_nome = self.categorizer.categorize(c["description"], c.get("expense_type"))
+            categoria_nome = self.categorizer.categorize(
+                c["description"],
+                c.get("expense_type"),
+                transaction_direction=c.get("transaction_direction"),
+            )
             categoria, cat_created = mp_expenses.find_or_create_category(db, tenant_id, categoria_nome)
             if cat_created:
                 categories_created += 1
@@ -427,6 +431,7 @@ class OAuthAccountSyncEngine:
                 "extra_charge": 0,
                 "generatedByMercadoPago": True,
                 "mercadoPagoSource": "oauth",
+                "mercadoPagoTransactionDirection": c.get("transaction_direction"),
                 "mercadoPagoOAuthTransactionId": c["id"],
             }
             db.setdefault("expenses", []).append(expense)
