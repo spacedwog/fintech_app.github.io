@@ -1966,6 +1966,24 @@ class DashboardController {
       `</ul>`;
   }
 
+  _buildReceiptLinkOcrDiagnosticTooltip(errorMessage) {
+    const prefix = String(errorMessage || "Falha ao analisar o comprovante com o agente IA.").trim();
+    return [
+      prefix,
+      "",
+      "Diagnóstico e correções possíveis:",
+      "• Sem internet ou conexão instável → testar outra rede e tentar novamente.",
+      "• Arquivo de OCR/PDF não carregou (CDN, URL inválida, 404/500) → revisar links e publicação dos assets.",
+      "• Bloqueio de CORS/CSP/conteúdo misto (HTTP em página HTTPS) → liberar origem e usar HTTPS em tudo.",
+      "• Bloqueio por firewall, proxy, antivírus ou adblock → liberar domínio e desativar bloqueios para teste.",
+      "• Cache/service worker com versão antiga → recarregar forçado e limpar cache.",
+      "• Navegador sem suporte adequado a WASM/Worker/PDF → atualizar navegador ou testar outro.",
+      "• Arquivo de comprovante inválido/corrompido → reenviar PNG/JPG/PDF válido e legível.",
+      "• Timeout em rede lenta para baixar motor/modelos → tentar novamente em conexão melhor.",
+      "• Incompatibilidade de versões do motor OCR/arquivos de idioma → alinhar versões usadas no deploy.",
+    ].join("\n");
+  }
+
   async _setupReceiptLinkingView() {
     const selectEl = document.getElementById("receipt-link-expense-select");
     const fileEl = document.getElementById("receipt-link-file-input");
@@ -1983,6 +2001,7 @@ class DashboardController {
         const expenseId = String(selectEl.value || "").trim();
         const file = fileEl.files && fileEl.files[0];
         statusEl.textContent = "";
+        statusEl.title = "";
         bindStatusEl.textContent = "";
         if (!expenseId) {
           statusEl.textContent = "Selecione uma despesa para continuar.";
@@ -1994,6 +2013,7 @@ class DashboardController {
         }
         if (!window.ReceiptAI) {
           statusEl.textContent = "Agente IA de comprovante indisponível neste navegador.";
+          statusEl.title = this._buildReceiptLinkOcrDiagnosticTooltip(statusEl.textContent);
           return;
         }
 
@@ -2014,8 +2034,10 @@ class DashboardController {
           this._renderReceiptLinkAnalysis(this.receiptLinkDraft);
           this._goToReceiptLinkPage(2);
           statusEl.textContent = "Leitura concluída. Revise e confirme o vínculo na próxima etapa.";
+          statusEl.title = "";
         } catch (err) {
           statusEl.textContent = (err && err.message) || "Não foi possível analisar o comprovante.";
+          statusEl.title = this._buildReceiptLinkOcrDiagnosticTooltip(statusEl.textContent);
         }
       });
 
