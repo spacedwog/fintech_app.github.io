@@ -1,0 +1,72 @@
+name: Deploy de testes — Mercado Pago
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "30 12 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  mercado-pago-test-deploy:
+    name: Validar integração e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COMPRADOR_USUARIOTEST: ${{ secrets.COMPRADOR_USUARIOTEST }}
+      COMPRADOR_SENHATEST: ${{ secrets.COMPRADOR_SENHATEST }}
+      VENDEDOR_USUARIOTEST: ${{ secrets.VENDEDOR_USUARIOTEST }}
+      VENDEDOR_SENHATEST: ${{ secrets.VENDEDOR_SENHATEST }}
+      VISA_NUMBERTEST: ${{ secrets.VISA_NUMBERTEST }}
+      VISA_VALIDATETEST: ${{ secrets.VISA_VALIDATETEST }}
+      VISA_CODETEST: ${{ secrets.VISA_CODETEST }}
+      MERCADO_PAGO_ACCESS_TOKEN: ${{ secrets.MERCADO_PAGO_ACCESS_TOKEN }}
+      MP_CONTA_EMAIL: ${{ secrets.MP_CONTA_EMAIL }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validar secrets obrigatórios de teste
+        run: |
+          set -euo pipefail
+          missing=()
+          for key in \
+            COMPRADOR_USUARIOTEST COMPRADOR_SENHATEST \
+            VENDEDOR_USUARIOTEST VENDEDOR_SENHATEST \
+            VISA_NUMBERTEST VISA_VALIDATETEST VISA_CODETEST \
+            MERCADO_PAGO_ACCESS_TOKEN MP_CONTA_EMAIL FIREBASE_SERVICE_ACCOUNT_JSON; do
+            if [ -z "${!key:-}" ]; then
+              missing+=("$key")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Secrets ausentes: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Instalar dependências Python
+        run: pip install requests openpyxl firebase-admin
+
+      - name: Testes Node - Mercado Pago
+        run: |
+          node tests/mercado-pago-badge.test.js
+          node tests/mercado-pago-transaction-check.test.js
+
+      - name: Testes Python - orcamento_agent
+        working-directory: orcamento_agent
+        run: |
+          python3 test_mp_expenses.py
+          python3 test_mp_reconcile.py
+          python3 test_mp_list_activities.py
