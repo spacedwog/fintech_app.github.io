@@ -19,6 +19,7 @@ orcamento_agent/mp_expenses_config.json
 orcamento_agent/mp_open_finance_config.json
 orcamento_agent/mp_oauth_account_config.json
 orcamento_agent/cobol_bridge_config.json
+orcamento_agent/ibm_tso_bridge_config.json
 orcamento_agent/cobol_events.json
 orcamento_agent/cobol_events_*.json
 orcamento_agent/open_finance_dlq.jsonl

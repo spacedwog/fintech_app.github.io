@@ -29,7 +29,10 @@ mesmo cuidado de segurança (nenhum segredo sai da máquina local):
    camada intermediária: lê eventos financeiros em JSON, reconcilia com pagamentos
    do painel, atualiza status de quitação/liquidação, mantém histórico e aplica
    idempotência por `event_id`.
-7. **`transaction_classifier_agent.py`** — classifica transações por categoria com
+7. **`ibm_tso_bridge.py`** — conector direto com IBM Mainframe via TSO (z/OSMF),
+   com timeout/retry/sessão para executar comandos TSO e gerar eventos JSON
+   normalizados para reconciliação.
+8. **`transaction_classifier_agent.py`** — classifica transações por categoria com
    um agente heurístico (palavras-chave + direção + faixa de valor), devolvendo
    também confiança e evidências da decisão.
 
@@ -120,6 +123,13 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
 - `cobol_bridge.py` — ponte para eventos financeiros de sistemas legados
   (incluindo IBM COBOL) via camada intermediária JSON, com reconciliação,
   rastreabilidade e idempotência por `event_id`.
+- `ibm_tso_bridge.py` — integra com TSO via z/OSMF, executa comandos de
+  transação e exporta eventos JSON para uso no `cobol_bridge.py` (ou outros
+  consumidores internos).
+- `ibm_tso_bridge_config.example.json` — modelo de configuração do
+  `ibm_tso_bridge.py` (copie para `ibm_tso_bridge_config.json`, nunca versione o copiado).
+- `test_ibm_tso_bridge.py` — teste automatizado do `ibm_tso_bridge.py`
+  (sem rede real, com respostas simuladas).
 - `cobol_bridge_config.example.json` — modelo de configuração do `cobol_bridge.py`
   (copie para `cobol_bridge_config.json`, nunca versione o copiado).
 - `cobol_events.example.json` — exemplo de payload de eventos da camada intermediária.
@@ -205,6 +215,22 @@ python3 cobol_bridge.py --events-json cobol_events.example.json --db-json ../db.
 python3 cobol_bridge.py --config cobol_bridge_config.json
 python3 test_cobol_bridge.py
 ```
+
+## Integração direta com Mainframe IBM via TSO (`ibm_tso_bridge.py`)
+Quando você já possui acesso z/OSMF/TSO e precisa extrair eventos direto do
+mainframe, rode o conector TSO para produzir o JSON de eventos:
+
+```bash
+cd orcamento_agent
+cp ibm_tso_bridge_config.example.json ibm_tso_bridge_config.json
+export IBM_TSO_PASSWORD='SENHA_REAL'
+python3 ibm_tso_bridge.py --config ibm_tso_bridge_config.json --dry-run
+python3 ibm_tso_bridge.py --config ibm_tso_bridge_config.json --output-events-json cobol_events.json
+python3 test_ibm_tso_bridge.py
+```
+
+Depois, você pode reaproveitar o `cobol_bridge.py` para a etapa de
+reconciliação dos eventos já gerados.
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).
