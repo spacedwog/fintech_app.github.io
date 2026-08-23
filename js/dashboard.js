@@ -1817,13 +1817,18 @@ class DashboardController {
       const rejectedChecks =
         (((status.automation || {}).last_expenses_api || {}).verificacoes_rejeitadas || []).filter(Boolean);
 
+      const safeMonth = this._escapeHtml(targetMonth);
+      const totalTransactions = Number((report && report.summary && report.summary.total_transactions) || 0);
+      const withReceipt = Number((report && report.summary && report.summary.with_receipt_count) || 0);
+      const withoutReceipt = Number((report && report.summary && report.summary.without_receipt_count) || 0);
+
       summaryEl.innerHTML =
-        `<strong>${targetMonth}</strong>: ${mpExpenses.length} transação(ões) importada(s) do Mercado Pago (R$ ${mpExpenses
+        `<strong>${safeMonth}</strong>: ${mpExpenses.length} transação(ões) importada(s) do Mercado Pago (R$ ${mpExpenses
           .reduce((sum, item) => sum + Number(item.amount || 0), 0)
           .toFixed(2)}), ${mpPayments.length} pagamento(s) confirmado(s) pelo Mercado Pago e ${
           rejectedChecks.length
         } rejeição(ões) recente(s).` +
-        `<br /><span class="small-muted">Classificação geral do mês: ${report.summary.total_transactions} transação(ões), ${report.summary.with_receipt_count} com comprovante e ${report.summary.without_receipt_count} sem comprovante.</span>`;
+        `<br /><span class="small-muted">Classificação geral do mês: ${totalTransactions} transação(ões), ${withReceipt} com comprovante e ${withoutReceipt} sem comprovante.</span>`;
 
       typesTbody.innerHTML = (report.breakdown || [])
         .map(
