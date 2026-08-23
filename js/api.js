@@ -2443,6 +2443,92 @@ class ApiFacade {
     };
   }
 
+  async verifyMercadoPagoTransactionId(transactionId) {
+    const session = Auth.requireSession();
+    const query = String(transactionId || "").trim();
+    if (!query) throw new Error("Informe o ID da transação.");
+    const normalized = query.toUpperCase();
+    const sameId = (value) => String(value || "").trim().toUpperCase() === normalized;
+
+    const db = await loadDb();
+    const tenantExpenses = (db.expenses || []).filter((e) => e.tenant_id === session.tenant_id);
+    const tenantPayments = (db.payments || []).filter((p) => p.tenant_id === session.tenant_id);
+    const lastExpensesApi = (((db.mercado_pago_status || {})[session.tenant_id] || {}).last_expenses_api) || {};
+    const rejectedChecks = Array.isArray(lastExpensesApi.verificacoes_rejeitadas)
+      ? lastExpensesApi.verificacoes_rejeitadas
+      : [];
+
+    const matchedExpenses = tenantExpenses
+      .filter((expense) => sameId(expense.mercadoPagoPaymentId) || sameId(expense.transaction_number))
+      .map((expense) => ({
+        id: expense.id,
+        date: expense.date || null,
+        amount: Number(expense.amount) || 0,
+        description: expense.description || "",
+        generated_by_mercado_pago: !!expense.generatedByMercadoPago,
+        match_field: sameId(expense.mercadoPagoPaymentId) ? "mercadoPagoPaymentId" : "transaction_number",
+      }));
+
+    const matchedPayments = tenantPayments
+      .filter((payment) => sameId(payment.mercadoPagoPaymentId) || sameId(payment.txid) || sameId(payment.manualTxnNumber))
+      .map((payment) => ({
+        id: payment.id,
+        date: payment.date || null,
+        amount: Number(payment.amount) || 0,
+        type: payment.type || null,
+        txid: payment.txid || null,
+        verified_by_mercado_pago: !!payment.verifiedByMercadoPago,
+        match_field: sameId(payment.mercadoPagoPaymentId)
+          ? "mercadoPagoPaymentId"
+          : sameId(payment.txid)
+            ? "txid"
+            : "manualTxnNumber",
+      }));
+
+    const matchedRejections = rejectedChecks
+      .filter((item) => sameId(item && item.transaction_id))
+      .map((item) => ({
+        transaction_id: item.transaction_id || null,
+        payment_type: item.payment_type || null,
+        reason: item.reason || "Motivo não informado",
+      }));
+
+    const found = matchedExpenses.length > 0 || matchedPayments.length > 0 || matchedRejections.length > 0;
+
+    let status = "not_found";
+    let message = "ID não encontrado nos registros desta conta.";
+    if (matchedPayments.some((p) => p.verified_by_mercado_pago)) {
+      status = "verified";
+      message = "ID encontrado e já confirmado pelo Mercado Pago.";
+    } else if (matchedExpenses.some((e) => e.generated_by_mercado_pago)) {
+      status = "imported";
+      message = "ID encontrado em despesa importada pela integração do Mercado Pago.";
+    } else if (matchedRejections.length > 0) {
+      status = "rejected";
+      message = "ID encontrado em rejeições recentes da automação do Mercado Pago.";
+    } else if (found) {
+      status = "found";
+      message = "ID encontrado em registros da conta, sem confirmação automática do Mercado Pago.";
+    }
+
+    return {
+      query,
+      found,
+      status,
+      message,
+      summary: {
+        expenses: matchedExpenses.length,
+        payments: matchedPayments.length,
+        rejections: matchedRejections.length,
+      },
+      matches: {
+        expenses: matchedExpenses,
+        payments: matchedPayments,
+        rejections: matchedRejections,
+      },
+    };
+  }
+
   async getMarketplaceCustomerProfile(month) {
     Auth.requireScope("marketplace:ai_agent");
     const session = Auth.requireSession();
