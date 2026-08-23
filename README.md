@@ -18,6 +18,7 @@ Gestão de despesas pessoais em arquitetura **fullstack web**: frontend em HTML/
   - [📰 Feed](#-feed)
   - [👥 Equipe](#-equipe)
   - [💳 Plano](#-plano)
+  - [🔎 Verificação de transação Mercado Pago](#-verificação-de-transação-mercado-pago)
   - [🔒 Segurança e Privacidade (LGPD)](#-segurança-e-privacidade-lgpd)
   - [⚙️ Configurações](#️-configurações)
 - [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)
@@ -133,7 +134,7 @@ python3 test_cobol_bridge.py
 
 ## Navegue pelo painel (`dashboard.html`)
 
-Depois do login, o painel tem oito seções na barra lateral (as seis primeiras são o app em si; as duas últimas, em "Conta", são Segurança e Privacidade em menu único paginado + Configurações). Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
+Depois do login, o painel tem nove seções na barra lateral (as sete primeiras são o app em si; as duas últimas, em "Conta", são Segurança e Privacidade em menu único paginado + Configurações). Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
 
 ### 🔄 Orçamento e Despesas (fluxo paginado)
 
@@ -258,6 +259,20 @@ Depois de pagar, o usuário envia o comprovante e cada pagamento pode ganhar at�
 Se nenhum dos dois bater, o pagamento fica com **⚠ confirmação manual** — o usuário declarou que pagou, mas nada confirmou automaticamente ainda.
 
 Código: `js/dashboard.js` (`loadPlanView`, `selectPlan`, `openPixPayment`, `renderPaymentsHistory`), `js/pix.js` (payload BR Code), `js/plans.js` (regras dos planos), `Api.addPayment`/`Api.listPayments`/`Api.changePlan` em `js/api.js`.
+</details>
+
+### 🔎 Verificação de transação Mercado Pago
+
+<details>
+<summary>O que é e como funciona</summary>
+
+Tela para conferir um ID de transação do Mercado Pago e descobrir se ele já aparece:
+
+- em despesas importadas automaticamente (integração Mercado Pago),
+- em pagamentos salvos na conta (inclusive os já verificados pelo Mercado Pago),
+- em rejeições recentes da automação (`verificacoes_rejeitadas`).
+
+Código: `dashboard.html` (`view-mp-transaction-check`), `js/dashboard.js` (`_loadMercadoPagoTransactionCheckView`, `_renderMercadoPagoTransactionCheckResult`) e `Api.verifyMercadoPagoTransactionId` em `js/api.js`.
 </details>
 
 ### 🔒 Segurança e Privacidade (LGPD)

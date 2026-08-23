@@ -472,6 +472,7 @@ class DashboardController {
     this.reportsBound = false;
     this.reportsPagerBound = false;
     this.currentReportsPage = 1;
+    this.transactionVerifierBound = false;
 
     this.budgetInputBound = false;
     this.pixKeyPaymentBound = false;
@@ -657,6 +658,7 @@ class DashboardController {
     if (viewName === "reports") this._loadReportsView();
     if (viewName === "team") this._loadTeamView();
     if (viewName === "plan") this._loadPlanView();
+    if (viewName === "mp-transaction-check") this._loadMercadoPagoTransactionCheckView();
     if (viewName === "settings") this._loadSettingsView();
   }
 
@@ -2745,6 +2747,98 @@ class DashboardController {
       .join("");
 
     await this._renderPaymentsHistory();
+  }
+
+  _statusLabelForMercadoPagoTransactionCheck(status) {
+    if (status === "verified") return "Confirmado automaticamente pelo Mercado Pago";
+    if (status === "imported") return "Importado pela integração do Mercado Pago";
+    if (status === "rejected") return "Rejeitado na automação do Mercado Pago";
+    if (status === "found") return "Encontrado sem confirmação automática";
+    return "Não encontrado";
+  }
+
+  _renderMercadoPagoTransactionCheckResult(result) {
+    const box = document.getElementById("mp-transaction-check-result");
+    if (!box) return;
+    if (!result || !result.summary || !result.matches) {
+      box.textContent = "Não foi possível renderizar o resultado da verificação.";
+      return;
+    }
+
+    const summary = result.summary;
+    const statusLabel = this._statusLabelForMercadoPagoTransactionCheck(result.status);
+    const formatCurrency = (value) => `R$ ${Number(value || 0).toFixed(2)}`;
+
+    const expenseRows = (result.matches.expenses || [])
+      .map(
+        (item) =>
+          `<tr><td>${this._escapeHtml(item.id)}</td><td>${this._escapeHtml(item.date || "-")}</td><td>${this._escapeHtml(
+            item.description || "-"
+          )}</td><td>${formatCurrency(item.amount)}</td><td>${this._escapeHtml(item.match_field || "-")}</td></tr>`
+      )
+      .join("");
+    const paymentRows = (result.matches.payments || [])
+      .map(
+        (item) =>
+          `<tr><td>${this._escapeHtml(item.id)}</td><td>${this._escapeHtml(item.date || "-")}</td><td>${this._escapeHtml(
+            item.txid || "-"
+          )}</td><td>${formatCurrency(item.amount)}</td><td>${this._escapeHtml(item.match_field || "-")}</td><td>${
+            item.verified_by_mercado_pago ? "Sim" : "Não"
+          }</td></tr>`
+      )
+      .join("");
+    const rejectionRows = (result.matches.rejections || [])
+      .map(
+        (item) =>
+          `<tr><td>${this._escapeHtml(item.transaction_id || "-")}</td><td>${this._escapeHtml(
+            item.payment_type || "-"
+          )}</td><td>${this._escapeHtml(item.reason || "-")}</td></tr>`
+      )
+      .join("");
+
+    box.innerHTML =
+      `<p class="small-muted mt-0">Consulta: <strong>${this._escapeHtml(result.query || "")}</strong></p>` +
+      `<p class="small-muted mt-8">Status: <strong>${this._escapeHtml(statusLabel)}</strong></p>` +
+      `<p class="small-muted mt-8">Ocorrências: ${summary.expenses} despesa(s), ${summary.payments} pagamento(s), ${summary.rejections} rejeição(ões).</p>` +
+      `<h4 class="mt-16 mb-8">Despesas</h4>` +
+      `<table><thead><tr><th>ID</th><th>Data</th><th>Descrição</th><th>Valor</th><th>Campo encontrado</th></tr></thead><tbody>${
+        expenseRows || '<tr><td colspan="5" class="small-muted">Nenhuma despesa encontrada para este ID.</td></tr>'
+      }</tbody></table>` +
+      `<h4 class="mt-16 mb-8">Pagamentos</h4>` +
+      `<table><thead><tr><th>ID</th><th>Data</th><th>Txid</th><th>Valor</th><th>Campo encontrado</th><th>Verificado MP</th></tr></thead><tbody>${
+        paymentRows || '<tr><td colspan="6" class="small-muted">Nenhum pagamento encontrado para este ID.</td></tr>'
+      }</tbody></table>` +
+      `<h4 class="mt-16 mb-8">Rejeições da automação</h4>` +
+      `<table><thead><tr><th>ID da transação</th><th>Tipo</th><th>Motivo</th></tr></thead><tbody>${
+        rejectionRows || '<tr><td colspan="3" class="small-muted">Nenhuma rejeição encontrada para este ID.</td></tr>'
+      }</tbody></table>`;
+  }
+
+  _loadMercadoPagoTransactionCheckView() {
+    const form = document.getElementById("mp-transaction-check-form");
+    const statusEl = document.getElementById("mp-transaction-check-status");
+    if (!form || !statusEl) return;
+
+    if (!this.transactionVerifierBound) {
+      this.transactionVerifierBound = true;
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const inputEl = document.getElementById("mp-transaction-id-input");
+        const transactionId = String((inputEl && inputEl.value) || "").trim();
+        if (!transactionId) {
+          statusEl.textContent = "Informe o ID da transação para verificar.";
+          return;
+        }
+        statusEl.textContent = "Verificando ID da transação...";
+        try {
+          const result = await Api.verifyMercadoPagoTransactionId(transactionId);
+          statusEl.textContent = result.message || "Verificação concluída.";
+          this._renderMercadoPagoTransactionCheckResult(result);
+        } catch (err) {
+          statusEl.textContent = err && err.message ? err.message : "Não foi possível concluir a verificação.";
+        }
+      });
+    }
   }
 
   async selectPlan(planKey) {

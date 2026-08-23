@@ -66,6 +66,7 @@
       <button class="nav-item" data-view="reports">Relatório</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
       <button class="nav-item" data-view="plan">Plano</button>
+      <button class="nav-item" data-view="mp-transaction-check">Verificar transação MP</button>
 
       <div class="sidebar-section-label">Conta</div>
       <button class="nav-item" data-view="security-privacy">Segurança e Privacidade</button>
@@ -574,6 +575,29 @@
             Cadastre seu CPF/CNPJ em <strong>Configurações</strong> para que a emissão não fique pendente.
           </p>
           <div id="payments-history"></div>
+        </div>
+      </section>
+
+      <!-- Verificação de transação Mercado Pago -->
+      <section class="view hidden" id="view-mp-transaction-check">
+        <div class="top-bar"><h1>Verificação de transação Mercado Pago</h1></div>
+        <div class="card">
+          <p class="small-muted mt-0">
+            Informe o ID (ou código) da transação para verificar se ela já foi importada, confirmada ou rejeitada
+            pela automação do Mercado Pago nesta conta.
+          </p>
+          <form id="mp-transaction-check-form">
+            <div class="field">
+              <label for="mp-transaction-id-input">ID da transação</label>
+              <input type="text" id="mp-transaction-id-input" placeholder="Ex: MP-9001" required />
+            </div>
+            <button type="submit" class="primary">Verificar ID</button>
+          </form>
+          <p id="mp-transaction-check-status" class="small-muted min-h-1rem mt-10"></p>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">Resultado da verificação</h3>
+          <div id="mp-transaction-check-result" class="small-muted">Nenhuma consulta realizada ainda.</div>
         </div>
       </section>
 
