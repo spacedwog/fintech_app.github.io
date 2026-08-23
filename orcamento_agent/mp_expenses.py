@@ -344,6 +344,14 @@ class ExpenseGenerator:
             for item in set(ja_em_payments).union(set(ja_importados))
             if item is not None and str(item).strip()
         }
+        fallback_context = {
+            "tenant_id": tenant_id,
+            "expenses": db.get("expenses", []),
+            "payments": db.get("payments", []),
+            "rejected_checks": (
+                (((db.get("mercado_pago_status") or {}).get(tenant_id) or {}).get("last_expenses_api") or {}
+            ).get("verificacoes_rejeitadas", []),
+        }
 
         for p in mp_payments:
             if p.get("status") != "approved":
@@ -369,12 +377,15 @@ class ExpenseGenerator:
                 p,
                 existing_transaction_ids=existing_transaction_ids,
                 receipt_data=p.get("receipt_data"),
+                fallback_context=fallback_context,
             )
             if not verification["verified"]:
                 ignoradas_verificacao += 1
                 verificacoes_rejeitadas.append({
                     "transaction_id": verification["transaction_id"],
                     "payment_type": verification["payment_type"],
+                    "fallback_status": verification.get("fallback_status"),
+                    "fallback_query": verification.get("fallback_query"),
                     "reason": verification["verification_reason"],
                 })
                 continue
@@ -413,6 +424,7 @@ class ExpenseGenerator:
                 "amount": valor,
                 "date": data,
                 "description": desc,
+                "transaction_number": verification["transaction_number"] or None,
                 "created_at": data_iso or (datetime.now().isoformat() + "Z"),
                 "is_extra": False,
                 "extra_charge": 0,
@@ -441,6 +453,11 @@ class ExpenseGenerator:
                 "mercadoPagoVerificationReason": verification["verification_reason"],
                 "mercadoPagoReceiptDetected": verification["receipt_detected"],
                 "mercadoPagoReceiptConfidence": verification["receipt_confidence"],
+                "mercadoPagoFallbackStatus": verification.get("fallback_status"),
+                "mercadoPagoFallbackFound": verification.get("fallback_found"),
+                "mercadoPagoFallbackMessage": verification.get("fallback_message"),
+                "mercadoPagoFallbackApplied": verification.get("fallback_applied"),
+                "mercadoPagoFallbackQuery": verification.get("fallback_query"),
                 "mercadoPagoVerification": {
                     "transaction_id": verification["transaction_id"],
                     "transaction_number": verification["transaction_number"],
@@ -449,6 +466,12 @@ class ExpenseGenerator:
                     "verification_reason": verification["verification_reason"],
                     "receipt_detected": verification["receipt_detected"],
                     "receipt_confidence": verification["receipt_confidence"],
+                    "fallback_status": verification.get("fallback_status"),
+                    "fallback_found": verification.get("fallback_found"),
+                    "fallback_message": verification.get("fallback_message"),
+                    "fallback_summary": verification.get("fallback_summary"),
+                    "fallback_applied": verification.get("fallback_applied"),
+                    "fallback_query": verification.get("fallback_query"),
                 },
             }
             db.setdefault("expenses", []).append(expense)

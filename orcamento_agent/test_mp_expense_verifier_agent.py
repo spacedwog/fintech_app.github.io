@@ -50,6 +50,68 @@ assert receipt_mismatch["verified"] is False, receipt_mismatch
 assert "comprovante" in receipt_mismatch["verification_reason"], receipt_mismatch
 print("OK reprova quando número do comprovante diverge da API")
 
+
+class FakeFallbackVerifier:
+    def __init__(self, status):
+        self.status = status
+
+    def verify(self, query, context=None):
+        return {
+            "query": str(query or ""),
+            "found": self.status in {"verified", "found", "rejected"},
+            "status": self.status,
+            "message": f"fallback {self.status}",
+            "summary": {"expenses": 1 if self.status != "not_found" else 0, "payments": 0, "rejections": 0},
+        }
+
+
+agent_fallback_ok = verifier_mod.MercadoPagoExpenseVerifierAgent(
+    fallback_verifier=FakeFallbackVerifier("verified")
+)
+fallback_ok = agent_fallback_ok.verify_one(
+    {**tx_api, "transaction_number": "111222333444"},
+    receipt_data={"rawText": "Transação 999888777666"},
+)
+assert fallback_ok["verified"] is True, fallback_ok
+assert fallback_ok["fallback_status"] == "verified", fallback_ok
+assert "fallback" in (fallback_ok["verification_reason"] or "").lower(), fallback_ok
+print("OK fallback aprovado recupera divergência de comprovante")
+
+agent_fallback_found = verifier_mod.MercadoPagoExpenseVerifierAgent(
+    fallback_verifier=FakeFallbackVerifier("found")
+)
+fallback_found = agent_fallback_found.verify_one(
+    {**tx_api, "transaction_number": "111222333444"},
+    receipt_data={"rawText": "Transação 999888777666"},
+)
+assert fallback_found["verified"] is True, fallback_found
+assert fallback_found["fallback_status"] == "found", fallback_found
+print("OK fallback encontrado sem confirmação também destrava a vinculação")
+
+agent_fallback_rejected = verifier_mod.MercadoPagoExpenseVerifierAgent(
+    fallback_verifier=FakeFallbackVerifier("rejected")
+)
+fallback_rejected = agent_fallback_rejected.verify_one(
+    {**tx_api, "transaction_number": "111222333444"},
+    receipt_data={"rawText": "Transação 999888777666"},
+)
+assert fallback_rejected["verified"] is False, fallback_rejected
+assert fallback_rejected["fallback_status"] == "rejected", fallback_rejected
+assert "rejeitada" in fallback_rejected["verification_reason"], fallback_rejected
+print("OK fallback rejeitado mantém transação bloqueada")
+
+agent_fallback_not_found = verifier_mod.MercadoPagoExpenseVerifierAgent(
+    fallback_verifier=FakeFallbackVerifier("not_found")
+)
+fallback_not_found = agent_fallback_not_found.verify_one(
+    {**tx_api, "transaction_number": "111222333444"},
+    receipt_data={"rawText": "Transação 999888777666"},
+)
+assert fallback_not_found["verified"] is False, fallback_not_found
+assert fallback_not_found["fallback_status"] == "not_found", fallback_not_found
+assert "não encontrou" in fallback_not_found["verification_reason"], fallback_not_found
+print("OK fallback não encontrado mantém reprovação")
+
 batch = agent.verify_transactions([tx_pix, tx_pix], receipts_by_transaction_id={})
 assert batch[0]["verified"] is True and batch[1]["verified"] is False, batch
 print("OK verifica duplicidade também no processamento em lote")

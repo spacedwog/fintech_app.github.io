@@ -351,7 +351,13 @@ class TransactionClassifierAgent:
                 return text
         return ""
 
-    def verify_expense_transaction(self, transaction, existing_transaction_ids=None, receipt_data=None):
+    def verify_expense_transaction(
+        self,
+        transaction,
+        existing_transaction_ids=None,
+        receipt_data=None,
+        fallback_verification=None,
+    ):
         classification = self.classify(transaction, min_confidence=0.0)
         verification = classification.get("verification") or {}
         tx_id = transaction.get("id") or transaction.get("payment_id")
@@ -409,6 +415,24 @@ class TransactionClassifierAgent:
             "unique_identifier": unique_identifier,
             "receipt_transaction_number": receipt_number_matches,
         }
+        fallback_verification = fallback_verification if isinstance(fallback_verification, dict) else {}
+        fallback_status = self._normalize(fallback_verification.get("status"))
+        if fallback_status == "imported":
+            fallback_status = "found"
+        fallback_positive = fallback_status in {"verified", "found"}
+        fallback_rejected = fallback_status == "rejected"
+        fallback_applied = []
+        if fallback_positive:
+            if not checks["source"]:
+                checks["source"] = True
+                fallback_applied.append("source")
+            if not checks["transaction_verified"]:
+                checks["transaction_verified"] = True
+                fallback_applied.append("transaction_verified")
+            if not checks["receipt_transaction_number"]:
+                checks["receipt_transaction_number"] = True
+                fallback_applied.append("receipt_transaction_number")
+        checks["fallback"] = not fallback_rejected
 
         verified = all(checks.values())
         reasons = []
@@ -428,16 +452,36 @@ class TransactionClassifierAgent:
             reasons.append("identificador de transação ausente/duplicado")
         if not receipt_number_matches:
             reasons.append("número de transação do comprovante não confere")
+        if fallback_rejected:
+            reasons.append("consulta de verificação Mercado Pago marcou a transação como rejeitada")
+        elif not verified and fallback_status == "not_found":
+            reasons.append("consulta de verificação Mercado Pago não encontrou o ID informado")
+        elif fallback_applied:
+            reasons.append(
+                "consulta de verificação Mercado Pago confirmou vínculo para: "
+                + ", ".join(fallback_applied)
+            )
+
+        verification_reason = "Verificação concluída com sucesso."
+        if verified and fallback_applied:
+            verification_reason += " Confirmação complementar via consulta de verificação Mercado Pago."
+        elif not verified:
+            verification_reason = "; ".join(reasons)
 
         return {
             "transaction_id": transaction_id,
             "transaction_number": transaction_number,
             "payment_type": payment_type,
             "verified": verified,
-            "verification_reason": "Verificação concluída com sucesso." if verified else "; ".join(reasons),
+            "verification_reason": verification_reason,
             "receipt_detected": receipt_detected,
             "receipt_confidence": round(max(0.0, min(1.0, receipt_confidence)), 4),
             "receipt_transaction_number": receipt_transaction_number or None,
+            "fallback_status": fallback_status or None,
+            "fallback_found": bool(fallback_verification.get("found")),
+            "fallback_message": fallback_verification.get("message"),
+            "fallback_summary": fallback_verification.get("summary"),
+            "fallback_applied": fallback_applied,
             "checks": checks,
             "classification": classification,
         }
