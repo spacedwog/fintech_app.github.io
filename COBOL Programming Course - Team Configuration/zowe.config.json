@@ -1,0 +1,106 @@
+{
+    "$schema": "./zowe.schema.json",
+    "profiles": {
+        "zosmf": {
+            "type": "zosmf",
+            "properties": {
+                "port": 443
+            },
+            "secure": []
+        },
+        "tso": {
+            "type": "tso",
+            "properties": {
+                "account": "",
+                "codePage": "1047",
+                "logonProcedure": "IZUFPROC"
+            },
+            "secure": []
+        },
+        "ssh": {
+            "type": "ssh",
+            "properties": {
+                "port": 22
+            },
+            "secure": []
+        },
+        "zftp": {
+            "type": "zftp",
+            "properties": {
+                "port": 21,
+                "secureFtp": true
+            },
+            "secure": []
+        },
+        "cics": {
+            "type": "cics",
+            "properties": {},
+            "secure": []
+        },
+        "rse": {
+            "type": "rse",
+            "properties": {
+                "port": 6800,
+                "basePath": "rseapi",
+                "protocol": "https"
+            },
+            "secure": []
+        },
+        "zOpenDebug": {
+            "type": "zOpenDebug",
+            "properties": {
+                "dpsPort": 8143,
+                "dpsContextRoot": "api/v1",
+                "dpsSecured": true,
+                "authenticationType": "token",
+                "uuid": "741b6e48-7c3e-408a-b38b-8dc8c3b6fe1a"
+            },
+            "secure": []
+        },
+        "endevor": {
+            "type": "endevor",
+            "properties": {
+                "port": 0,
+                "protocol": "https"
+            },
+            "secure": []
+        },
+        "endevor-location": {
+            "type": "endevor-location",
+            "properties": {
+                "instance": "ENDEVOR",
+                "environment": "DEV",
+                "system": "",
+                "subsystem": "",
+                "type": "",
+                "stageNumber": "",
+                "maxrc": 8
+            },
+            "secure": []
+        },
+        "project_base": {
+            "type": "base",
+            "properties": {
+                "host": "",
+                "rejectUnauthorized": true
+            },
+            "secure": [
+                "user",
+                "password"
+            ]
+        }
+    },
+    "defaults": {
+        "zosmf": "zosmf",
+        "tso": "tso",
+        "ssh": "ssh",
+        "zftp": "zftp",
+        "cics": "cics",
+        "rse": "rse",
+        "zOpenDebug": "zOpenDebug",
+        "endevor": "endevor",
+        "endevor-location": "endevor-location",
+        "base": "project_base"
+    },
+    "autoStore": true
+}
