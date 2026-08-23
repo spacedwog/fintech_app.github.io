@@ -61,14 +61,18 @@
         <div id="mp-rejection-reasons" class="mp-rejection-reasons small-muted"></div>
       </div>
 
+      <div class="sidebar-section-label">Perfil</div>
       <button class="nav-item active" data-view="budget-flow">Orçamento &amp; Despesas</button>
-      <div class="sidebar-menu-label">TRANSAÇÃO</div>
+      <div class="sidebar-menu-label">Transação</div>
       <button class="nav-item nav-sub-item" data-view="feed">Feed</button>
       <button class="nav-item nav-sub-item" data-view="mp-transaction-check">Verificar transação MP</button>
       <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="7" data-budget-focus-id="budget-payment-card">Pagamento</button>
+      <button class="nav-item" data-view="invoices">Nota Fiscal</button>
+      <button class="nav-item" data-view="plan">Plano</button>
+
+      <div class="sidebar-section-label">Empresarial</div>
       <button class="nav-item" data-view="reports">Relatório</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
-      <button class="nav-item" data-view="plan">Plano</button>
 
       <div class="sidebar-section-label">Conta</div>
       <button class="nav-item" data-view="security-privacy">Segurança e Privacidade</button>
@@ -577,6 +581,25 @@
             Cadastre seu CPF/CNPJ em <strong>Configurações</strong> para que a emissão não fique pendente.
           </p>
           <div id="payments-history"></div>
+        </div>
+      </section>
+
+      <!-- Nota Fiscal -->
+      <section class="view hidden" id="view-invoices">
+        <div class="top-bar">
+          <h1>Nota Fiscal</h1>
+          <button type="button" class="secondary" id="invoices-refresh-btn">Atualizar</button>
+        </div>
+        <div class="card">
+          <p class="small-muted mt-0 mb-12">
+            Listagem de todas as notas fiscais emitidas pelo sistema para os pagamentos desta conta.
+          </p>
+          <table>
+            <thead>
+              <tr><th>Número</th><th>Emissão</th><th>Pagamento</th><th>Valor</th><th>Status</th><th>Documentos</th></tr>
+            </thead>
+            <tbody id="invoices-tbody"></tbody>
+          </table>
         </div>
       </section>
 
