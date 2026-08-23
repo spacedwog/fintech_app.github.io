@@ -64,8 +64,7 @@
       <div class="sidebar-section-label">Perfil</div>
       <button class="nav-item active" data-view="budget-flow">Orçamento &amp; Despesas</button>
       <div class="sidebar-menu-label">Transação</div>
-      <button class="nav-item nav-sub-item" data-view="feed">Feed</button>
-      <button class="nav-item nav-sub-item" data-view="mp-transaction-check">Verificar transação MP</button>
+      <button class="nav-item" data-view="transactions">Transação</button>
       <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="7" data-budget-focus-id="budget-payment-card">Pagamento</button>
       <button class="nav-item" data-view="invoices">Nota Fiscal</button>
       <button class="nav-item" data-view="plan">Plano</button>
@@ -446,17 +445,146 @@
         </div>
       </section>
 
-      <!-- Feed -->
-      <section class="view hidden" id="view-feed">
-        <div class="top-bar">
-          <h1>Feed</h1>
-          <button type="button" class="secondary" id="feed-refresh-btn">Atualizar</button>
+      <!-- Transação -->
+      <section class="view hidden" id="view-transactions">
+        <div class="top-bar"><h1>Transação</h1></div>
+        <div class="flow-pager">
+          <button type="button" class="secondary" data-transaction-nav="prev">‹ Anterior</button>
+          <div class="flow-pager-dots">
+            <button type="button" class="flow-page-dot transaction-page-dot active" data-transaction-page="1">1. Feed</button>
+            <button type="button" class="flow-page-dot transaction-page-dot" data-transaction-page="2">2. Verificar Transação MP</button>
+            <button type="button" class="flow-page-dot transaction-page-dot" data-transaction-page="3">3. Comprovante</button>
+          </div>
+          <button type="button" class="secondary" data-transaction-nav="next">Próxima ›</button>
         </div>
-        <div class="card">
-          <p class="small-muted mt-0 mb-12">
-            Linha do tempo com despesas e pagamentos da conta, do mais recente para o mais antigo.
-          </p>
-          <div id="feed-events"></div>
+        <p class="small-muted text-center mt-4 mb-18" id="transaction-page-indicator">Página 1 de 3</p>
+
+        <div class="flow-page transaction-flow-page" id="transaction-flow-page-1">
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Dados e tipos de transação Mercado Pago</h3>
+              <div class="field m-0 min-w-160">
+                <input type="text" id="transaction-month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])" inputmode="numeric" maxlength="7" />
+              </div>
+            </div>
+            <p class="small-muted mt-0 mb-12">
+              Resumo completo das transações do mês com origem no Mercado Pago e classificação por tipo.
+            </p>
+            <div id="transaction-mp-summary" class="small-muted">Carregando dados...</div>
+          </div>
+
+          <div class="card">
+            <h3 class="mt-0">Tipos de transação detectados</h3>
+            <table>
+              <thead>
+                <tr><th>Tipo</th><th>Origem</th><th>Qtd.</th><th>Total</th></tr>
+              </thead>
+              <tbody id="transaction-types-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3 class="mt-0">Transações importadas do Mercado Pago</h3>
+            <table>
+              <thead>
+                <tr><th>ID despesa</th><th>Data</th><th>Descrição</th><th>Valor</th><th>ID MP</th><th>Origem</th></tr>
+              </thead>
+              <tbody id="transaction-mp-expenses-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3 class="mt-0">Pagamentos com confirmação Mercado Pago</h3>
+            <table>
+              <thead>
+                <tr><th>ID pagamento</th><th>Data</th><th>Tipo</th><th>Valor</th><th>TXID</th><th>ID MP</th></tr>
+              </thead>
+              <tbody id="transaction-mp-payments-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3 class="mt-0">Rejeições recentes da automação</h3>
+            <table>
+              <thead>
+                <tr><th>ID da transação</th><th>Tipo</th><th>Motivo</th></tr>
+              </thead>
+              <tbody id="transaction-mp-rejections-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="row-between">
+              <h3 class="m-0">Feed</h3>
+              <button type="button" class="secondary" id="feed-refresh-btn">Atualizar</button>
+            </div>
+            <p class="small-muted mt-0 mb-12">
+              Linha do tempo com despesas e pagamentos da conta, do mais recente para o mais antigo.
+            </p>
+            <div id="feed-events"></div>
+          </div>
+        </div>
+
+        <div class="flow-page transaction-flow-page hidden" id="transaction-flow-page-2">
+          <div class="card">
+            <p class="small-muted mt-0">
+              Informe o ID (ou código) da transação para verificar se ela já foi importada, confirmada ou rejeitada
+              pela automação do Mercado Pago nesta conta.
+            </p>
+            <form id="mp-transaction-check-form">
+              <div class="field">
+                <label for="mp-transaction-id-input">ID da transação</label>
+                <input type="text" id="mp-transaction-id-input" placeholder="Ex: MP-9001" required />
+              </div>
+              <button type="submit" class="primary">Verificar ID</button>
+            </form>
+            <p id="mp-transaction-check-status" class="small-muted min-h-1rem mt-10"></p>
+          </div>
+          <div class="card">
+            <h3 class="mt-0">Resultado da verificação</h3>
+            <div id="mp-transaction-check-result" class="small-muted">Nenhuma consulta realizada ainda.</div>
+          </div>
+        </div>
+
+        <div class="flow-page transaction-flow-page hidden" id="transaction-flow-page-3">
+          <div class="card">
+            <h3 class="mt-0">Comprovante IA · Vincular com despesa</h3>
+            <p class="small-muted mt-0 mb-12">
+              Fluxo avançado semelhante ao Importar Orçamento: o agente IA lê o comprovante, sugere os dados da transação e vincula com a despesa selecionada.
+            </p>
+            <div class="flow-pager">
+              <button type="button" class="secondary" data-receipt-link-nav="prev">‹ Anterior</button>
+              <div class="flow-pager-dots">
+                <button type="button" class="flow-page-dot receipt-link-page-dot active" data-receipt-link-page="1">1. Leitura IA</button>
+                <button type="button" class="flow-page-dot receipt-link-page-dot" data-receipt-link-page="2">2. Vincular despesa</button>
+              </div>
+              <button type="button" class="secondary" data-receipt-link-nav="next">Próxima ›</button>
+            </div>
+            <p class="small-muted text-center mt-4 mb-12" id="receipt-link-page-indicator">Página 1 de 2</p>
+
+            <div class="flow-page receipt-link-flow-page" id="receipt-link-flow-page-1">
+              <div class="field">
+                <label for="receipt-link-expense-select">Despesa a vincular</label>
+                <select id="receipt-link-expense-select"></select>
+              </div>
+              <div class="field">
+                <label for="receipt-link-file-input">Comprovante (.png, .jpg/.jpeg ou .pdf)</label>
+                <input type="file" id="receipt-link-file-input" accept="image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf" />
+              </div>
+              <button type="button" class="primary" id="receipt-link-analyze-btn">Ler comprovante com agente IA</button>
+              <p id="receipt-link-status" class="small-muted min-h-1rem mt-10"></p>
+              <div id="receipt-link-analysis" class="small-muted"></div>
+            </div>
+
+            <div class="flow-page receipt-link-flow-page hidden" id="receipt-link-flow-page-2">
+              <div class="field">
+                <label for="receipt-link-transaction-input">Número/ID da transação para vincular</label>
+                <input type="text" id="receipt-link-transaction-input" placeholder="Ex: E00000000202508061200abcdef123" />
+              </div>
+              <button type="button" class="primary" id="receipt-link-confirm-btn">Vincular comprovante à despesa</button>
+              <p id="receipt-link-bind-status" class="small-muted min-h-1rem mt-10"></p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -609,29 +737,6 @@
             </thead>
             <tbody id="invoices-tbody"></tbody>
           </table>
-        </div>
-      </section>
-
-      <!-- Verificação de transação Mercado Pago -->
-      <section class="view hidden" id="view-mp-transaction-check">
-        <div class="top-bar"><h1>Verificação de transação Mercado Pago</h1></div>
-        <div class="card">
-          <p class="small-muted mt-0">
-            Informe o ID (ou código) da transação para verificar se ela já foi importada, confirmada ou rejeitada
-            pela automação do Mercado Pago nesta conta.
-          </p>
-          <form id="mp-transaction-check-form">
-            <div class="field">
-              <label for="mp-transaction-id-input">ID da transação</label>
-              <input type="text" id="mp-transaction-id-input" placeholder="Ex: MP-9001" required />
-            </div>
-            <button type="submit" class="primary">Verificar ID</button>
-          </form>
-          <p id="mp-transaction-check-status" class="small-muted min-h-1rem mt-10"></p>
-        </div>
-        <div class="card">
-          <h3 class="mt-0">Resultado da verificação</h3>
-          <div id="mp-transaction-check-result" class="small-muted">Nenhuma consulta realizada ainda.</div>
         </div>
       </section>
 

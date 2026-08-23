@@ -472,6 +472,12 @@ class DashboardController {
     this.reportsBound = false;
     this.reportsPagerBound = false;
     this.currentReportsPage = 1;
+    this.transactionsPagerBound = false;
+    this.currentTransactionsPage = 1;
+    this.receiptLinkPagerBound = false;
+    this.currentReceiptLinkPage = 1;
+    this.receiptLinkBound = false;
+    this.receiptLinkDraft = null;
     this.transactionVerifierBound = false;
     this.invoicesBound = false;
 
@@ -630,6 +636,14 @@ class DashboardController {
   }
 
   showView(viewName) {
+    if (viewName === "feed") {
+      this.currentTransactionsPage = 1;
+      return this.showView("transactions");
+    }
+    if (viewName === "mp-transaction-check") {
+      this.currentTransactionsPage = 2;
+      return this.showView("transactions");
+    }
     if (viewName === "expense-rules") {
       this.currentBudgetFlowPage = 8;
       return this.showView("budget-flow");
@@ -662,6 +676,7 @@ class DashboardController {
     if (viewName === "invoices") this._loadInvoicesView();
     if (viewName === "mp-transaction-check") this._loadMercadoPagoTransactionCheckView();
     if (viewName === "settings") this._loadSettingsView();
+    if (viewName === "transactions") this._loadTransactionsView();
   }
 
   _loadSecurityPrivacyView() {
@@ -721,6 +736,93 @@ class DashboardController {
     document.querySelectorAll('[data-report-nav="next"]').forEach((btn) => {
       btn.addEventListener("click", () => this._goToReportsPage(this.currentReportsPage + 1));
     });
+  }
+
+  _bindTransactionsPager() {
+    document.querySelectorAll("[data-transaction-page]").forEach((btn) => {
+      btn.addEventListener("click", () => this._goToTransactionsPage(parseInt(btn.dataset.transactionPage, 10)));
+    });
+    document.querySelectorAll('[data-transaction-nav="prev"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToTransactionsPage(this.currentTransactionsPage - 1));
+    });
+    document.querySelectorAll('[data-transaction-nav="next"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToTransactionsPage(this.currentTransactionsPage + 1));
+    });
+  }
+
+  _goToTransactionsPage(page) {
+    const totalPages = 3;
+    const nextPage = Math.max(1, Math.min(totalPages, Number(page) || 1));
+    this.currentTransactionsPage = nextPage;
+
+    document.querySelectorAll(".transaction-flow-page").forEach((el) => {
+      const pageNumber = parseInt(String(el.id || "").replace("transaction-flow-page-", ""), 10);
+      el.classList.toggle("hidden", pageNumber !== nextPage);
+    });
+    document.querySelectorAll(".transaction-page-dot").forEach((btn) => {
+      const btnPage = parseInt(btn.dataset.transactionPage, 10);
+      btn.classList.toggle("active", btnPage === nextPage);
+    });
+    const indicator = document.getElementById("transaction-page-indicator");
+    if (indicator) indicator.textContent = `Página ${nextPage} de ${totalPages}`;
+    document.querySelectorAll('[data-transaction-nav="prev"]').forEach((btn) => {
+      btn.disabled = nextPage === 1;
+    });
+    document.querySelectorAll('[data-transaction-nav="next"]').forEach((btn) => {
+      btn.disabled = nextPage === totalPages;
+    });
+  }
+
+  _bindReceiptLinkPager() {
+    document.querySelectorAll("[data-receipt-link-page]").forEach((btn) => {
+      btn.addEventListener("click", () => this._goToReceiptLinkPage(parseInt(btn.dataset.receiptLinkPage, 10)));
+    });
+    document.querySelectorAll('[data-receipt-link-nav="prev"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToReceiptLinkPage(this.currentReceiptLinkPage - 1));
+    });
+    document.querySelectorAll('[data-receipt-link-nav="next"]').forEach((btn) => {
+      btn.addEventListener("click", () => this._goToReceiptLinkPage(this.currentReceiptLinkPage + 1));
+    });
+  }
+
+  _goToReceiptLinkPage(page) {
+    const totalPages = 2;
+    const nextPage = Math.max(1, Math.min(totalPages, Number(page) || 1));
+    this.currentReceiptLinkPage = nextPage;
+
+    document.querySelectorAll(".receipt-link-flow-page").forEach((el) => {
+      const pageNumber = parseInt(String(el.id || "").replace("receipt-link-flow-page-", ""), 10);
+      el.classList.toggle("hidden", pageNumber !== nextPage);
+    });
+    document.querySelectorAll(".receipt-link-page-dot").forEach((btn) => {
+      const btnPage = parseInt(btn.dataset.receiptLinkPage, 10);
+      btn.classList.toggle("active", btnPage === nextPage);
+    });
+    const indicator = document.getElementById("receipt-link-page-indicator");
+    if (indicator) indicator.textContent = `Página ${nextPage} de ${totalPages}`;
+    document.querySelectorAll('[data-receipt-link-nav="prev"]').forEach((btn) => {
+      btn.disabled = nextPage === 1;
+    });
+    document.querySelectorAll('[data-receipt-link-nav="next"]').forEach((btn) => {
+      btn.disabled = nextPage === totalPages;
+    });
+  }
+
+  async _loadTransactionsView() {
+    if (!this.transactionsPagerBound) {
+      this.transactionsPagerBound = true;
+      this._bindTransactionsPager();
+    }
+    if (!this.receiptLinkPagerBound) {
+      this.receiptLinkPagerBound = true;
+      this._bindReceiptLinkPager();
+    }
+    this._goToTransactionsPage(this.currentTransactionsPage);
+    this._goToReceiptLinkPage(this.currentReceiptLinkPage);
+    await this._loadTransactionDataView();
+    await this._loadFeedView();
+    this._loadMercadoPagoTransactionCheckView();
+    await this._setupReceiptLinkingView();
   }
 
   _goToReportsPage(page) {
@@ -1679,6 +1781,274 @@ class DashboardController {
       row.appendChild(amount);
       box.appendChild(row);
     });
+  }
+
+  async _loadTransactionDataView() {
+    const monthInput = document.getElementById("transaction-month");
+    const summaryEl = document.getElementById("transaction-mp-summary");
+    const typesTbody = document.getElementById("transaction-types-tbody");
+    const expensesTbody = document.getElementById("transaction-mp-expenses-tbody");
+    const paymentsTbody = document.getElementById("transaction-mp-payments-tbody");
+    const rejectionsTbody = document.getElementById("transaction-mp-rejections-tbody");
+    if (!summaryEl || !typesTbody || !expensesTbody || !paymentsTbody || !rejectionsTbody) return;
+
+    if (monthInput && !monthInput.value) monthInput.value = new Date().toISOString().slice(0, 7);
+    if (monthInput && !monthInput.dataset.bound) {
+      monthInput.dataset.bound = "true";
+      monthInput.addEventListener("change", () => this._loadTransactionDataView());
+    }
+
+    summaryEl.textContent = "Carregando dados do Mercado Pago...";
+    const targetMonth = (monthInput && monthInput.value) || new Date().toISOString().slice(0, 7);
+
+    try {
+      const [status, report, expenses, payments] = await Promise.all([
+        Api.getMercadoPagoStatus(),
+        Api.getTransactionOriginReport(targetMonth),
+        Api.listExpenses(true),
+        Api.listPayments(true),
+      ]);
+
+      const monthExpenses = expenses.filter((e) => String(e.date || "").slice(0, 7) === targetMonth);
+      const mpExpenses = monthExpenses.filter((e) => e.generated_by_mercado_pago);
+      const mpPayments = payments.filter(
+        (p) => p.verifiedByMercadoPago && String(p.date || "").slice(0, 7) === targetMonth
+      );
+      const rejectedChecks =
+        (((status.automation || {}).last_expenses_api || {}).verificacoes_rejeitadas || []).filter(Boolean);
+
+      const safeMonth = this._escapeHtml(targetMonth);
+      const totalTransactions = Number((report && report.summary && report.summary.total_transactions) || 0);
+      const withReceipt = Number((report && report.summary && report.summary.with_receipt_count) || 0);
+      const withoutReceipt = Number((report && report.summary && report.summary.without_receipt_count) || 0);
+
+      summaryEl.innerHTML =
+        `<strong>${safeMonth}</strong>: ${mpExpenses.length} transação(ões) importada(s) do Mercado Pago (R$ ${mpExpenses
+          .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+          .toFixed(2)}), ${mpPayments.length} pagamento(s) confirmado(s) pelo Mercado Pago e ${
+          rejectedChecks.length
+        } rejeição(ões) recente(s).` +
+        `<br /><span class="small-muted">Classificação geral do mês: ${totalTransactions} transação(ões), ${withReceipt} com comprovante e ${withoutReceipt} sem comprovante.</span>`;
+
+      typesTbody.innerHTML = (report.breakdown || [])
+        .map(
+          (item) =>
+            `<tr><td>${this._escapeHtml(item.transaction_type || "-")}</td><td>${this._escapeHtml(
+              item.detected_origin || "-"
+            )}</td><td>${Number(item.count || 0)}</td><td>R$ ${Number(item.total || 0).toFixed(2)}</td></tr>`
+        )
+        .join("");
+      if (!typesTbody.innerHTML) {
+        typesTbody.innerHTML = '<tr><td colspan="4" class="small-muted">Sem tipos detectados no mês.</td></tr>';
+      }
+
+      expensesTbody.innerHTML = mpExpenses
+        .map(
+          (item) =>
+            `<tr><td>${this._escapeHtml(item.id)}</td><td>${this._escapeHtml(item.date || "-")}</td><td>${this._escapeHtml(
+              item.description || "-"
+            )}</td><td>R$ ${Number(item.amount || 0).toFixed(2)}</td><td>${this._escapeHtml(
+              item.mercado_pago_payment_id || "-"
+            )}</td><td>${this._escapeHtml(item.generated_by_mercado_pago_source || "desconhecida")}</td></tr>`
+        )
+        .join("");
+      if (!expensesTbody.innerHTML) {
+        expensesTbody.innerHTML = '<tr><td colspan="6" class="small-muted">Sem transações importadas no mês.</td></tr>';
+      }
+
+      paymentsTbody.innerHTML = mpPayments
+        .map(
+          (item) =>
+            `<tr><td>${this._escapeHtml(item.id)}</td><td>${this._escapeHtml(item.date || "-")}</td><td>${this._escapeHtml(
+              item.type || "-"
+            )}</td><td>R$ ${Number(item.amount || 0).toFixed(2)}</td><td>${this._escapeHtml(
+              item.txid || "-"
+            )}</td><td>${this._escapeHtml(item.mercadoPagoPaymentId || "-")}</td></tr>`
+        )
+        .join("");
+      if (!paymentsTbody.innerHTML) {
+        paymentsTbody.innerHTML =
+          '<tr><td colspan="6" class="small-muted">Sem pagamentos confirmados pelo Mercado Pago no mês.</td></tr>';
+      }
+
+      rejectionsTbody.innerHTML = rejectedChecks
+        .map(
+          (item) =>
+            `<tr><td>${this._escapeHtml(item.transaction_id || "-")}</td><td>${this._escapeHtml(
+              item.payment_type || "-"
+            )}</td><td>${this._escapeHtml(item.reason || "Motivo não informado")}</td></tr>`
+        )
+        .join("");
+      if (!rejectionsTbody.innerHTML) {
+        rejectionsTbody.innerHTML = '<tr><td colspan="3" class="small-muted">Sem rejeições recentes.</td></tr>';
+      }
+    } catch (_err) {
+      summaryEl.textContent = "Não foi possível carregar os dados de transação do Mercado Pago agora.";
+      typesTbody.innerHTML = '<tr><td colspan="4" class="small-muted">Falha ao carregar os tipos.</td></tr>';
+      expensesTbody.innerHTML = '<tr><td colspan="6" class="small-muted">Falha ao carregar transações importadas.</td></tr>';
+      paymentsTbody.innerHTML = '<tr><td colspan="6" class="small-muted">Falha ao carregar pagamentos confirmados.</td></tr>';
+      rejectionsTbody.innerHTML = '<tr><td colspan="3" class="small-muted">Falha ao carregar rejeições.</td></tr>';
+    }
+  }
+
+  _extractTransactionNumberFromReceiptText(rawText) {
+    const text = String(rawText || "");
+    if (!text) return "";
+    const patterns = [
+      /(?:txid|id(?:\s+da)?\s+transa(?:ç|c)[aã]o|autentica(?:ç|c)[aã]o)\s*[:#-]?\s*([A-Z0-9._-]{8,80})/i,
+      /\b(E\d{20,90})\b/i,
+      /\b([A-Z0-9]{16,90})\b/g,
+    ];
+
+    for (let i = 0; i < patterns.length; i += 1) {
+      const pattern = patterns[i];
+      if (pattern.global) {
+        const found = text.match(pattern) || [];
+        const valid = found.find((candidate) => {
+          const clean = String(candidate || "").trim();
+          if (!clean) return false;
+          const onlyDigits = clean.replace(/\D+/g, "");
+          if (onlyDigits.length === 14 || onlyDigits.length === 11) return false;
+          return /[A-Z]/i.test(clean) && clean.length >= 16;
+        });
+        if (valid) return String(valid).trim();
+      } else {
+        const match = pattern.exec(text);
+        if (match && match[1]) return String(match[1]).trim();
+      }
+    }
+    return "";
+  }
+
+  async _refreshReceiptLinkExpenseOptions() {
+    const selectEl = document.getElementById("receipt-link-expense-select");
+    if (!selectEl) return;
+    const expenses = await Api.listExpenses();
+    const pendingFirst = expenses.slice().sort((a, b) => {
+      const aHasTxn = !!String(a.transaction_number || "").trim();
+      const bHasTxn = !!String(b.transaction_number || "").trim();
+      if (aHasTxn !== bHasTxn) return aHasTxn ? 1 : -1;
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    });
+    selectEl.innerHTML = pendingFirst
+      .map((expense) => {
+        const hasTxn = String(expense.transaction_number || "").trim();
+        const status = hasTxn ? "já vinculado" : "pendente";
+        return `<option value="${String(expense.id)}">${this._escapeHtml(expense.date || "-")} · R$ ${Number(
+          expense.amount || 0
+        ).toFixed(2)} · ${this._escapeHtml(expense.description || "Sem descrição")} (${status})</option>`;
+      })
+      .join("");
+  }
+
+  _renderReceiptLinkAnalysis(draft) {
+    const box = document.getElementById("receipt-link-analysis");
+    if (!box || !draft) return;
+    const result = draft.analysis || {};
+    const detectedType =
+      (window.ReceiptAI && ReceiptAI.TYPE_LABELS && ReceiptAI.TYPE_LABELS[result.classification]) || "Outros";
+    const confidencePercent = Math.round(Math.max(0, Math.min(1, Number(result.confidence) || 0)) * 100);
+    box.innerHTML =
+      `<p class="small-muted mt-0 mb-6"><strong>Despesa selecionada:</strong> ${this._escapeHtml(
+        draft.expense.date || "-"
+      )} · R$ ${Number(draft.expense.amount || 0).toFixed(2)} · ${this._escapeHtml(
+        draft.expense.description || "-"
+      )}</p>` +
+      `<p class="small-muted mt-0 mb-6"><strong>Resultado IA:</strong> ${
+        result.amountMatches && result.merchantMatches ? "✅ Conferência automática concluída" : "⚠️ Revisão manual recomendada"
+      }</p>` +
+      `<ul class="small-muted mt-0 mb-0">` +
+      `<li>Valor lido: ${result.detectedAmount == null ? "-" : `R$ ${Number(result.detectedAmount).toFixed(2)}`}</li>` +
+      `<li>Recebedor SPACECWORP identificado: ${result.merchantMatches ? "sim" : "não"}</li>` +
+      `<li>Tipo detectado: ${this._escapeHtml(detectedType)}</li>` +
+      `<li>Confiança do agente IA: ${confidencePercent}%</li>` +
+      `<li>Número de transação sugerido: ${this._escapeHtml(draft.transactionNumber || "não detectado")}</li>` +
+      `</ul>`;
+  }
+
+  async _setupReceiptLinkingView() {
+    const selectEl = document.getElementById("receipt-link-expense-select");
+    const fileEl = document.getElementById("receipt-link-file-input");
+    const analyzeBtn = document.getElementById("receipt-link-analyze-btn");
+    const statusEl = document.getElementById("receipt-link-status");
+    const txnInputEl = document.getElementById("receipt-link-transaction-input");
+    const confirmBtn = document.getElementById("receipt-link-confirm-btn");
+    const bindStatusEl = document.getElementById("receipt-link-bind-status");
+    if (!selectEl || !fileEl || !analyzeBtn || !statusEl || !txnInputEl || !confirmBtn || !bindStatusEl) return;
+
+    if (!this.receiptLinkBound) {
+      this.receiptLinkBound = true;
+
+      analyzeBtn.addEventListener("click", async () => {
+        const expenseId = String(selectEl.value || "").trim();
+        const file = fileEl.files && fileEl.files[0];
+        statusEl.textContent = "";
+        bindStatusEl.textContent = "";
+        if (!expenseId) {
+          statusEl.textContent = "Selecione uma despesa para continuar.";
+          return;
+        }
+        if (!file) {
+          statusEl.textContent = "Envie o comprovante para análise.";
+          return;
+        }
+        if (!window.ReceiptAI) {
+          statusEl.textContent = "Agente IA de comprovante indisponível neste navegador.";
+          return;
+        }
+
+        statusEl.textContent = "Agente IA analisando comprovante...";
+        try {
+          const expenses = await Api.listExpenses();
+          const expense = expenses.find((item) => String(item.id) === expenseId);
+          if (!expense) throw new Error("Despesa não encontrada.");
+          const analysis = await ReceiptAI.analyze(file, {
+            expectedAmount: Number(expense.amount) || 0,
+            expectedType: "despesa",
+          });
+          const suggestedTxn =
+            this._extractTransactionNumberFromReceiptText(analysis.rawText) ||
+            String(expense.transaction_number || "").trim();
+          this.receiptLinkDraft = { expense, analysis, transactionNumber: suggestedTxn };
+          txnInputEl.value = suggestedTxn;
+          this._renderReceiptLinkAnalysis(this.receiptLinkDraft);
+          this._goToReceiptLinkPage(2);
+          statusEl.textContent = "Leitura concluída. Revise e confirme o vínculo na próxima etapa.";
+        } catch (err) {
+          statusEl.textContent = (err && err.message) || "Não foi possível analisar o comprovante.";
+        }
+      });
+
+      confirmBtn.addEventListener("click", async () => {
+        bindStatusEl.textContent = "";
+        const draft = this.receiptLinkDraft;
+        if (!draft || !draft.expense) {
+          bindStatusEl.textContent = "Faça primeiro a leitura IA do comprovante.";
+          return;
+        }
+        const transactionNumber = String(txnInputEl.value || "").trim();
+        if (!transactionNumber) {
+          bindStatusEl.textContent = "Informe o número/ID da transação para vincular.";
+          return;
+        }
+        try {
+          await Api.updateExpense(draft.expense.id, { transaction_number: transactionNumber });
+          bindStatusEl.textContent = "Comprovante vinculado com sucesso à despesa.";
+          this.receiptLinkDraft = null;
+          fileEl.value = "";
+          txnInputEl.value = "";
+          this._goToReceiptLinkPage(1);
+          await this._refreshReceiptLinkExpenseOptions();
+          await this._refreshExpenseTable();
+          await this._loadFeedView();
+          await this._loadTransactionDataView();
+        } catch (err) {
+          bindStatusEl.textContent = (err && err.message) || "Não foi possível vincular o comprovante à despesa.";
+        }
+      });
+    }
+
+    await this._refreshReceiptLinkExpenseOptions();
   }
 
   async _loadReportsView() {
