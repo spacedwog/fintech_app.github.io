@@ -80,6 +80,7 @@ print("OK transação de entrada (cash-in) é rejeitada na verificação de desp
 
 assert uber_expense["is_extra"] is False and uber_expense["extra_charge"] == 0
 assert uber_expense["generatedByMercadoPago"] is True
+assert uber_expense["transaction_number"] == str(uber_expense["mercadoPagoPaymentId"])
 print("OK despesas geradas não cobram taxa de extra e ficam marcadas como geradas via Mercado Pago")
 
 # ---------- idempotência: rodar de novo com o mesmo db1 não duplica ----------

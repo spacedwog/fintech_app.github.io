@@ -51,17 +51,40 @@ class MercadoPagoReceiptTransactionAgent:
 
 
 class MercadoPagoExpenseVerifierAgent:
-    def __init__(self, classifier=None, receipt_agent=None):
+    def __init__(self, classifier=None, receipt_agent=None, fallback_verifier=None):
         self.classifier = classifier or transaction_classifier_agent.TransactionClassifierAgent()
         self.receipt_agent = receipt_agent or MercadoPagoReceiptTransactionAgent()
+        self.fallback_verifier = fallback_verifier or MercadoPagoTransactionFallbackVerifier()
 
-    def verify_one(self, transaction, existing_transaction_ids=None, receipt_data=None):
+    @staticmethod
+    def _fallback_query(transaction_id, transaction_number, receipt):
+        return (
+            str(transaction_id or "").strip()
+            or str(transaction_number or "").strip()
+            or str(receipt.get("receipt_transaction_number") or "").strip()
+        )
+
+    def verify_one(self, transaction, existing_transaction_ids=None, receipt_data=None, fallback_context=None):
         receipt = self.receipt_agent.extract(transaction, receipt_data=receipt_data)
         verification = self.classifier.verify_expense_transaction(
             transaction,
             existing_transaction_ids=existing_transaction_ids,
             receipt_data=receipt,
         )
+        fallback = {}
+        if not verification["verified"]:
+            query = self._fallback_query(
+                verification.get("transaction_id"),
+                verification.get("transaction_number"),
+                receipt,
+            )
+            fallback = self.fallback_verifier.verify(query, context=fallback_context)
+            verification = self.classifier.verify_expense_transaction(
+                transaction,
+                existing_transaction_ids=existing_transaction_ids,
+                receipt_data=receipt,
+                fallback_verification=fallback,
+            )
         return {
             "transaction_id": verification["transaction_id"],
             "transaction_number": verification["transaction_number"],
@@ -74,20 +97,106 @@ class MercadoPagoExpenseVerifierAgent:
             "classification": verification.get("classification"),
             "checks": verification.get("checks"),
             "receipt_source": receipt.get("source"),
+            "fallback_status": verification.get("fallback_status"),
+            "fallback_found": verification.get("fallback_found"),
+            "fallback_message": verification.get("fallback_message"),
+            "fallback_summary": verification.get("fallback_summary"),
+            "fallback_applied": verification.get("fallback_applied"),
+            "fallback_query": (fallback or {}).get("query"),
         }
 
-    def verify_transactions(self, transactions, receipts_by_transaction_id=None):
+    def verify_transactions(self, transactions, receipts_by_transaction_id=None, fallback_context=None):
         receipts_by_transaction_id = receipts_by_transaction_id or {}
         existing_ids = []
         results = []
         for tx in transactions or []:
             tx_id = str(tx.get("id") or tx.get("payment_id") or "")
             receipt_data = receipts_by_transaction_id.get(tx_id) or {}
-            result = self.verify_one(tx, existing_transaction_ids=existing_ids, receipt_data=receipt_data)
+            result = self.verify_one(
+                tx,
+                existing_transaction_ids=existing_ids,
+                receipt_data=receipt_data,
+                fallback_context=fallback_context,
+            )
             results.append(result)
             if tx_id:
                 existing_ids.append(tx_id)
         return results
+
+
+class MercadoPagoTransactionFallbackVerifier:
+    @staticmethod
+    def _same_id(query):
+        normalized = str(query or "").strip().upper()
+        return lambda value: str(value or "").strip().upper() == normalized
+
+    def verify(self, query, context=None):
+        raw_query = str(query or "").strip()
+        if not raw_query:
+            return {
+                "query": "",
+                "found": False,
+                "status": "not_found",
+                "message": "ID da transação ausente para consulta de fallback.",
+                "summary": {"expenses": 0, "payments": 0, "rejections": 0},
+            }
+
+        context = context if isinstance(context, dict) else {}
+        tenant_id = context.get("tenant_id")
+        same_id = self._same_id(raw_query)
+        expenses = context.get("expenses") or []
+        payments = context.get("payments") or []
+        rejected_checks = context.get("rejected_checks") or []
+
+        tenant_expenses = [
+            e for e in expenses
+            if tenant_id is None or e.get("tenant_id") == tenant_id
+        ]
+        tenant_payments = [
+            p for p in payments
+            if tenant_id is None or p.get("tenant_id") == tenant_id
+        ]
+
+        matched_expenses = [
+            e for e in tenant_expenses
+            if same_id(e.get("mercadoPagoPaymentId")) or same_id(e.get("transaction_number"))
+        ]
+        matched_payments = [
+            p for p in tenant_payments
+            if same_id(p.get("mercadoPagoPaymentId")) or same_id(p.get("txid")) or same_id(p.get("manualTxnNumber"))
+        ]
+        matched_rejections = [
+            item for item in rejected_checks
+            if same_id((item or {}).get("transaction_id"))
+        ]
+
+        found = bool(matched_expenses or matched_payments or matched_rejections)
+        status = "not_found"
+        message = "ID não encontrado nos registros desta conta."
+        if any(bool(p.get("verifiedByMercadoPago")) for p in matched_payments):
+            status = "verified"
+            message = "ID encontrado e já confirmado pelo Mercado Pago."
+        elif any(bool(e.get("generatedByMercadoPago")) for e in matched_expenses):
+            status = "found"
+            message = "ID encontrado em despesa importada pela integração do Mercado Pago."
+        elif matched_rejections:
+            status = "rejected"
+            message = "ID encontrado em rejeições recentes da automação do Mercado Pago."
+        elif found:
+            status = "found"
+            message = "ID encontrado em registros da conta, sem confirmação automática do Mercado Pago."
+
+        return {
+            "query": raw_query,
+            "found": found,
+            "status": status,
+            "message": message,
+            "summary": {
+                "expenses": len(matched_expenses),
+                "payments": len(matched_payments),
+                "rejections": len(matched_rejections),
+            },
+        }
 
 
 def main():
