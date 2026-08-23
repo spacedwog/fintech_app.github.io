@@ -1,0 +1,46 @@
+{
+  "connection": {
+    "base_url": "https://SEU-ZOSMF-HOST:443",
+    "auth_mode": "basic",
+    "user": "SEU_USUARIO_ZOS",
+    "password_env": "IBM_TSO_PASSWORD",
+    "timeout_seconds": 30,
+    "retries": 3,
+    "retry_backoff_seconds": 1.0,
+    "verify_tls": true
+  },
+  "tso": {
+    "start_path": "/zosmf/tsoApp/tso",
+    "command_path": "/zosmf/tsoApp/tso/{servlet_key}",
+    "logoff_path": "/zosmf/tsoApp/tso/{servlet_key}",
+    "account": "",
+    "code_page": "1047",
+    "logon_procedure": "IZUFPROC",
+    "region_size": 0,
+    "start_payload": {
+      "account": "",
+      "codePage": "1047",
+      "logonProcedure": "IZUFPROC",
+      "regionSize": 0
+    },
+    "command_payload_template": {
+      "command": "{command}"
+    },
+    "logoff_payload": {
+      "command": "LOGOFF"
+    }
+  },
+  "flow": {
+    "tenant_id": "global",
+    "source_system": "IBM_TSO",
+    "commands": [
+      "ECHO {\"event_id\":\"evt-001\",\"payment_id\":\"42\",\"status_quitacao\":\"QUITADO\"}",
+      "ECHO event_id=evt-002;payment_id=84;status_quitacao=LIQUIDADO"
+    ]
+  },
+  "output_events_json": "cobol_events.json",
+  "_comentarios": {
+    "seguranca": "Nunca versione o arquivo real com segredos. Use password/token via variável de ambiente.",
+    "fluxo": "A lista flow.commands representa os comandos TSO que geram os dados da transação."
+  }
+}

@@ -132,6 +132,19 @@ python3 cobol_bridge.py --events-json cobol_events.example.json --db-json ../db.
 python3 test_cobol_bridge.py
 ```
 
+### Extração direta via TSO (z/OSMF)
+Se sua operação precisa buscar dados direto no Mainframe IBM via TSO, use o
+conector `ibm_tso_bridge.py` para gerar os eventos:
+
+```bash
+cd orcamento_agent
+cp ibm_tso_bridge_config.example.json ibm_tso_bridge_config.json
+export IBM_TSO_PASSWORD='SENHA_REAL'
+python3 ibm_tso_bridge.py --config ibm_tso_bridge_config.json --dry-run
+python3 ibm_tso_bridge.py --config ibm_tso_bridge_config.json --output-events-json cobol_events.json
+python3 test_ibm_tso_bridge.py
+```
+
 ## Navegue pelo painel (`dashboard.html`)
 
 Depois do login, o painel tem nove seções na barra lateral (as sete primeiras são o app em si; as duas últimas, em "Conta", são Segurança e Privacidade em menu único paginado + Configurações). Clique em cada uma abaixo para expandir o que ela faz e onde está o código.
