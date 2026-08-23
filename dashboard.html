@@ -61,12 +61,18 @@
         <div id="mp-rejection-reasons" class="mp-rejection-reasons small-muted"></div>
       </div>
 
+      <div class="sidebar-section-label">Perfil</div>
       <button class="nav-item active" data-view="budget-flow">Orçamento &amp; Despesas</button>
-      <button class="nav-item" data-view="feed">Feed</button>
+      <div class="sidebar-menu-label">Transação</div>
+      <button class="nav-item nav-sub-item" data-view="feed">Feed</button>
+      <button class="nav-item nav-sub-item" data-view="mp-transaction-check">Verificar transação MP</button>
+      <button class="nav-item nav-sub-item" data-view="budget-flow" data-budget-flow-page="7" data-budget-focus-id="budget-payment-card">Pagamento</button>
+      <button class="nav-item" data-view="invoices">Nota Fiscal</button>
+      <button class="nav-item" data-view="plan">Plano</button>
+
+      <div class="sidebar-section-label">Empresarial</div>
       <button class="nav-item" data-view="reports">Relatório</button>
       <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
-      <button class="nav-item" data-view="plan">Plano</button>
-      <button class="nav-item" data-view="mp-transaction-check">Verificar transação MP</button>
 
       <div class="sidebar-section-label">Conta</div>
       <button class="nav-item" data-view="security-privacy">Segurança e Privacidade</button>
@@ -96,14 +102,14 @@
 
         <div class="button-row-wrap mb-14" id="budget-submenu-budget">
           <button type="button" class="secondary budget-submenu-btn active" data-budget-flow-page="1">Importar Orçamento</button>
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="2">Alertas Orçamento</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="2">Alertas de Orçamento</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="3">Gerenciar Orçamento</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="4">Grupo</button>
         </div>
         <div class="button-row-wrap mb-14 hidden" id="budget-submenu-expenses">
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="5">SpaceHub</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6">Minhas Despesas</button>
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="7">Pagamento Despesas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="7">Pagamento de Despesas</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="8">Regras Automáticas</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="9">Integração Categorias</button>
         </div>
@@ -112,10 +118,9 @@
         <div class="flow-page budget-flow-page" id="budget-flow-page-1">
           <div class="card" id="budget-import-card">
             <p class="small-muted mt-0">
-              Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita no
-              navegador, integrada ao backend em nuvem (arquitetura fullstack), sem depender de um arquivo fixo. Funciona com uma
-              coluna <strong>Categoria</strong> e colunas <strong>Previsto</strong>/<strong>Realizado</strong>
-              (por mês, lado a lado, ou uma linha por categoria + mês).
+              Importe sua planilha de orçamento (.xlsx, .xls ou .csv) com leitura local no navegador.
+              O app identifica <strong>Categoria</strong>, <strong>Previsto</strong> e <strong>Realizado</strong>
+              automaticamente (por mês, lado a lado, ou uma linha por categoria e mês).
             </p>
             <div class="field">
               <label>Layout de leitura</label>
@@ -130,7 +135,17 @@
             </div>
 
             <div class="field">
-              <input type="file" id="budget-file-input" accept=".xlsx,.xls,.csv" />
+              <div class="budget-upload-area" id="budget-upload-area" role="button" tabindex="0" aria-label="Área para enviar planilha de orçamento">
+                <p class="budget-upload-title">Arraste e solte a planilha aqui</p>
+                <p class="small-muted mb-12">ou use os botões abaixo para selecionar do seu computador</p>
+                <div class="d-flex gap-10 flex-wrap justify-center">
+                  <button type="button" class="secondary" id="budget-file-picker-btn">Escolher arquivo</button>
+                  <button type="button" class="secondary hidden" id="budget-file-clear-btn">Remover arquivo</button>
+                </div>
+                <p id="budget-selected-file" class="small-muted mt-10 mb-0">Nenhum arquivo selecionado.</p>
+                <p class="small-muted mt-8 mb-0">Formatos aceitos: .xlsx, .xls e .csv</p>
+              </div>
+              <input type="file" id="budget-file-input" class="hidden" accept=".xlsx,.xls,.csv" />
             </div>
             <p id="budget-import-status" class="small-muted min-h-1rem"></p>
           </div>
@@ -575,6 +590,25 @@
             Cadastre seu CPF/CNPJ em <strong>Configurações</strong> para que a emissão não fique pendente.
           </p>
           <div id="payments-history"></div>
+        </div>
+      </section>
+
+      <!-- Nota Fiscal -->
+      <section class="view hidden" id="view-invoices">
+        <div class="top-bar">
+          <h1>Nota Fiscal</h1>
+          <button type="button" class="secondary" id="invoices-refresh-btn">Atualizar</button>
+        </div>
+        <div class="card">
+          <p class="small-muted mt-0 mb-12">
+            Listagem de todas as notas fiscais emitidas pelo sistema para os pagamentos desta conta.
+          </p>
+          <table>
+            <thead>
+              <tr><th>Número</th><th>Emissão</th><th>Pagamento</th><th>Valor</th><th>Status</th><th>Documentos</th></tr>
+            </thead>
+            <tbody id="invoices-tbody"></tbody>
+          </table>
         </div>
       </section>
 

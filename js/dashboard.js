@@ -473,6 +473,7 @@ class DashboardController {
     this.reportsPagerBound = false;
     this.currentReportsPage = 1;
     this.transactionVerifierBound = false;
+    this.invoicesBound = false;
 
     this.budgetInputBound = false;
     this.pixKeyPaymentBound = false;
@@ -658,6 +659,7 @@ class DashboardController {
     if (viewName === "reports") this._loadReportsView();
     if (viewName === "team") this._loadTeamView();
     if (viewName === "plan") this._loadPlanView();
+    if (viewName === "invoices") this._loadInvoicesView();
     if (viewName === "mp-transaction-check") this._loadMercadoPagoTransactionCheckView();
     if (viewName === "settings") this._loadSettingsView();
   }
@@ -2280,10 +2282,43 @@ class DashboardController {
       this.budgetInputBound = true;
 
       const input = document.getElementById("budget-file-input");
+      const uploadArea = document.getElementById("budget-upload-area");
+      const pickBtn = document.getElementById("budget-file-picker-btn");
+      const clearBtn = document.getElementById("budget-file-clear-btn");
       if (input) {
         input.addEventListener("change", () => {
-          this.budgetSelectedFile = input.files && input.files[0];
-          this._handleBudgetFileUpload(this.budgetSelectedFile);
+          this._setBudgetSelectedFile(input.files && input.files[0]);
+        });
+      }
+      if (pickBtn && input) {
+        pickBtn.addEventListener("click", () => input.click());
+      }
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => this._clearBudgetSelectedFile());
+      }
+      if (uploadArea && input) {
+        uploadArea.addEventListener("click", (event) => {
+          if (event.target && typeof event.target.closest === "function" && event.target.closest("button")) return;
+          input.click();
+        });
+        uploadArea.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          input.click();
+        });
+        uploadArea.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          uploadArea.classList.add("drag-over");
+        });
+        uploadArea.addEventListener("dragleave", () => {
+          uploadArea.classList.remove("drag-over");
+        });
+        uploadArea.addEventListener("drop", (event) => {
+          event.preventDefault();
+          uploadArea.classList.remove("drag-over");
+          const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+          if (!file) return;
+          this._setBudgetSelectedFile(file);
         });
       }
 
@@ -2327,6 +2362,33 @@ class DashboardController {
     }
 
     this._refreshBudgetLayoutSelect();
+    this._updateBudgetUploadUI();
+  }
+
+  _setBudgetSelectedFile(file) {
+    this.budgetSelectedFile = file || null;
+    this._updateBudgetUploadUI();
+    this._handleBudgetFileUpload(this.budgetSelectedFile);
+  }
+
+  _clearBudgetSelectedFile() {
+    const input = document.getElementById("budget-file-input");
+    if (input) input.value = "";
+    this._setBudgetSelectedFile(null);
+  }
+
+  _updateBudgetUploadUI() {
+    const selectedFile = document.getElementById("budget-selected-file");
+    const clearBtn = document.getElementById("budget-file-clear-btn");
+    if (selectedFile) {
+      if (this.budgetSelectedFile) {
+        const sizeKb = Math.max(1, Math.round(this.budgetSelectedFile.size / 1024));
+        selectedFile.textContent = `Arquivo selecionado: ${this.budgetSelectedFile.name} (${sizeKb} KB)`;
+      } else {
+        selectedFile.textContent = "Nenhum arquivo selecionado.";
+      }
+    }
+    if (clearBtn) clearBtn.classList.toggle("hidden", !this.budgetSelectedFile);
   }
 
   _getSelectedBudgetLayout() {
@@ -2373,15 +2435,15 @@ class DashboardController {
     }
 
     if (!window.BudgetAI) {
-      status.textContent = "IA de leitura de orçamento indisponível neste navegador.";
+      status.textContent = "Leitura inteligente de orçamento indisponível neste navegador.";
       status.style.color = "#b45309";
       return;
     }
 
     const layout = this._getSelectedBudgetLayout();
     status.textContent = layout
-      ? `Lendo orçamento com o layout "${layout.name}"...`
-      : "Lendo orçamento com IA (leitura local no navegador)...";
+      ? `Lendo a planilha com o layout "${layout.name}"...`
+      : "Lendo a planilha com detecção automática (local no navegador)...";
     status.style.color = "";
 
     const analysis = layout ? BudgetAI.analyzeWithLayout(file, layout) : BudgetAI.analyze(file);
@@ -2747,6 +2809,75 @@ class DashboardController {
       .join("");
 
     await this._renderPaymentsHistory();
+  }
+
+  async _loadInvoicesView() {
+    const refreshBtn = document.getElementById("invoices-refresh-btn");
+    if (!this.invoicesBound && refreshBtn) {
+      this.invoicesBound = true;
+      refreshBtn.addEventListener("click", async () => {
+        refreshBtn.disabled = true;
+        try {
+          await this._renderInvoicesTable();
+        } finally {
+          refreshBtn.disabled = false;
+        }
+      });
+    }
+    await this._renderInvoicesTable();
+  }
+
+  async _renderInvoicesTable() {
+    const tbody = document.getElementById("invoices-tbody");
+    if (!tbody) return;
+    const payments = await Api.listPayments();
+    const invoices = payments
+      .filter((p) => p && (p.nfseStatus === "emitida" || p.nfseNumero || p.nfsePdfUrl || p.nfseXmlUrl))
+      .sort((a, b) => {
+        const da = new Date(a.nfseEmitidaEm || a.date || 0).getTime();
+        const db = new Date(b.nfseEmitidaEm || b.date || 0).getTime();
+        return db - da;
+      });
+
+    if (invoices.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="small-muted">Nenhuma nota fiscal emitida ainda.</td></tr>';
+      return;
+    }
+
+    const statusLabel = (status) => {
+      if (status === "emitida") return "Emitida";
+      if (status === "emitindo") return "Em processamento";
+      if (status === "erro") return "Erro";
+      if (status === "aguardando_documento_tomador" || status === "aguardando_dados_tomador") return "Pendente de documento";
+      return status || "Emitida";
+    };
+    const docLink = (url, label) => {
+      const raw = String(url || "").trim();
+      if (!/^https?:\/\//i.test(raw)) return "";
+      return `<a href="${this._escapeHtml(raw)}" target="_blank" rel="noopener">${label}</a>`;
+    };
+
+    tbody.innerHTML = invoices
+      .map((p) => {
+        const emittedAt = p.nfseEmitidaEm || p.nfseCheckedAt || p.date;
+        const emittedDate = emittedAt ? new Date(emittedAt).toLocaleDateString("pt-BR") : "-";
+        const paymentDate = p.date ? new Date(p.date).toLocaleDateString("pt-BR") : "-";
+        const paymentLabel = p.type === "plano"
+          ? `Assinatura ${p.plan === "premium" ? "Premium" : p.plan || "Plano"}`
+          : p.type === "importacao_orcamento_extra"
+            ? "Importação extra de orçamento"
+            : "Despesa extra";
+        const links = [docLink(p.nfsePdfUrl, "PDF"), docLink(p.nfseXmlUrl, "XML")].filter(Boolean).join(" · ");
+        return `<tr>
+          <td>${this._escapeHtml(p.nfseNumero || p.nfseRef || "-")}</td>
+          <td>${this._escapeHtml(emittedDate)}</td>
+          <td>${this._escapeHtml(paymentLabel)}<div class="small-muted">${this._escapeHtml(paymentDate)}</div></td>
+          <td>R$ ${Number(p.amount || 0).toFixed(2)}</td>
+          <td>${this._escapeHtml(statusLabel(p.nfseStatus))}</td>
+          <td>${links || '<span class="small-muted">Sem links</span>'}</td>
+        </tr>`;
+      })
+      .join("");
   }
 
   _statusLabelForMercadoPagoTransactionCheck(status) {

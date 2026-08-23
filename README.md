@@ -24,7 +24,7 @@ Gestão de despesas pessoais em arquitetura **fullstack web**: frontend em HTML/
 - [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)
 - [Landing page: anúncios Google (AdSense x Google Ads)](#landing-page-anúncios-google-adsense-x-google-ads)
 - [Escopo funcional mínimo (core x complementar)](#escopo-funcional-mínimo-core-x-complementar)
-- [Integração IBM COBOL via camada intermediária](#integração-ibm-cobol-via-camada-intermediária)
+- [Integração IBM/Mainframe (descontinuada)](#integração-ibmmainframe-descontinuada)
 - [Nota Fiscal (NFS-e): emissão real via Focus NFe](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe)
 - [Como o sistema funciona por baixo dos panos](#como-o-sistema-funciona-por-baixo-dos-panos)
 - [Grau tecnológico atual](#grau-tecnológico-atual)
@@ -86,64 +86,16 @@ Para manter foco em **Gestão de Despesas Pessoais**, o produto passa a seguir e
 ### Complementar (suporte ao core)
 - Ads na landing page
 - Chatbot de apoio
-- Integrações externas opcionais (Mercado Pago, Open Finance, legado/COBOL)
+- Integrações externas opcionais (Mercado Pago e Open Finance)
 - Automações administrativas fora do navegador (`orcamento_agent/`)
 
-## Integração IBM COBOL via camada intermediária
+## Integração IBM/Mainframe (descontinuada)
 
-A integração com legado **não** é feita no front-end. O fluxo suportado é:
+As conexões com legado IBM/Mainframe foram removidas com segurança.
 
-1. Sistema legado (ex.: IBM COBOL) publica eventos financeiros em uma camada intermediária.
-2. A camada intermediária exporta eventos em JSON (contrato versionável).
-3. O agente local `orcamento_agent/cobol_bridge.py` reconcilia esses eventos com o banco do painel (Firestore ou `db.json`).
-4. O painel passa a refletir status de quitação/liquidação sem expor credenciais no navegador.
-
-### Casos de uso priorizados
-- Conciliação de pagamentos
-- Atualização de status de quitação
-- Histórico de liquidação para auditoria
-
-### Contrato mínimo de evento (idempotente por `event_id`)
-```json
-{
-  "event_id": "cbl-evt-2026-08-16-0001",
-  "tenant_id": "global",
-  "payment_id": "42",
-  "txid": "PIX-EXEMPLO-0001",
-  "amount": 19.99,
-  "status_quitacao": "QUITADO",
-  "settled_at": "2026-08-16T12:00:00Z",
-  "liquidation_reference": "LQ-20260816-0001",
-  "source_system": "IBM_COBOL"
-}
-```
-
-### Segurança e rastreabilidade
-- Sem acoplamento direto COBOL ↔ navegador
-- Idempotência por `event_id` (`cobol_bridge_state`)
-- Trilha por pagamento (`settlementHistory`, `cobolSettlement`)
-- Execução com `--dry-run` para validação sem gravação
-
-### Comandos rápidos
-```bash
-cd orcamento_agent
-cp cobol_bridge_config.example.json cobol_bridge_config.json
-python3 cobol_bridge.py --events-json cobol_events.example.json --db-json ../db.json --dry-run
-python3 test_cobol_bridge.py
-```
-
-### Extração direta via TSO (z/OSMF)
-Se sua operação precisa buscar dados direto no Mainframe IBM via TSO, use o
-conector `ibm_tso_bridge.py` para gerar os eventos:
-
-```bash
-cd orcamento_agent
-cp ibm_tso_bridge_config.example.json ibm_tso_bridge_config.json
-export IBM_TSO_PASSWORD='SENHA_REAL'
-python3 ibm_tso_bridge.py --config ibm_tso_bridge_config.json --dry-run
-python3 ibm_tso_bridge.py --config ibm_tso_bridge_config.json --output-events-json cobol_events.json
-python3 test_ibm_tso_bridge.py
-```
+- `orcamento_agent/cobol_bridge.py` e `orcamento_agent/ibm_tso_bridge.py` permanecem apenas por compatibilidade de CLI e retornam status de desativação.
+- Não há mais abertura de sessão TSO, execução de comandos no Mainframe ou reconciliação COBOL ativa neste projeto.
+- O foco de integrações externas ativas permanece em Mercado Pago e Open Finance.
 
 ## Navegue pelo painel (`dashboard.html`)
 
@@ -828,7 +780,7 @@ Rode de novo sempre que alterar `cobol_bridge.py`.
 
 ### Prioridade alta (curto prazo)
 1. Autenticação forte e isolamento real por usuário/tenant.
-2. Camada backend/serverless para integrações financeiras (COBOL e demais fontes) sem segredos no front-end.
+2. Camada backend/serverless para integrações financeiras (Mercado Pago, Open Finance e demais fontes) sem segredos no front-end.
 3. Governança de dados financeiros (trilha de auditoria, reconciliação e política de consistência).
    - **Status atual:** trilha de auditoria operacional já ativa no app (`auditEvents`) para ações críticas de despesas, orçamento, pagamentos, plano e equipe, exibida também no Feed.
 
@@ -846,10 +798,10 @@ Rode de novo sempre que alterar `cobol_bridge.py`.
 - Consolidar governança de dados financeiros no fluxo principal.
 - Padronizar contratos de integração e idempotência.
 
-### Fase 2 — integração COBOL para pagamentos e conciliação
-- Operar `orcamento_agent/cobol_bridge.py` com eventos da camada intermediária.
-- Cobrir status de quitação e histórico de liquidação com trilha auditável.
-- Evoluir reconciliação para cenários de ambiguidade/reprocessamento.
+### Fase 2 — expansão de integrações financeiras sem legado IBM
+- Evoluir integrações ativas (Mercado Pago e Open Finance) com trilha auditável.
+- Cobrir cenários de reconciliação com ambiguidade/reprocessamento.
+- Manter isolamento de segredos e execução fora do navegador.
 
 ### Fase 3 — unificação sistema ↔ landing page
 - Garantir que toda promessa comercial reflita capacidade implementada no painel.

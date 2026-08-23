@@ -543,6 +543,36 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 
 .small-muted { color: var(--muted); font-size: 12px; }
 
+.budget-upload-area {
+  border: 1px dashed #9ca3af;
+  border-radius: 12px;
+  padding: 18px 14px;
+  text-align: center;
+  background: #f8fafc;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.budget-upload-area:hover,
+.budget-upload-area:focus {
+  border-color: var(--primary);
+  background: #f0fdf4;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+}
+
+.budget-upload-area.drag-over {
+  border-color: var(--primary);
+  background: #ecfdf5;
+}
+
+.budget-upload-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
 /* ---------- Modal (pagamento Pix) ---------- */
 .modal-overlay {
   position: fixed;
@@ -607,6 +637,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .d-block { display: block; }
 .align-center { align-items: center; }
 .justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
 .flex-wrap { flex-wrap: wrap; }
 .flex-1 { flex: 1; }
 .gap-6 { gap: 6px; }
