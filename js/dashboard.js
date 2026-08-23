@@ -3435,7 +3435,7 @@ class DashboardController {
       return '<span style="color:#b45309;">⏳ Nota fiscal em processamento…</span>';
     }
     if (status === "aguardando_documento_tomador" || status === "aguardando_dados_tomador") {
-      return '<span style="color:#b45309;">⚠ Nota fiscal pendente: cadastre seu CPF/CNPJ em Configurações.</span>';
+      return '<span style="color:#b45309;">⚠ Emissão fiscal pendente: cadastre seu CPF (ou CNPJ) em Configurações.</span>';
     }
     if (status === "erro") {
       const detalhe = p.nfseErro ? ` (${String(p.nfseErro).slice(0, 120)})` : "";
@@ -3553,7 +3553,7 @@ class DashboardController {
       { code: "ISO/IEC 29100", name: "Framework de privacidade", relevance: "Princípios de privacidade (minimização, finalidade, consentimento) da tela Privacidade." },
       { code: "ISO/IEC 25010", name: "Qualidade de software (SQuaRE)", relevance: "Características de qualidade (segurança, confiabilidade, usabilidade) que guiam o desenvolvimento." },
       { code: "ISO 31000", name: "Gestão de riscos", relevance: "Avaliação de riscos como dependência de um único provedor de nuvem e ausência de backend próprio." },
-      { code: "ISO 9001", name: "Gestão da qualidade", relevance: "Processos gerais da empresa desenvolvedora (SPACECWORP)." },
+      { code: "ISO 9001", name: "Gestão da qualidade", relevance: "Boas práticas de qualidade aplicadas ao desenvolvimento do produto." },
       { code: "ISO 20022", name: "Mensageria financeira", relevance: "Padrão usado no sistema financeiro brasileiro (Bacen/Pix) — o app processa pagamentos Pix." },
       { code: "ISO 8000", name: "Qualidade de dados", relevance: "Consistência dos dados financeiros (despesas, orçamento) armazenados." },
     ];
@@ -3653,7 +3653,7 @@ class DashboardController {
 
       const profile = await Api.getCompanyProfile();
       document.getElementById("privacy-controller-box").innerHTML =
-        `<strong>${profile.razao_social}</strong> (${profile.nome_fantasia}) — CNPJ ${profile.cnpj}. ` +
+        `Operador do app: <strong>${profile.razao_social}</strong> (${profile.nome_fantasia}) — CNPJ ${profile.cnpj}. ` +
         `${profile.endereco.logradouro}, ${profile.endereco.bairro}, ${profile.endereco.cidade}/${profile.endereco.uf} — CEP ${profile.endereco.cep}. ` +
         `Contato para solicitações de privacidade (LGPD): <a href="mailto:${profile.contato_privacidade}">${profile.contato_privacidade}</a>.`;
 
@@ -3740,18 +3740,18 @@ class DashboardController {
 
       const profile = await Api.getCompanyProfile();
       document.getElementById("settings-company-box").innerHTML = `
-        <div><span class="small-muted">Razão social</span><p class="m-0 fw-600">${profile.razao_social}</p></div>
-        <div><span class="small-muted">Nome fantasia</span><p class="m-0 fw-600">${profile.nome_fantasia}</p></div>
-        <div><span class="small-muted">CNPJ</span><p class="m-0 fw-600">${profile.cnpj}</p></div>
-        <div><span class="small-muted">Porte</span><p class="m-0 fw-600">${profile.porte}</p></div>
-        <div><span class="small-muted">Inscrição Municipal (CCM)</span><p class="m-0 fw-600">${profile.inscricao_municipal_ccm}</p></div>
-        <div><span class="small-muted">Inscrição Estadual (Jucesp)</span><p class="m-0 fw-600">${profile.inscricao_estadual_jucesp}</p></div>
+        <div><span class="small-muted">Operador legal</span><p class="m-0 fw-600">${profile.razao_social}</p></div>
+        <div><span class="small-muted">Nome público</span><p class="m-0 fw-600">${profile.nome_fantasia}</p></div>
+        <div><span class="small-muted">Documento fiscal (CNPJ)</span><p class="m-0 fw-600">${profile.cnpj}</p></div>
+        <div><span class="small-muted">Porte jurídico</span><p class="m-0 fw-600">${profile.porte}</p></div>
+        <div><span class="small-muted">Cadastro municipal (CCM)</span><p class="m-0 fw-600">${profile.inscricao_municipal_ccm}</p></div>
+        <div><span class="small-muted">Cadastro estadual (Jucesp)</span><p class="m-0 fw-600">${profile.inscricao_estadual_jucesp}</p></div>
         <div><span class="small-muted">CNAE principal</span><p class="m-0 fw-600">${profile.cnae_principal}</p></div>
         <div><span class="small-muted">Endereço</span><p class="m-0 fw-600">${profile.endereco.logradouro}, ${profile.endereco.bairro}, ${profile.endereco.cidade}/${profile.endereco.uf} — CEP ${profile.endereco.cep}</p></div>
         <div><span class="small-muted">Telefone</span><p class="m-0 fw-600">${profile.telefone}</p></div>
         <div><span class="small-muted">Início de atividade</span><p class="m-0 fw-600">${profile.inicio_atividade}</p></div>
-        <div><span class="small-muted">Alvará de Funcionamento</span><p class="m-0 fw-600">Nº processo ${profile.alvara.numero_processo} — válido até ${profile.alvara.valido_ate}</p></div>
-        <div class="company-profile-full"><span class="small-muted">Atividades registradas</span><p class="m-0">${profile.atividades.join("; ")}.</p></div>
+        <div><span class="small-muted">Alvará de funcionamento</span><p class="m-0 fw-600">Nº processo ${profile.alvara.numero_processo} — válido até ${profile.alvara.valido_ate}</p></div>
+        <div class="company-profile-full"><span class="small-muted">Atividades registradas do operador</span><p class="m-0">${profile.atividades.join("; ")}.</p></div>
       `;
     }
 
