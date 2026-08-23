@@ -2282,10 +2282,43 @@ class DashboardController {
       this.budgetInputBound = true;
 
       const input = document.getElementById("budget-file-input");
+      const uploadArea = document.getElementById("budget-upload-area");
+      const pickBtn = document.getElementById("budget-file-picker-btn");
+      const clearBtn = document.getElementById("budget-file-clear-btn");
       if (input) {
         input.addEventListener("change", () => {
-          this.budgetSelectedFile = input.files && input.files[0];
-          this._handleBudgetFileUpload(this.budgetSelectedFile);
+          this._setBudgetSelectedFile(input.files && input.files[0]);
+        });
+      }
+      if (pickBtn && input) {
+        pickBtn.addEventListener("click", () => input.click());
+      }
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => this._clearBudgetSelectedFile());
+      }
+      if (uploadArea && input) {
+        uploadArea.addEventListener("click", (event) => {
+          if (event.target && typeof event.target.closest === "function" && event.target.closest("button")) return;
+          input.click();
+        });
+        uploadArea.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          input.click();
+        });
+        uploadArea.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          uploadArea.classList.add("drag-over");
+        });
+        uploadArea.addEventListener("dragleave", () => {
+          uploadArea.classList.remove("drag-over");
+        });
+        uploadArea.addEventListener("drop", (event) => {
+          event.preventDefault();
+          uploadArea.classList.remove("drag-over");
+          const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+          if (!file) return;
+          this._setBudgetSelectedFile(file);
         });
       }
 
@@ -2329,6 +2362,33 @@ class DashboardController {
     }
 
     this._refreshBudgetLayoutSelect();
+    this._updateBudgetUploadUI();
+  }
+
+  _setBudgetSelectedFile(file) {
+    this.budgetSelectedFile = file || null;
+    this._updateBudgetUploadUI();
+    this._handleBudgetFileUpload(this.budgetSelectedFile);
+  }
+
+  _clearBudgetSelectedFile() {
+    const input = document.getElementById("budget-file-input");
+    if (input) input.value = "";
+    this._setBudgetSelectedFile(null);
+  }
+
+  _updateBudgetUploadUI() {
+    const selectedFile = document.getElementById("budget-selected-file");
+    const clearBtn = document.getElementById("budget-file-clear-btn");
+    if (selectedFile) {
+      if (this.budgetSelectedFile) {
+        const sizeKb = Math.max(1, Math.round(this.budgetSelectedFile.size / 1024));
+        selectedFile.textContent = `Arquivo selecionado: ${this.budgetSelectedFile.name} (${sizeKb} KB)`;
+      } else {
+        selectedFile.textContent = "Nenhum arquivo selecionado.";
+      }
+    }
+    if (clearBtn) clearBtn.classList.toggle("hidden", !this.budgetSelectedFile);
   }
 
   _getSelectedBudgetLayout() {
@@ -2375,15 +2435,15 @@ class DashboardController {
     }
 
     if (!window.BudgetAI) {
-      status.textContent = "IA de leitura de orçamento indisponível neste navegador.";
+      status.textContent = "Leitura inteligente de orçamento indisponível neste navegador.";
       status.style.color = "#b45309";
       return;
     }
 
     const layout = this._getSelectedBudgetLayout();
     status.textContent = layout
-      ? `Lendo orçamento com o layout "${layout.name}"...`
-      : "Lendo orçamento com IA (leitura local no navegador)...";
+      ? `Lendo a planilha com o layout "${layout.name}"...`
+      : "Lendo a planilha com detecção automática (local no navegador)...";
     status.style.color = "";
 
     const analysis = layout ? BudgetAI.analyzeWithLayout(file, layout) : BudgetAI.analyze(file);

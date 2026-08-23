@@ -102,14 +102,14 @@
 
         <div class="button-row-wrap mb-14" id="budget-submenu-budget">
           <button type="button" class="secondary budget-submenu-btn active" data-budget-flow-page="1">Importar Orçamento</button>
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="2">Alertas Orçamento</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="2">Alertas de Orçamento</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="3">Gerenciar Orçamento</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="4">Grupo</button>
         </div>
         <div class="button-row-wrap mb-14 hidden" id="budget-submenu-expenses">
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="5">SpaceHub</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="6">Minhas Despesas</button>
-          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="7">Pagamento Despesas</button>
+          <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="7">Pagamento de Despesas</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="8">Regras Automáticas</button>
           <button type="button" class="secondary budget-submenu-btn" data-budget-flow-page="9">Integração Categorias</button>
         </div>
@@ -118,10 +118,9 @@
         <div class="flow-page budget-flow-page" id="budget-flow-page-1">
           <div class="card" id="budget-import-card">
             <p class="small-muted mt-0">
-              Envie a planilha do seu orçamento (.xlsx, .xls ou .csv) — a leitura é feita no
-              navegador, integrada ao backend em nuvem (arquitetura fullstack), sem depender de um arquivo fixo. Funciona com uma
-              coluna <strong>Categoria</strong> e colunas <strong>Previsto</strong>/<strong>Realizado</strong>
-              (por mês, lado a lado, ou uma linha por categoria + mês).
+              Importe sua planilha de orçamento (.xlsx, .xls ou .csv) com leitura local no navegador.
+              O app identifica <strong>Categoria</strong>, <strong>Previsto</strong> e <strong>Realizado</strong>
+              automaticamente (por mês, lado a lado, ou uma linha por categoria e mês).
             </p>
             <div class="field">
               <label>Layout de leitura</label>
@@ -136,7 +135,17 @@
             </div>
 
             <div class="field">
-              <input type="file" id="budget-file-input" accept=".xlsx,.xls,.csv" />
+              <div class="budget-upload-area" id="budget-upload-area" role="button" tabindex="0" aria-label="Área para enviar planilha de orçamento">
+                <p class="budget-upload-title">Arraste e solte a planilha aqui</p>
+                <p class="small-muted mb-12">ou use os botões abaixo para selecionar do seu computador</p>
+                <div class="d-flex gap-10 flex-wrap justify-center">
+                  <button type="button" class="secondary" id="budget-file-picker-btn">Escolher arquivo</button>
+                  <button type="button" class="secondary hidden" id="budget-file-clear-btn">Remover arquivo</button>
+                </div>
+                <p id="budget-selected-file" class="small-muted mt-10 mb-0">Nenhum arquivo selecionado.</p>
+                <p class="small-muted mt-8 mb-0">Formatos aceitos: .xlsx, .xls e .csv</p>
+              </div>
+              <input type="file" id="budget-file-input" class="hidden" accept=".xlsx,.xls,.csv" />
             </div>
             <p id="budget-import-status" class="small-muted min-h-1rem"></p>
           </div>
