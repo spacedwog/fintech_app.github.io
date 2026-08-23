@@ -344,13 +344,13 @@ class ExpenseGenerator:
             for item in set(ja_em_payments).union(set(ja_importados))
             if item is not None and str(item).strip()
         }
+        status_by_tenant = (db.get("mercado_pago_status") or {}).get(tenant_id) or {}
+        last_expenses_status = status_by_tenant.get("last_expenses_api") or {}
         fallback_context = {
             "tenant_id": tenant_id,
             "expenses": db.get("expenses", []),
             "payments": db.get("payments", []),
-            "rejected_checks": (
-                (((db.get("mercado_pago_status") or {}).get(tenant_id) or {}).get("last_expenses_api") or {}
-            ).get("verificacoes_rejeitadas", []),
+            "rejected_checks": last_expenses_status.get("verificacoes_rejeitadas", []),
         }
 
         for p in mp_payments:

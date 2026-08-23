@@ -74,7 +74,7 @@ fallback_ok = agent_fallback_ok.verify_one(
 )
 assert fallback_ok["verified"] is True, fallback_ok
 assert fallback_ok["fallback_status"] == "verified", fallback_ok
-assert "fallback" in (fallback_ok["verification_reason"] or "").lower(), fallback_ok
+assert "consulta de verificação mercado pago" in (fallback_ok["verification_reason"] or "").lower(), fallback_ok
 print("OK fallback aprovado recupera divergência de comprovante")
 
 agent_fallback_found = verifier_mod.MercadoPagoExpenseVerifierAgent(
