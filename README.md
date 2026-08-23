@@ -491,6 +491,8 @@ orcamento_agent/
                             sozinho (agendado ou manual), com os segredos vindos de
                             Secrets do repositório -- ver seção "Automatizando de
                             verdade" acima
+  test-deploy.yml        -> valida secrets de teste e roda testes Node/Python
+                            da integração Mercado Pago em execução manual/agendada
 ```
 
 Não há mais pasta `backend/`, `app.py`, `models/`, `services/` ou `utils/` em Python — o painel web em si é só front-end estático (o `orcamento_agent/` é uma automação local opcional, fora do site publicado).
