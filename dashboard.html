@@ -67,9 +67,9 @@
       <button class="nav-item" data-view="invoices">Nota Fiscal</button>
       <button class="nav-item" data-view="plan">Plano</button>
 
-      <div class="sidebar-section-label">EMPRESARIAL</div>
-      <button class="nav-item" data-view="reports">Relatório</button>
-      <button class="nav-item" data-view="team" data-admin-only>Equipe</button>
+      <div class="sidebar-section-label">PESSOAL</div>
+      <button class="nav-item" data-view="reports">Resumo</button>
+      <button class="nav-item" data-view="team" data-admin-only>Compartilhamento</button>
 
       <div class="sidebar-section-label">CONTA</div>
       <button class="nav-item" data-view="security-privacy">Segurança e Privacidade</button>
@@ -711,9 +711,9 @@
         <div class="card">
           <h3 class="mt-0">Histórico de pagamentos</h3>
           <p class="small-muted mt-0">
-            Cada pagamento confirmado gera uma Nota Fiscal de Serviço (NFS-e) real, emitida de forma assíncrona por um
+            Cada pagamento confirmado pode gerar um comprovante fiscal (NFS-e) emitido de forma assíncrona por um
             processo externo (fora do navegador, por segurança — ver <code>orcamento_agent/nfse_issuer.py</code>).
-            Cadastre seu CPF/CNPJ em <strong>Configurações</strong> para que a emissão não fique pendente.
+            Cadastre seu CPF (ou CNPJ) em <strong>Configurações</strong> para evitar pendências de emissão.
           </p>
           <div id="payments-history"></div>
         </div>
@@ -722,12 +722,12 @@
       <!-- Nota Fiscal -->
       <section class="view hidden" id="view-invoices">
         <div class="top-bar">
-          <h1>Nota Fiscal</h1>
+          <h1>Comprovantes Fiscais</h1>
           <button type="button" class="secondary" id="invoices-refresh-btn">Atualizar</button>
         </div>
         <div class="card">
           <p class="small-muted mt-0 mb-12">
-            Listagem de todas as notas fiscais emitidas pelo sistema para os pagamentos desta conta.
+            Listagem dos comprovantes fiscais emitidos para os pagamentos desta conta pessoal.
           </p>
           <table>
             <thead>
@@ -867,8 +867,8 @@
       </section>
 
       <!-- ============================================================
-           CONFIGURAÇÕES — perfil da conta + dados institucionais
-           (extraídos do CNPJ, CMC e Alvará de Funcionamento)
+           CONFIGURAÇÕES — perfil da conta + dados do operador do app
+           (mantidos para transparência e conformidade fiscal)
       ============================================================ -->
       <section class="view hidden" id="view-settings">
         <div class="top-bar"><h1>Configurações</h1></div>
@@ -883,11 +883,11 @@
               <div class="field"><label>E-mail</label><input type="email" id="settings-profile-email" disabled /></div>
             </div>
             <div class="field">
-              <label>CPF ou CNPJ (necessário para emissão de nota fiscal)</label>
+              <label>CPF (ou CNPJ) para emissão fiscal</label>
               <input type="text" id="settings-profile-document" placeholder="Só números ou com pontuação" inputmode="numeric" />
               <p class="small-muted mt-6 mb-0">
-                Usado como dado do tomador ao emitir a Nota Fiscal de Serviço (NFS-e) dos seus pagamentos — ver tela Privacidade.
-                Sem isso, a emissão fica pendente.
+                Usado para identificação do tomador na emissão fiscal dos seus pagamentos (NFS-e) — ver tela Privacidade.
+                Sem esse dado, a emissão pode ficar pendente.
               </p>
             </div>
             <button type="submit" class="primary">Salvar perfil</button>
@@ -908,10 +908,9 @@
         </div>
 
         <div class="card">
-          <h3 class="mt-0">Dados da empresa (Prefeitura de Osasco/SP)</h3>
+          <h3 class="mt-0">Dados do operador</h3>
           <p class="small-muted mt-0">
-            Cadastro Mobiliário de Contribuintes (CMC) e Alvará de Funcionamento — mantidos disponíveis para consulta,
-            conforme LC 404/2022, art. 92.
+            Dados cadastrais e fiscais do operador do app, mantidos para consulta e transparência regulatória.
           </p>
           <div id="settings-company-box" class="company-profile-grid"></div>
         </div>
@@ -941,7 +940,7 @@
       <button type="button" id="pix-modal-copy" class="secondary w-100 mb-14">Copiar código</button>
 
       <p class="small-muted text-left mb-18">
-        Chave Pix real (CNPJ 62.904.267/0001-60 · SPACECWORP · Osasco/SP). Escaneie o QR ou cole o código no
+        Chave Pix real do operador do app. Escaneie o QR ou cole o código no
         app do seu banco para pagar de verdade. Depois de pagar, envie o comprovante abaixo: uma IA (leitura
         OCR local, no seu navegador) confere o valor e o recebedor automaticamente — não há integração
         bancária para confirmar o recebimento de outra forma.

@@ -1,16 +1,16 @@
 :root {
-  --primary: #059669;
-  --primary-dark: #047857;
+  --primary: #9a2167;
+  --primary-dark: #5c225c;
   --danger: #dc2626;
   --success: #16a34a;
-  --bg: #f4f6fb;
+  --bg: #f8f3fa;
   --card: #ffffff;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --emerald: #34d399;
-  --emerald-dark: #10b981;
-  --ink: #0b1120;
+  --text: #2a2b58;
+  --muted: #646997;
+  --border: #e2d6ee;
+  --emerald: #d7a6f4;
+  --emerald-dark: #a86ad6;
+  --ink: #140f2e;
 }
 
 * { box-sizing: border-box; }
@@ -37,7 +37,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  background: radial-gradient(circle at 20% 20%, #134e3a 0%, var(--ink) 55%, #050810 100%);
+  background: radial-gradient(circle at 20% 20%, #5c225c 0%, var(--ink) 58%, #0b081b 100%);
   color: #e5e7eb;
 }
 
@@ -128,7 +128,7 @@ hr.fade {
   background: var(--card);
   padding: 36px 32px;
   border-radius: 20px;
-  box-shadow: 0 20px 45px rgba(5, 150, 105, 0.12), 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 20px 45px rgba(92, 34, 92, 0.15), 0 2px 8px rgba(0,0,0,0.06);
   width: 100%;
   max-width: 400px;
 }
@@ -193,7 +193,7 @@ hr.fade {
 .field input:focus, .field select:focus, .field textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+  box-shadow: 0 0 0 3px rgba(154, 33, 103, 0.15);
 }
 
 /* Inputs com ícone (Font Awesome), estilo app bancário */
@@ -290,7 +290,7 @@ button.link-btn:hover { color: var(--primary-dark); }
 }
 
 .sidebar {
-  background: #111827;
+  background: linear-gradient(180deg, #1a1338 0%, #140f2e 55%, #0b081b 100%);
   color: #e5e7eb;
   padding: 20px 14px;
 }
@@ -302,7 +302,7 @@ button.link-btn:hover { color: var(--primary-dark); }
 
 .sidebar .tenant-plan {
   font-size: 12px;
-  color: #9ca3af;
+  color: #c4bbdf;
   margin-bottom: 20px;
 }
 
@@ -320,7 +320,7 @@ button.link-btn:hover { color: var(--primary-dark); }
   margin-bottom: 4px;
 }
 
-.nav-item:hover { background: #1f2937; }
+.nav-item:hover { background: rgba(215, 166, 244, 0.14); }
 .nav-item.active { background: var(--primary); color: white; }
 .nav-sub-item {
   font-size: 13px;
@@ -333,15 +333,15 @@ button.link-btn:hover { color: var(--primary-dark); }
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #cbd5e1;
+  color: #d7c9ec;
 }
 
 .sidebar-footer {
   margin-top: 24px;
   padding-top: 14px;
-  border-top: 1px solid #374151;
+  border-top: 1px solid rgba(215, 166, 244, 0.28);
   font-size: 12px;
-  color: #9ca3af;
+  color: #c4bbdf;
 }
 
 .main {
@@ -389,9 +389,9 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   font-weight: 600;
 }
 
-.badge.free { background: #e5e7eb; color: #374151; }
-.badge.premium { background: #dbeafe; color: #1e40af; }
-.badge.mp { background: #e0f7ff; color: #007ba7; }
+.badge.free { background: #f1e9f8; color: #4a3d70; }
+.badge.premium { background: #eadcf7; color: #6f2e93; }
+.badge.mp { background: #efe6ff; color: #5b3b99; }
 
 .sync-status {
   display: flex;
@@ -479,7 +479,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   text-align: center;
 }
 
-.plan-card.current { border-color: var(--primary); background: #eff6ff; }
+.plan-card.current { border-color: var(--primary); background: #f3e7fa; }
 
 .plan-card h3 { margin: 0 0 6px; }
 .plan-price { font-size: 24px; font-weight: 700; margin: 8px 0; }
@@ -548,7 +548,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   border-radius: 12px;
   padding: 18px 14px;
   text-align: center;
-  background: #f8fafc;
+  background: #faf5ff;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   cursor: pointer;
 }
@@ -556,21 +556,21 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .budget-upload-area:hover,
 .budget-upload-area:focus {
   border-color: var(--primary);
-  background: #f0fdf4;
+  background: #f5e9fa;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+  box-shadow: 0 0 0 3px rgba(154, 33, 103, 0.15);
 }
 
 .budget-upload-area.drag-over {
   border-color: var(--primary);
-  background: #ecfdf5;
+  background: #f1defa;
 }
 
 .budget-upload-title {
   margin: 0 0 4px;
   font-size: 14px;
   font-weight: 700;
-  color: #111827;
+  color: var(--text);
 }
 
 /* ---------- Modal (pagamento Pix) ---------- */
@@ -623,7 +623,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .pix-code-box {
   font-size: 11px;
   word-break: break-all;
-  background: #f4f6fb;
+  background: #f8f1fc;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px;
@@ -748,12 +748,12 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 }
 
 .google-ai-msg.user {
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(154, 33, 103, 0.12);
   align-self: flex-end;
 }
 
 .google-ai-msg.bot {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(215, 166, 244, 0.22);
   align-self: flex-start;
 }
 
@@ -765,7 +765,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6b7280;
+  color: #c4bbdf;
 }
 
 /* ---------- Segurança: lista de controles implementados / direitos LGPD ---------- */
