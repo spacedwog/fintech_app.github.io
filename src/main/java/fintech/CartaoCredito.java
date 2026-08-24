@@ -1,0 +1,115 @@
+package fintech;
+
+import java.math.BigDecimal;
+
+public class CartaoCredito extends ProdutoFinanceiro {
+
+    private String numeroCartao;
+    private String bandeira;
+    private String nomeTitular;
+    private BigDecimal limiteDisponivel;
+    private BigDecimal faturaAtual;
+    private boolean bloqueado;
+
+    public CartaoCredito() {
+        System.out.println("Objetivo: inicializar um cartão de crédito com limite e fatura zerados.");
+        this.limiteDisponivel = BigDecimal.ZERO;
+        this.faturaAtual = BigDecimal.ZERO;
+    }
+
+    public CartaoCredito(Integer idProduto, String nomeProduto, Cliente cliente, String numeroCartao, String bandeira, String nomeTitular, BigDecimal limiteDisponivel, BigDecimal faturaAtual) {
+        super(idProduto, nomeProduto, cliente);
+        System.out.println("Objetivo: inicializar um cartão de crédito com dados e valores iniciais.");
+        this.numeroCartao = numeroCartao;
+        this.bandeira = bandeira;
+        this.nomeTitular = nomeTitular;
+        this.limiteDisponivel = validarValorMonetario(limiteDisponivel);
+        this.faturaAtual = validarValorMonetario(faturaAtual);
+        this.bloqueado = false;
+    }
+
+    public BigDecimal realizarCompra(BigDecimal valorCompra) {
+        System.out.println("Objetivo: registrar uma compra no cartão reduzindo limite e aumentando fatura.");
+        if (bloqueado) {
+            throw new IllegalStateException("Cartão bloqueado para compras.");
+        }
+        BigDecimal valorValido = validarValorMonetario(valorCompra);
+        if (limiteDisponivel.compareTo(valorValido) < 0) {
+            throw new IllegalStateException("Limite insuficiente.");
+        }
+        limiteDisponivel = limiteDisponivel.subtract(valorValido);
+        faturaAtual = faturaAtual.add(valorValido);
+        return faturaAtual;
+    }
+
+    public String getNumeroCartao() {
+        System.out.println("Objetivo: retornar o número do cartão de crédito.");
+        return numeroCartao;
+    }
+
+    public void setNumeroCartao(String numeroCartao) {
+        System.out.println("Objetivo: atualizar o número do cartão de crédito.");
+        this.numeroCartao = numeroCartao;
+    }
+
+    public String getBandeira() {
+        System.out.println("Objetivo: retornar a bandeira do cartão.");
+        return bandeira;
+    }
+
+    public void setBandeira(String bandeira) {
+        System.out.println("Objetivo: atualizar a bandeira do cartão.");
+        this.bandeira = bandeira;
+    }
+
+    public String getNomeTitular() {
+        System.out.println("Objetivo: retornar o nome do titular do cartão.");
+        return nomeTitular;
+    }
+
+    public void setNomeTitular(String nomeTitular) {
+        System.out.println("Objetivo: atualizar o nome do titular do cartão.");
+        this.nomeTitular = nomeTitular;
+    }
+
+    public boolean isBloqueado() {
+        System.out.println("Objetivo: informar se o cartão está bloqueado.");
+        return bloqueado;
+    }
+
+    public BigDecimal pagarFatura(BigDecimal valorPagamento) {
+        System.out.println("Objetivo: abater a fatura atual e recompor o limite disponível do cartão.");
+        BigDecimal valorValido = validarValorMonetario(valorPagamento);
+        BigDecimal pagamentoAplicado = valorValido.min(faturaAtual);
+        faturaAtual = faturaAtual.subtract(pagamentoAplicado);
+        limiteDisponivel = limiteDisponivel.add(pagamentoAplicado);
+        return faturaAtual;
+    }
+
+    public void bloquearCartao() {
+        System.out.println("Objetivo: bloquear o cartão para impedir novas compras.");
+        bloqueado = true;
+    }
+
+    public BigDecimal consultarFaturaAtual() {
+        System.out.println("Objetivo: retornar o valor atual da fatura do cartão.");
+        return faturaAtual;
+    }
+
+    public BigDecimal consultarLimiteDisponivel() {
+        System.out.println("Objetivo: retornar o limite disponível do cartão de crédito.");
+        return limiteDisponivel;
+    }
+
+    @Override
+    public BigDecimal consultarSaldoDisponivel() {
+        System.out.println("Objetivo: retornar o limite disponível como saldo do cartão.");
+        return limiteDisponivel;
+    }
+
+    @Override
+    public String consultarTipoProduto() {
+        System.out.println("Objetivo: identificar o tipo do produto financeiro como cartão de crédito.");
+        return "Cartão de Crédito";
+    }
+}
