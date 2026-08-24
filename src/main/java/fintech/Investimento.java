@@ -100,7 +100,7 @@ public class Investimento extends ProdutoFinanceiro {
     }
 
     @Override
-    public String obterTipoProduto() {
+    public String consultarTipoProduto() {
         System.out.println("Objetivo: identificar o tipo do produto financeiro como investimento.");
         return "Investimento";
     }

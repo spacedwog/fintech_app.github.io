@@ -59,5 +59,5 @@ public abstract class ProdutoFinanceiro {
 
     public abstract BigDecimal consultarSaldoDisponivel();
 
-    public abstract String obterTipoProduto();
+    public abstract String consultarTipoProduto();
 }

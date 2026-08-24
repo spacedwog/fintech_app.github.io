@@ -108,7 +108,7 @@ public class CartaoCredito extends ProdutoFinanceiro {
     }
 
     @Override
-    public String obterTipoProduto() {
+    public String consultarTipoProduto() {
         System.out.println("Objetivo: identificar o tipo do produto financeiro como cartão de crédito.");
         return "Cartão de Crédito";
     }

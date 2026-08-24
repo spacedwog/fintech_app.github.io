@@ -57,7 +57,7 @@ public class FintechMain {
         produtos.add(cartao);
 
         for (ProdutoFinanceiro produto : produtos) {
-            System.out.println(produto.obterTipoProduto() + " | Saldo disponível: " + produto.consultarSaldoDisponivel());
+            System.out.println(produto.consultarTipoProduto() + " | Saldo disponível: " + produto.consultarSaldoDisponivel());
         }
 
         TransacaoFinanceira transacao = new TransacaoFinanceira(9001, "TRANSFERENCIA", BigDecimal.ZERO, null, "PENDENTE");
