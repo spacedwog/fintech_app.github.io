@@ -7,6 +7,7 @@ import java.util.List;
 public class FintechMain {
 
     public static void main(String[] args) {
+        System.out.println("Objetivo: demonstrar o fluxo principal de uso das classes do sistema fintech.");
         Cliente cliente = new Cliente(1, "Ana Souza", "ana@fintech.com", "12345678901", "11999999999");
 
         ContaDigital conta = new ContaDigital(
