@@ -1,6 +1,8 @@
 package fintech;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class TransacaoFinanceira {
 
@@ -21,15 +23,35 @@ public class TransacaoFinanceira {
         this.status = status;
     }
 
-    public void processarTransacao() {
-        System.out.println("Objetivo: processar uma transação financeira no sistema.");
+    public String getStatus() {
+        return status;
+    }
+
+    public void processarTransacao(ContaDigital contaOrigem, ContaDigital contaDestino, BigDecimal valorTransferencia) {
+        if (contaOrigem == null || contaDestino == null || valorTransferencia == null || valorTransferencia.signum() <= 0) {
+            throw new IllegalArgumentException("Dados inválidos para processar transação.");
+        }
+        contaOrigem.sacar(valorTransferencia);
+        contaDestino.depositar(valorTransferencia);
+        this.tipoTransacao = "TRANSFERENCIA";
+        this.valor = valorTransferencia;
+        this.status = "PROCESSADA";
+        this.dataHora = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
     }
 
     public void cancelarTransacao() {
-        System.out.println("Objetivo: cancelar uma transação financeira pendente.");
+        if (!"PROCESSADA".equals(this.status)) {
+            throw new IllegalStateException("Apenas transações processadas podem ser canceladas.");
+        }
+        this.status = "CANCELADA";
     }
 
-    public void gerarComprovante() {
-        System.out.println("Objetivo: gerar comprovante de uma transação realizada.");
+    public String gerarComprovante() {
+        return "Comprovante{id=" + idTransacao +
+                ", tipo='" + tipoTransacao + '\'' +
+                ", valor=" + valor +
+                ", dataHora='" + dataHora + '\'' +
+                ", status='" + status + '\'' +
+                '}';
     }
 }
