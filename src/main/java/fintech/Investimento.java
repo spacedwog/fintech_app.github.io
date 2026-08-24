@@ -1,17 +1,19 @@
 package fintech;
 
+import java.math.BigDecimal;
+
 public class Investimento {
 
     private Integer idInvestimento;
     private String produtoInvestimento;
-    private Double valorAplicado;
+    private BigDecimal valorAplicado;
     private Double taxaRendimento;
     private Integer prazoMeses;
 
     public Investimento() {
     }
 
-    public Investimento(Integer idInvestimento, String produtoInvestimento, Double valorAplicado, Double taxaRendimento, Integer prazoMeses) {
+    public Investimento(Integer idInvestimento, String produtoInvestimento, BigDecimal valorAplicado, Double taxaRendimento, Integer prazoMeses) {
         this.idInvestimento = idInvestimento;
         this.produtoInvestimento = produtoInvestimento;
         this.valorAplicado = valorAplicado;

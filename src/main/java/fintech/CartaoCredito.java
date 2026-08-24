@@ -1,17 +1,19 @@
 package fintech;
 
+import java.math.BigDecimal;
+
 public class CartaoCredito {
 
     private String numeroCartao;
     private String bandeira;
     private String nomeTitular;
-    private Double limiteDisponivel;
-    private Double faturaAtual;
+    private BigDecimal limiteDisponivel;
+    private BigDecimal faturaAtual;
 
     public CartaoCredito() {
     }
 
-    public CartaoCredito(String numeroCartao, String bandeira, String nomeTitular, Double limiteDisponivel, Double faturaAtual) {
+    public CartaoCredito(String numeroCartao, String bandeira, String nomeTitular, BigDecimal limiteDisponivel, BigDecimal faturaAtual) {
         this.numeroCartao = numeroCartao;
         this.bandeira = bandeira;
         this.nomeTitular = nomeTitular;

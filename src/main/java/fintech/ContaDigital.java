@@ -1,17 +1,19 @@
 package fintech;
 
+import java.math.BigDecimal;
+
 public class ContaDigital {
 
     private String numeroConta;
     private String agencia;
     private String tipoConta;
-    private Double saldo;
+    private BigDecimal saldo;
     private Integer idCliente;
 
     public ContaDigital() {
     }
 
-    public ContaDigital(String numeroConta, String agencia, String tipoConta, Double saldo, Integer idCliente) {
+    public ContaDigital(String numeroConta, String agencia, String tipoConta, BigDecimal saldo, Integer idCliente) {
         this.numeroConta = numeroConta;
         this.agencia = agencia;
         this.tipoConta = tipoConta;
