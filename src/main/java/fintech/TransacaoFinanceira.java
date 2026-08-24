@@ -20,14 +20,14 @@ public class TransacaoFinanceira {
     }
 
     public void processarTransacao() {
-        System.out.println("Executando método processarTransacao");
+        System.out.println("Objetivo: processar uma transação financeira no sistema.");
     }
 
     public void cancelarTransacao() {
-        System.out.println("Executando método cancelarTransacao");
+        System.out.println("Objetivo: cancelar uma transação financeira pendente.");
     }
 
     public void gerarComprovante() {
-        System.out.println("Executando método gerarComprovante");
+        System.out.println("Objetivo: gerar comprovante de uma transação realizada.");
     }
 }

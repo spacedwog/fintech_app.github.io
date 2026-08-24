@@ -20,14 +20,14 @@ public class Investimento {
     }
 
     public void aplicarInvestimento() {
-        System.out.println("Executando método aplicarInvestimento");
+        System.out.println("Objetivo: aplicar valor em um produto de investimento.");
     }
 
     public void resgatarInvestimento() {
-        System.out.println("Executando método resgatarInvestimento");
+        System.out.println("Objetivo: resgatar valor aplicado em investimento.");
     }
 
     public void consultarRendimento() {
-        System.out.println("Executando método consultarRendimento");
+        System.out.println("Objetivo: consultar o rendimento atual do investimento.");
     }
 }

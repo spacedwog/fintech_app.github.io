@@ -20,14 +20,14 @@ public class CartaoCredito {
     }
 
     public void realizarCompra() {
-        System.out.println("Executando método realizarCompra");
+        System.out.println("Objetivo: registrar uma compra realizada no cartão de crédito.");
     }
 
     public void pagarFatura() {
-        System.out.println("Executando método pagarFatura");
+        System.out.println("Objetivo: realizar o pagamento da fatura do cartão de crédito.");
     }
 
     public void bloquearCartao() {
-        System.out.println("Executando método bloquearCartao");
+        System.out.println("Objetivo: bloquear o cartão de crédito por segurança.");
     }
 }

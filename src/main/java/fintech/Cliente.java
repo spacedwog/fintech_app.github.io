@@ -20,14 +20,14 @@ public class Cliente {
     }
 
     public void cadastrarCliente() {
-        System.out.println("Executando método cadastrarCliente");
+        System.out.println("Objetivo: cadastrar um novo cliente no sistema Fintech.");
     }
 
     public void atualizarCadastro() {
-        System.out.println("Executando método atualizarCadastro");
+        System.out.println("Objetivo: atualizar os dados cadastrais do cliente.");
     }
 
     public void consultarPerfil() {
-        System.out.println("Executando método consultarPerfil");
+        System.out.println("Objetivo: consultar o perfil e as informações do cliente.");
     }
 }

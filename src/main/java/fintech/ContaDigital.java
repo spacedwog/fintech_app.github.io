@@ -20,14 +20,14 @@ public class ContaDigital {
     }
 
     public void depositar() {
-        System.out.println("Executando método depositar");
+        System.out.println("Objetivo: depositar valor na conta digital.");
     }
 
     public void sacar() {
-        System.out.println("Executando método sacar");
+        System.out.println("Objetivo: sacar valor disponível da conta digital.");
     }
 
     public void consultarSaldo() {
-        System.out.println("Executando método consultarSaldo");
+        System.out.println("Objetivo: consultar o saldo atual da conta digital.");
     }
 }
