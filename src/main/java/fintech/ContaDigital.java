@@ -15,8 +15,8 @@ public class ContaDigital extends ProdutoFinanceiro {
     }
 
     public ContaDigital(Integer idProduto, String nomeProduto, Cliente cliente, String numeroConta, String agencia, String tipoConta, BigDecimal saldo) {
-        System.out.println("Objetivo: inicializar uma conta digital com dados de identificação e saldo inicial.");
         super(idProduto, nomeProduto, cliente);
+        System.out.println("Objetivo: inicializar uma conta digital com dados de identificação e saldo inicial.");
         this.numeroConta = numeroConta;
         this.agencia = agencia;
         this.tipoConta = tipoConta;

@@ -18,8 +18,8 @@ public class CartaoCredito extends ProdutoFinanceiro {
     }
 
     public CartaoCredito(Integer idProduto, String nomeProduto, Cliente cliente, String numeroCartao, String bandeira, String nomeTitular, BigDecimal limiteDisponivel, BigDecimal faturaAtual) {
-        System.out.println("Objetivo: inicializar um cartão de crédito com dados e valores iniciais.");
         super(idProduto, nomeProduto, cliente);
+        System.out.println("Objetivo: inicializar um cartão de crédito com dados e valores iniciais.");
         this.numeroCartao = numeroCartao;
         this.bandeira = bandeira;
         this.nomeTitular = nomeTitular;

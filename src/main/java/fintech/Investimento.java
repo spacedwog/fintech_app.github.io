@@ -17,8 +17,8 @@ public class Investimento extends ProdutoFinanceiro {
     }
 
     public Investimento(Integer idProduto, String nomeProduto, Cliente cliente, Integer idInvestimento, String produtoInvestimento, BigDecimal valorAplicado, Double taxaRendimento, Integer prazoMeses) {
-        System.out.println("Objetivo: inicializar um investimento com produto, valor, taxa e prazo.");
         super(idProduto, nomeProduto, cliente);
+        System.out.println("Objetivo: inicializar um investimento com produto, valor, taxa e prazo.");
         this.idInvestimento = idInvestimento;
         this.produtoInvestimento = produtoInvestimento;
         this.valorAplicado = validarValorMonetario(valorAplicado);
