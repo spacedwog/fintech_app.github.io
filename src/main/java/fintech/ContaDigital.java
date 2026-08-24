@@ -51,6 +51,15 @@ public class ContaDigital extends ProdutoFinanceiro {
         return saldo;
     }
 
+    public void transferirPara(ContaDigital contaDestino, BigDecimal valorTransferencia) {
+        if (contaDestino == null) {
+            throw new IllegalArgumentException("Conta de destino não pode ser nula.");
+        }
+        BigDecimal valorValido = validarValorMonetario(valorTransferencia);
+        sacar(valorValido);
+        contaDestino.depositar(valorValido);
+    }
+
     @Override
     public BigDecimal consultarSaldoDisponivel() {
         return consultarSaldo();

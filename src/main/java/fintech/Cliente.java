@@ -51,7 +51,13 @@ public class Cliente {
     }
 
     public boolean cadastrarCliente() {
-        return idCliente != null && nomeCompleto != null && email != null && cpf != null;
+        return idCliente != null
+                && nomeCompleto != null
+                && !nomeCompleto.isBlank()
+                && email != null
+                && email.contains("@")
+                && cpf != null
+                && cpf.matches("\\d{11}");
     }
 
     public void atualizarCadastro(String novoEmail, String novoTelefone) {
@@ -70,6 +76,9 @@ public class Cliente {
     public void adicionarProduto(ProdutoFinanceiro produtoFinanceiro) {
         if (produtoFinanceiro == null) {
             throw new IllegalArgumentException("Produto financeiro não pode ser nulo.");
+        }
+        if (produtos.contains(produtoFinanceiro)) {
+            throw new IllegalArgumentException("Produto financeiro já vinculado ao cliente.");
         }
         produtoFinanceiro.vincularCliente(this);
         produtos.add(produtoFinanceiro);

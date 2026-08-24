@@ -20,8 +20,8 @@ public class Investimento extends ProdutoFinanceiro {
         this.idInvestimento = idInvestimento;
         this.produtoInvestimento = produtoInvestimento;
         this.valorAplicado = validarValorMonetario(valorAplicado);
-        this.taxaRendimento = taxaRendimento;
-        this.prazoMeses = prazoMeses;
+        this.taxaRendimento = validarTaxaRendimento(taxaRendimento);
+        this.prazoMeses = validarPrazoMeses(prazoMeses);
     }
 
     public BigDecimal aplicarInvestimento(BigDecimal valorAplicacao) {
@@ -55,5 +55,19 @@ public class Investimento extends ProdutoFinanceiro {
     @Override
     public String obterTipoProduto() {
         return "Investimento";
+    }
+
+    private Double validarTaxaRendimento(Double taxaRendimento) {
+        if (taxaRendimento == null || taxaRendimento < 0) {
+            throw new IllegalArgumentException("Taxa de rendimento inválida.");
+        }
+        return taxaRendimento;
+    }
+
+    private Integer validarPrazoMeses(Integer prazoMeses) {
+        if (prazoMeses == null || prazoMeses <= 0) {
+            throw new IllegalArgumentException("Prazo em meses inválido.");
+        }
+        return prazoMeses;
     }
 }
