@@ -57,6 +57,16 @@ public class TransacaoFinanceira {
         return dataHora;
     }
 
+    public ContaDigital getContaOrigem() {
+        System.out.println("Objetivo: retornar a conta de origem vinculada à transação.");
+        return contaOrigem;
+    }
+
+    public ContaDigital getContaDestino() {
+        System.out.println("Objetivo: retornar a conta de destino vinculada à transação.");
+        return contaDestino;
+    }
+
     public void processarTransacao(ContaDigital contaOrigem, ContaDigital contaDestino, BigDecimal valorTransferencia) {
         System.out.println("Objetivo: processar a transferência entre contas e atualizar os dados da transação.");
         if (contaOrigem == null || contaDestino == null || valorTransferencia == null || valorTransferencia.signum() <= 0) {

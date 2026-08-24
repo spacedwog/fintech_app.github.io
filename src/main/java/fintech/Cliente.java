@@ -33,9 +33,19 @@ public class Cliente {
         return idCliente;
     }
 
+    public void setIdCliente(Integer idCliente) {
+        System.out.println("Objetivo: atualizar o identificador do cliente.");
+        this.idCliente = idCliente;
+    }
+
     public String getNomeCompleto() {
         System.out.println("Objetivo: retornar o nome completo do cliente.");
         return nomeCompleto;
+    }
+
+    public void setNomeCompleto(String nomeCompleto) {
+        System.out.println("Objetivo: atualizar o nome completo do cliente.");
+        this.nomeCompleto = nomeCompleto;
     }
 
     public String getEmail() {
@@ -43,9 +53,19 @@ public class Cliente {
         return email;
     }
 
+    public void setEmail(String email) {
+        System.out.println("Objetivo: atualizar o e-mail do cliente.");
+        this.email = email;
+    }
+
     public String getCpf() {
         System.out.println("Objetivo: retornar o CPF do cliente.");
         return cpf;
+    }
+
+    public void setCpf(String cpf) {
+        System.out.println("Objetivo: atualizar o CPF do cliente.");
+        this.cpf = cpf;
     }
 
     public String getTelefone() {

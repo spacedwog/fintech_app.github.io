@@ -32,6 +32,46 @@ public class Investimento extends ProdutoFinanceiro {
         return valorAplicado;
     }
 
+    public Integer getIdInvestimento() {
+        System.out.println("Objetivo: retornar o identificador do investimento.");
+        return idInvestimento;
+    }
+
+    public void setIdInvestimento(Integer idInvestimento) {
+        System.out.println("Objetivo: atualizar o identificador do investimento.");
+        this.idInvestimento = idInvestimento;
+    }
+
+    public String getProdutoInvestimento() {
+        System.out.println("Objetivo: retornar o nome do produto de investimento.");
+        return produtoInvestimento;
+    }
+
+    public void setProdutoInvestimento(String produtoInvestimento) {
+        System.out.println("Objetivo: atualizar o nome do produto de investimento.");
+        this.produtoInvestimento = produtoInvestimento;
+    }
+
+    public Double getTaxaRendimento() {
+        System.out.println("Objetivo: retornar a taxa de rendimento do investimento.");
+        return taxaRendimento;
+    }
+
+    public void setTaxaRendimento(Double taxaRendimento) {
+        System.out.println("Objetivo: atualizar a taxa de rendimento após validação.");
+        this.taxaRendimento = validarTaxaRendimento(taxaRendimento);
+    }
+
+    public Integer getPrazoMeses() {
+        System.out.println("Objetivo: retornar o prazo do investimento em meses.");
+        return prazoMeses;
+    }
+
+    public void setPrazoMeses(Integer prazoMeses) {
+        System.out.println("Objetivo: atualizar o prazo do investimento após validação.");
+        this.prazoMeses = validarPrazoMeses(prazoMeses);
+    }
+
     public BigDecimal resgatarInvestimento(BigDecimal valorResgate) {
         System.out.println("Objetivo: resgatar parte do investimento respeitando o saldo aplicado.");
         BigDecimal valorValido = validarValorMonetario(valorResgate);

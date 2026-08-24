@@ -42,6 +42,41 @@ public class CartaoCredito extends ProdutoFinanceiro {
         return faturaAtual;
     }
 
+    public String getNumeroCartao() {
+        System.out.println("Objetivo: retornar o número do cartão de crédito.");
+        return numeroCartao;
+    }
+
+    public void setNumeroCartao(String numeroCartao) {
+        System.out.println("Objetivo: atualizar o número do cartão de crédito.");
+        this.numeroCartao = numeroCartao;
+    }
+
+    public String getBandeira() {
+        System.out.println("Objetivo: retornar a bandeira do cartão.");
+        return bandeira;
+    }
+
+    public void setBandeira(String bandeira) {
+        System.out.println("Objetivo: atualizar a bandeira do cartão.");
+        this.bandeira = bandeira;
+    }
+
+    public String getNomeTitular() {
+        System.out.println("Objetivo: retornar o nome do titular do cartão.");
+        return nomeTitular;
+    }
+
+    public void setNomeTitular(String nomeTitular) {
+        System.out.println("Objetivo: atualizar o nome do titular do cartão.");
+        this.nomeTitular = nomeTitular;
+    }
+
+    public boolean isBloqueado() {
+        System.out.println("Objetivo: informar se o cartão está bloqueado.");
+        return bloqueado;
+    }
+
     public BigDecimal pagarFatura(BigDecimal valorPagamento) {
         System.out.println("Objetivo: abater a fatura atual e recompor o limite disponível do cartão.");
         BigDecimal valorValido = validarValorMonetario(valorPagamento);

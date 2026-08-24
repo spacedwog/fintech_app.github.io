@@ -28,14 +28,29 @@ public class ContaDigital extends ProdutoFinanceiro {
         return numeroConta;
     }
 
+    public void setNumeroConta(String numeroConta) {
+        System.out.println("Objetivo: atualizar o número da conta digital.");
+        this.numeroConta = numeroConta;
+    }
+
     public String getAgencia() {
         System.out.println("Objetivo: retornar a agência da conta digital.");
         return agencia;
     }
 
+    public void setAgencia(String agencia) {
+        System.out.println("Objetivo: atualizar a agência da conta digital.");
+        this.agencia = agencia;
+    }
+
     public String getTipoConta() {
         System.out.println("Objetivo: retornar o tipo da conta digital.");
         return tipoConta;
+    }
+
+    public void setTipoConta(String tipoConta) {
+        System.out.println("Objetivo: atualizar o tipo da conta digital.");
+        this.tipoConta = tipoConta;
     }
 
     public BigDecimal depositar(BigDecimal valor) {
