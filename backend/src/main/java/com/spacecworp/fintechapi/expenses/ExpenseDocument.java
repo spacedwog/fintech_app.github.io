@@ -16,6 +16,7 @@ public class ExpenseDocument {
     public boolean auto_categorized_by_rule;
     public boolean is_extra;
     public double extra_charge;
+    public String idempotency_key;
 
     public ExpenseDocument() {}
 }

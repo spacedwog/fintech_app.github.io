@@ -202,6 +202,119 @@ class FintechApiApplicationTests {
         assertEquals("premium", ((PlanSubscriptionDocument) store.get(FirestoreCollections.PLANS).get("plan_t1")).plan);
     }
 
+    @Test
+    void nonAdminCannotEscalateAllUsersOnExpenseAndPaymentLists() throws Exception {
+        String token = loginAndGetToken("member@example.com", "member123");
+
+        ExpenseDocument adminExpense = new ExpenseDocument();
+        adminExpense.id = "e-admin";
+        adminExpense.tenant_id = "t1";
+        adminExpense.user_id = "u1";
+        adminExpense.amount = 100;
+        adminExpense.date = "2026-08-30";
+        adminExpense.description = "Admin expense";
+        store.get(FirestoreCollections.EXPENSES).put(adminExpense.id, adminExpense);
+
+        ExpenseDocument memberExpense = new ExpenseDocument();
+        memberExpense.id = "e-member";
+        memberExpense.tenant_id = "t1";
+        memberExpense.user_id = "u2";
+        memberExpense.amount = 50;
+        memberExpense.date = "2026-08-31";
+        memberExpense.description = "Member expense";
+        store.get(FirestoreCollections.EXPENSES).put(memberExpense.id, memberExpense);
+
+        PaymentDocument adminPayment = new PaymentDocument();
+        adminPayment.id = "p-admin";
+        adminPayment.tenant_id = "t1";
+        adminPayment.user_id = "u1";
+        adminPayment.type = "plano";
+        adminPayment.amount = 19.99;
+        adminPayment.date = "2026-08-31";
+        store.get(FirestoreCollections.PAYMENTS).put(adminPayment.id, adminPayment);
+
+        PaymentDocument memberPayment = new PaymentDocument();
+        memberPayment.id = "p-member";
+        memberPayment.tenant_id = "t1";
+        memberPayment.user_id = "u2";
+        memberPayment.type = "despesa";
+        memberPayment.amount = 5;
+        memberPayment.date = "2026-08-31";
+        store.get(FirestoreCollections.PAYMENTS).put(memberPayment.id, memberPayment);
+
+        mockMvc.perform(get("/api/v1/expenses?allUsers=true")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].user_id").value("u2"));
+
+        mockMvc.perform(get("/api/v1/payments?allUsers=true")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].user_id").value("u2"));
+    }
+
+    @Test
+    void idempotencyPreventsDuplicateFinancialWrites() throws Exception {
+        String token = loginAndGetToken("admin@example.com", "admin123");
+
+        String expensePayload = """
+                {
+                  "amount": 31.5,
+                  "date": "2026-08-31",
+                  "description": "Farmácia",
+                  "category_id": "c1",
+                  "transaction_number": "TX-IDEMP-1",
+                  "idempotency_key": "idem-exp-001"
+                }
+                """;
+        String expense1 = mockMvc.perform(post("/api/v1/expenses")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(expensePayload))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String expense2 = mockMvc.perform(post("/api/v1/expenses")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(expensePayload))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode e1 = objectMapper.readTree(expense1);
+        JsonNode e2 = objectMapper.readTree(expense2);
+        assertEquals(e1.path("id").asText(), e2.path("id").asText());
+
+        String paymentPayload = """
+                {
+                  "type":"plano",
+                  "plan":"premium",
+                  "amount":19.99,
+                  "txid":"TX-PAY-IDEMP-1",
+                  "idempotency_key":"idem-pay-001"
+                }
+                """;
+        String payment1 = mockMvc.perform(post("/api/v1/payments")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(paymentPayload))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String payment2 = mockMvc.perform(post("/api/v1/payments")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(paymentPayload))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode p1 = objectMapper.readTree(payment1);
+        JsonNode p2 = objectMapper.readTree(payment2);
+        assertEquals(p1.path("id").asText(), p2.path("id").asText());
+    }
+
     private void seedBaseData() {
         TenantDocument tenant = new TenantDocument("t1", "Tenant One", "2026-08-01T00:00:00Z");
         tenant.plan = "free";
@@ -218,6 +331,17 @@ class FintechApiApplicationTests {
         );
         admin.tax_document = "000.000.000-00";
         store.get(FirestoreCollections.USERS).put(admin.id, admin);
+
+        UserDocument member = new UserDocument(
+                "u2",
+                "t1",
+                "Member",
+                "member@example.com",
+                new BCryptPasswordEncoder().encode("member123"),
+                "member",
+                "2026-08-01T00:00:00Z"
+        );
+        store.get(FirestoreCollections.USERS).put(member.id, member);
 
         CategoryDocument category = new CategoryDocument("c1", "t1", "Transporte");
         store.get(FirestoreCollections.CATEGORIES).put(category.id, category);

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -40,7 +41,8 @@ public class ExpenseController {
             @NotBlank String date,
             @NotBlank String description,
             String category_id,
-            String transaction_number
+            String transaction_number,
+            String idempotency_key
     ) {}
 
     @GetMapping("/categories")
@@ -96,15 +98,23 @@ public class ExpenseController {
             @RequestParam(defaultValue = "false") boolean allUsers,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestParam(required = false) String month
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Integer offset
     ) {
         AuthUser user = SecurityUtils.currentUser();
+        boolean canSeeAllUsers = allUsers && "admin".equals(user.role());
+        int resolvedLimit = normalizeLimit(limit, 1000);
+        int resolvedOffset = Math.max(0, offset == null ? 0 : offset);
         List<ExpenseDocument> tenantExpenses = firestore.listByField(FirestoreCollections.EXPENSES, "tenant_id", user.tenantId(), ExpenseDocument.class);
         return tenantExpenses.stream()
-                .filter(e -> allUsers || user.userId().equals(e.user_id))
+                .filter(e -> canSeeAllUsers || user.userId().equals(e.user_id))
                 .filter(e -> month == null || month.isBlank() || safe(e.date).startsWith(month))
                 .filter(e -> from == null || from.isBlank() || safe(e.date).compareTo(from) >= 0)
                 .filter(e -> to == null || to.isBlank() || safe(e.date).compareTo(to) <= 0)
+                .sorted(Comparator.comparing((ExpenseDocument e) -> safe(e.date)).reversed())
+                .skip(resolvedOffset)
+                .limit(resolvedLimit)
                 .toList();
     }
 
@@ -134,6 +144,24 @@ public class ExpenseController {
     @PostMapping("/expenses")
     public ExpenseDocument addExpense(@Valid @RequestBody ExpenseRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        if (safe(req.idempotency_key()).length() >= 8) {
+            ExpenseDocument existingByKey = firestore.listByField(FirestoreCollections.EXPENSES, "tenant_id", user.tenantId(), ExpenseDocument.class).stream()
+                    .filter(e -> user.userId().equals(e.user_id))
+                    .filter(e -> safe(req.idempotency_key()).equalsIgnoreCase(safe(e.idempotency_key)))
+                    .findFirst()
+                    .orElse(null);
+            if (existingByKey != null) return existingByKey;
+        }
+        if (!safe(req.transaction_number()).isBlank()) {
+            ExpenseDocument existingByTxn = firestore.listByField(FirestoreCollections.EXPENSES, "tenant_id", user.tenantId(), ExpenseDocument.class).stream()
+                    .filter(e -> user.userId().equals(e.user_id))
+                    .filter(e -> safe(req.transaction_number()).equalsIgnoreCase(safe(e.transaction_number)))
+                    .filter(e -> safe(req.date()).equals(safe(e.date)))
+                    .filter(e -> Double.compare(req.amount(), e.amount) == 0)
+                    .findFirst()
+                    .orElse(null);
+            if (existingByTxn != null) return existingByTxn;
+        }
         Map<String, Object> quota = quota();
         boolean isExtra = Boolean.TRUE.equals(quota.get("over_quota"));
         double extraCharge = Number.class.isInstance(quota.get("overage_price")) ? ((Number) quota.get("overage_price")).doubleValue() : 0.0;
@@ -150,6 +178,7 @@ public class ExpenseController {
         doc.generated_by_mercado_pago = false;
         doc.generated_by_mercado_pago_source = null;
         doc.mercado_pago_payment_id = null;
+        doc.idempotency_key = safe(req.idempotency_key()).isBlank() ? null : safe(req.idempotency_key());
         doc.created_at = OffsetDateTime.now().toString();
         doc.is_extra = isExtra;
         doc.extra_charge = isExtra ? extraCharge : 0.0;
@@ -229,6 +258,11 @@ public class ExpenseController {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private int normalizeLimit(Integer value, int fallback) {
+        if (value == null) return fallback;
+        return Math.max(1, Math.min(value, 5000));
     }
 
     private String resolveCategoryByRule(String tenantId, String description) {

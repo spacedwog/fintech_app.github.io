@@ -40,7 +40,8 @@ public class PaymentController {
             String aiClassification,
             Boolean verifiedByMercadoPago,
             String manualTxnNumber,
-            String mercadoPagoPaymentId
+            String mercadoPagoPaymentId,
+            String idempotency_key
     ) {}
 
     public record ConfirmRequest(Boolean verifiedByMercadoPago, String mercadoPagoPaymentId, String txid) {}
@@ -51,21 +52,47 @@ public class PaymentController {
             @RequestParam(defaultValue = "false") boolean allUsers,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestParam(required = false) String month
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Integer offset
     ) {
         AuthUser user = SecurityUtils.currentUser();
+        boolean canSeeAllUsers = allUsers && "admin".equals(user.role());
+        int resolvedLimit = normalizeLimit(limit, 1000);
+        int resolvedOffset = Math.max(0, offset == null ? 0 : offset);
         List<PaymentDocument> tenantPayments = firestore.listByField(FirestoreCollections.PAYMENTS, "tenant_id", user.tenantId(), PaymentDocument.class);
         return tenantPayments.stream()
-                .filter(p -> allUsers || user.userId().equals(p.user_id))
+                .filter(p -> canSeeAllUsers || user.userId().equals(p.user_id))
                 .filter(p -> month == null || month.isBlank() || safe(p.date).startsWith(month))
                 .filter(p -> from == null || from.isBlank() || safe(p.date).compareTo(from) >= 0)
                 .filter(p -> to == null || to.isBlank() || safe(p.date).compareTo(to) <= 0)
+                .sorted(Comparator.comparing((PaymentDocument p) -> safe(p.date)).reversed())
+                .skip(resolvedOffset)
+                .limit(resolvedLimit)
                 .toList();
     }
 
     @PostMapping
     public PaymentDocument addPayment(@Valid @RequestBody PaymentRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        if (!safe(req.idempotency_key()).isBlank()) {
+            PaymentDocument existingByKey = firestore.listByField(FirestoreCollections.PAYMENTS, "tenant_id", user.tenantId(), PaymentDocument.class).stream()
+                    .filter(p -> user.userId().equals(p.user_id))
+                    .filter(p -> safe(req.idempotency_key()).equalsIgnoreCase(safe(p.idempotency_key)))
+                    .findFirst()
+                    .orElse(null);
+            if (existingByKey != null) return existingByKey;
+        }
+        PaymentDocument existingByReference = firestore.listByField(FirestoreCollections.PAYMENTS, "tenant_id", user.tenantId(), PaymentDocument.class).stream()
+                .filter(p -> user.userId().equals(p.user_id))
+                .filter(p -> equalsIgnore(req.txid(), p.txid)
+                        || equalsIgnore(req.mercadoPagoPaymentId(), p.mercadoPagoPaymentId)
+                        || equalsIgnore(req.manualTxnNumber(), p.manualTxnNumber))
+                .filter(p -> Double.compare(req.amount(), p.amount) == 0)
+                .findFirst()
+                .orElse(null);
+        if (existingByReference != null) return existingByReference;
+
         String id = firestore.nextId(FirestoreCollections.PAYMENTS);
         PaymentDocument doc = new PaymentDocument();
         doc.id = id;
@@ -81,6 +108,7 @@ public class PaymentController {
         doc.verifiedByMercadoPago = req.verifiedByMercadoPago();
         doc.manualTxnNumber = req.manualTxnNumber();
         doc.mercadoPagoPaymentId = req.mercadoPagoPaymentId();
+        doc.idempotency_key = safe(req.idempotency_key()).isBlank() ? null : safe(req.idempotency_key());
         firestore.save(FirestoreCollections.PAYMENTS, id, doc);
         auditService.record(
                 user,
@@ -225,5 +253,10 @@ public class PaymentController {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private int normalizeLimit(Integer value, int fallback) {
+        if (value == null) return fallback;
+        return Math.max(1, Math.min(value, 5000));
     }
 }

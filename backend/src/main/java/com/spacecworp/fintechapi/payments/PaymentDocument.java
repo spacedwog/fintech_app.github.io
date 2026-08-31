@@ -14,6 +14,7 @@ public class PaymentDocument {
     public Boolean verifiedByMercadoPago;
     public String manualTxnNumber;
     public String mercadoPagoPaymentId;
+    public String idempotency_key;
 
     public PaymentDocument() {}
 }

@@ -2772,6 +2772,8 @@ class BackendApiFacade {
     if (filters.month) params.set("month", filters.month);
     if (filters.from) params.set("from", filters.from);
     if (filters.to) params.set("to", filters.to);
+    if (Number.isFinite(filters.limit)) params.set("limit", String(filters.limit));
+    if (Number.isFinite(filters.offset)) params.set("offset", String(filters.offset));
     const [rows, categories, users] = await Promise.all([
       this._request(`/api/v1/expenses?${params.toString()}`),
       this.listCategories(),
@@ -2834,6 +2836,8 @@ class BackendApiFacade {
     if (filters.month) params.set("month", filters.month);
     if (filters.from) params.set("from", filters.from);
     if (filters.to) params.set("to", filters.to);
+    if (Number.isFinite(filters.limit)) params.set("limit", String(filters.limit));
+    if (Number.isFinite(filters.offset)) params.set("offset", String(filters.offset));
     const [rows, users] = await Promise.all([
       this._request(`/api/v1/payments?${params.toString()}`),
       allUsers ? this.listUsers() : Promise.resolve([]),
