@@ -2136,6 +2136,13 @@ class DashboardController {
       Api.getMonthlyCloseChecklist(targetMonth),
       Api.getTransactionOriginReport(targetMonth),
     ]);
+    const allUsers = this.currentUser && this.currentUser.role === "admin";
+    const [opsUsers, opsExpenses, opsPayments, opsMercadoPago] = await Promise.all([
+      Api.listUsers().catch(() => []),
+      Api.listExpenses(allUsers).catch(() => []),
+      Api.listPayments(allUsers).catch(() => []),
+      Api.getMercadoPagoStatus().catch(() => ({ connected: false, payments_verified_count: 0 })),
+    ]);
 
     const ctx1 = document.getElementById("monthly-chart").getContext("2d");
     if (this.monthlyChart) this.monthlyChart.destroy();
@@ -2219,6 +2226,13 @@ class DashboardController {
     }
 
     this._renderTransactionOriginReport(transactionOriginReport);
+    this._renderOperationalDashboard({
+      targetMonth,
+      users: Array.isArray(opsUsers) ? opsUsers : [],
+      expenses: Array.isArray(opsExpenses) ? opsExpenses : [],
+      payments: Array.isArray(opsPayments) ? opsPayments : [],
+      mercadoPagoStatus: opsMercadoPago || {},
+    });
   }
 
   _escapeHtml(value) {
@@ -2240,6 +2254,144 @@ class DashboardController {
       breakdownTbody.innerHTML = "";
       detailsTbody.innerHTML = "";
       return;
+    }
+
+    _formatCurrencyBr(value) {
+      return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+
+    _previousMonth(ym) {
+      const [year, month] = String(ym || "").split("-").map(Number);
+      if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+      const d = new Date(year, month - 2, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    _statusHigherBetter(value, greenMin, yellowMin) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "gray";
+      const n = Number(value);
+      if (n >= greenMin) return "green";
+      if (n >= yellowMin) return "yellow";
+      return "red";
+    }
+
+    _statusLowerBetter(value, greenMax, yellowMax) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "gray";
+      const n = Number(value);
+      if (n <= greenMax) return "green";
+      if (n <= yellowMax) return "yellow";
+      return "red";
+    }
+
+    _statusLabel(status) {
+      if (status === "green") return "Verde";
+      if (status === "yellow") return "Amarelo";
+      if (status === "red") return "Vermelho";
+      return "Sem dados";
+    }
+
+    _renderOperationalDashboard({ targetMonth, users, expenses, payments, mercadoPagoStatus }) {
+      const summaryBox = document.getElementById("operational-summary-box");
+      const tbody = document.getElementById("operational-kpis-tbody");
+      if (!summaryBox || !tbody) return;
+
+      const isMonth = (iso) => String(iso || "").slice(0, 7) === targetMonth;
+      const monthPayments = payments.filter((p) => isMonth(p.date));
+      const monthExpenses = expenses.filter((e) => isMonth(e.date));
+      const monthUsers = users.filter((u) => isMonth(u.created_at));
+      const revenue = monthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const ticket = monthPayments.length ? revenue / monthPayments.length : null;
+      const mpApproved = monthPayments.filter((p) => p.verifiedByMercadoPago).length;
+      const approvalRate = monthPayments.length ? (mpApproved / monthPayments.length) * 100 : null;
+
+      const premiumPayers = new Set(
+        monthPayments
+          .filter((p) => String(p.plan || "").toLowerCase() === "premium" || String(p.type || "").toLowerCase() === "plano")
+          .map((p) => p.user_id)
+          .filter(Boolean)
+      );
+      const conversion = users.length ? (premiumPayers.size / users.length) * 100 : null;
+      const mrr = monthPayments
+        .filter((p) => String(p.type || "").toLowerCase() === "plano")
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+      const prevMonth = this._previousMonth(targetMonth);
+      const prevPayers = new Set(
+        payments
+          .filter((p) => String(p.type || "").toLowerCase() === "plano" && String(p.date || "").slice(0, 7) === prevMonth)
+          .map((p) => p.user_id)
+          .filter(Boolean)
+      );
+      const currentPayers = new Set(
+        monthPayments
+          .filter((p) => String(p.type || "").toLowerCase() === "plano")
+          .map((p) => p.user_id)
+          .filter(Boolean)
+      );
+      const churn = prevPayers.size
+        ? ((Array.from(prevPayers).filter((id) => !currentPayers.has(id)).length / prevPayers.size) * 100)
+        : null;
+
+      const activatedUsers = monthUsers.filter((u) => expenses.some((e) => e.user_id === u.id)).length;
+      const activation = monthUsers.length ? (activatedUsers / monthUsers.length) * 100 : null;
+
+      const landingConversion = null;
+      const cac = null;
+      const cadastroCount = monthUsers.length;
+
+      const kpis = [
+        { block: "Mercado", name: "Receita mensal", goal: "R$ 120.000", valueText: this._formatCurrencyBr(revenue), status: this._statusHigherBetter(revenue, 120000, 102000), critical: true },
+        { block: "Mercado", name: "Ticket médio", goal: "R$ 180", valueText: ticket === null ? "Sem dados" : this._formatCurrencyBr(ticket), status: this._statusHigherBetter(ticket, 180, 150), critical: false },
+        {
+          block: "Mercado",
+          name: "Aprovação de pagamentos (MP)",
+          goal: "95%",
+          valueText: approvalRate === null ? "Sem dados" : `${approvalRate.toFixed(1)}% (${mpApproved}/${monthPayments.length})`,
+          status: this._statusHigherBetter(approvalRate, 95, 90),
+          critical: true,
+        },
+        { block: "Vendas", name: "Conversão Free → Premium", goal: "12%", valueText: conversion === null ? "Sem dados" : `${conversion.toFixed(1)}%`, status: this._statusHigherBetter(conversion, 12, 8), critical: true },
+        { block: "Vendas", name: "MRR", goal: "R$ 45.000", valueText: this._formatCurrencyBr(mrr), status: this._statusHigherBetter(mrr, 45000, 38250), critical: true },
+        { block: "Vendas", name: "Churn mensal", goal: "≤ 4%", valueText: churn === null ? "Sem dados" : `${churn.toFixed(1)}%`, status: this._statusLowerBetter(churn, 4, 6), critical: true },
+        { block: "Captação", name: "Novos cadastros/mês", goal: "1.000", valueText: String(cadastroCount), status: this._statusHigherBetter(cadastroCount, 1000, 800), critical: false },
+        { block: "Captação", name: "Conversão Landing → Signup", goal: "9%", valueText: landingConversion === null ? "Sem dados" : `${landingConversion.toFixed(1)}%`, status: this._statusHigherBetter(landingConversion, 9, 6), critical: false },
+        { block: "Captação", name: "Ativação (signup → 1ª despesa)", goal: "70%", valueText: activation === null ? "Sem dados" : `${activation.toFixed(1)}%`, status: this._statusHigherBetter(activation, 70, 55), critical: false },
+        { block: "Captação", name: "CAC", goal: "≤ R$ 55", valueText: cac === null ? "Sem dados" : this._formatCurrencyBr(cac), status: this._statusLowerBetter(cac, 55, 70), critical: false },
+      ];
+
+      const scored = kpis.filter((k) => k.status !== "gray");
+      const greens = scored.filter((k) => k.status === "green").length;
+      const greenRatio = scored.length ? greens / scored.length : 0;
+      const criticalReds = kpis.filter((k) => k.critical && k.status === "red").length;
+      let executiveStatus = "yellow";
+      let executiveText = "Sem dados suficientes para classificar toda a operação.";
+      if (scored.length) {
+        if (greenRatio < 0.5 || criticalReds > 2) {
+          executiveStatus = "red";
+        } else if (greenRatio >= 0.8 && criticalReds === 0) {
+          executiveStatus = "green";
+        } else {
+          executiveStatus = "yellow";
+        }
+        executiveText =
+          `Mês ${targetMonth}: ${greens}/${scored.length} KPI(s) em verde (${Math.round(greenRatio * 100)}%). ` +
+          `${criticalReds} KPI(s) críticos em vermelho. ` +
+          `${mercadoPagoStatus && mercadoPagoStatus.connected ? "Integração MP ativa." : "Integração MP sem dados no período."}`;
+      }
+
+      summaryBox.className =
+        executiveStatus === "green" ? "alert-ok mb-14" : executiveStatus === "red" ? "alert-warn mb-14" : "alert-warn mb-14";
+      summaryBox.textContent = `${this._statusLabel(executiveStatus)} — ${executiveText}`;
+
+      tbody.innerHTML = kpis
+        .map(
+          (kpi) =>
+            `<tr><td>${this._escapeHtml(kpi.block)}</td><td>${this._escapeHtml(kpi.name)}</td><td>${this._escapeHtml(kpi.goal)}</td>` +
+            `<td>${this._escapeHtml(kpi.valueText)}</td><td><span class="kpi-status kpi-status-${kpi.status}">${this._escapeHtml(
+              this._statusLabel(kpi.status)
+            )}</span></td></tr>`
+        )
+        .join("");
     }
 
     const summary = reportData.summary;
