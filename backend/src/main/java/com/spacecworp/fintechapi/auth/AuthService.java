@@ -13,7 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -68,6 +67,21 @@ public class AuthService {
         UserDocument user = users.get(0);
         if (!passwordEncoder.matches(req.password(), user.password)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas");
+        }
+        return toAuthResponse(user);
+    }
+
+    public AuthDtos.AuthResponse refresh(AuthDtos.RefreshRequest request) {
+        AuthUser claims;
+        try {
+            claims = jwtService.parse(request.access_token());
+        } catch (Exception e) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Token inválido ou expirado");
+        }
+        UserDocument user = firestore.findById(FirestoreCollections.USERS, claims.userId(), UserDocument.class)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Usuário não encontrado"));
+        if (!user.tenant_id.equals(claims.tenantId())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Sessão inválida");
         }
         return toAuthResponse(user);
     }

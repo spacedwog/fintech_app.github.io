@@ -5,6 +5,7 @@ import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.FirestoreGateway;
 import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.security.SecurityUtils;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -28,6 +30,9 @@ public class UserController {
     }
 
     public record UserResponse(String id, String tenant_id, String name, String email, String role) {}
+    public record InviteUserRequest(@NotBlank String name, @NotBlank @Email String email, @NotBlank String password, @NotBlank String role) {}
+    public record UpdateProfileRequest(@NotBlank String name, String document) {}
+    public record UpdateRoleRequest(@NotBlank String role) {}
 
     @GetMapping
     public List<UserResponse> listUsers() {
@@ -37,10 +42,26 @@ public class UserController {
                 .toList();
     }
 
-    public record InviteUserRequest(@NotBlank String name, @NotBlank @Email String email, @NotBlank String password, @NotBlank String role) {}
+    @GetMapping("/me")
+    public UserResponse me() {
+        AuthUser session = SecurityUtils.currentUser();
+        UserDocument user = firestore.findById(FirestoreCollections.USERS, session.userId(), UserDocument.class)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
+        return new UserResponse(user.id, user.tenant_id, user.name, user.email, user.role);
+    }
+
+    @PutMapping("/me")
+    public UserResponse updateProfile(@Valid @RequestBody UpdateProfileRequest req) {
+        AuthUser session = SecurityUtils.currentUser();
+        UserDocument user = firestore.findById(FirestoreCollections.USERS, session.userId(), UserDocument.class)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
+        user.name = req.name().trim();
+        firestore.save(FirestoreCollections.USERS, user.id, user);
+        return new UserResponse(user.id, user.tenant_id, user.name, user.email, user.role);
+    }
 
     @PostMapping("/invite")
-    public UserResponse inviteUser(@RequestBody InviteUserRequest req) {
+    public UserResponse inviteUser(@Valid @RequestBody InviteUserRequest req) {
         AuthUser actor = SecurityUtils.currentUser();
         SecurityUtils.requireAdmin(actor);
 
@@ -53,5 +74,32 @@ public class UserController {
         UserDocument doc = new UserDocument(id, actor.tenantId(), req.name(), normalized, passwordEncoder.encode(req.password()), role, Instant.now().toString());
         firestore.save(FirestoreCollections.USERS, id, doc);
         return new UserResponse(doc.id, doc.tenant_id, doc.name, doc.email, doc.role);
+    }
+
+    @PatchMapping("/{id}/role")
+    public UserResponse updateRole(@PathVariable String id, @Valid @RequestBody UpdateRoleRequest req) {
+        AuthUser actor = SecurityUtils.currentUser();
+        SecurityUtils.requireAdmin(actor);
+        UserDocument target = firestore.findById(FirestoreCollections.USERS, id, UserDocument.class)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
+        if (!actor.tenantId().equals(target.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
+        String role = req.role().equalsIgnoreCase("admin") ? "admin" : "member";
+        target.role = role;
+        firestore.save(FirestoreCollections.USERS, target.id, target);
+        return new UserResponse(target.id, target.tenant_id, target.name, target.email, target.role);
+    }
+
+    @PostMapping("/{id}/reset-password")
+    public Map<String, Object> resetPassword(@PathVariable String id, @RequestBody Map<String, String> body) {
+        AuthUser actor = SecurityUtils.currentUser();
+        SecurityUtils.requireAdmin(actor);
+        String newPassword = body.getOrDefault("new_password", "").trim();
+        if (newPassword.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "new_password é obrigatório");
+        UserDocument target = firestore.findById(FirestoreCollections.USERS, id, UserDocument.class)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
+        if (!actor.tenantId().equals(target.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
+        target.password = passwordEncoder.encode(newPassword);
+        firestore.save(FirestoreCollections.USERS, target.id, target);
+        return Map.of("ok", true);
     }
 }

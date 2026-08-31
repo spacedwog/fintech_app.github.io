@@ -8,7 +8,7 @@ public final class PlanCatalog {
     public record PlanDto(String code, String name, double monthly_price, int daily_expense_limit, double overage_price) {}
 
     public static final List<PlanDto> ALL = List.of(
-            new PlanDto("free", "Free", 0.0, 3, 5.0),
+            new PlanDto("free", "Free", 0.0, 6, 5.0),
             new PlanDto("premium", "Premium", 19.99, Integer.MAX_VALUE, 0.0)
     );
 

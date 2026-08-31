@@ -16,7 +16,11 @@ public class AuthDtos {
             @NotBlank String password
     ) {}
 
+    public record RefreshRequest(@NotBlank String access_token) {}
+
     public record UserPayload(String id, String tenant_id, String name, String email, String role) {}
 
     public record AuthResponse(String token, UserPayload user) {}
+
+    public record GenericResponse(boolean ok) {}
 }
