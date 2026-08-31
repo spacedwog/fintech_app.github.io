@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -194,12 +195,12 @@ public class PaymentController {
                 .max(Comparator.naturalOrder())
                 .orElse(null);
 
-        return Map.of(
-                "connected", verified > 0,
-                "payments_verified_count", verified,
-                "payments_pending_count", pending,
-                "last_confirmed_date", lastConfirmedDate
-        );
+        Map<String, Object> status = new LinkedHashMap<>();
+        status.put("connected", verified > 0);
+        status.put("payments_verified_count", verified);
+        status.put("payments_pending_count", pending);
+        status.put("last_confirmed_date", lastConfirmedDate);
+        return status;
     }
 
     @GetMapping("/reconciliation/status")

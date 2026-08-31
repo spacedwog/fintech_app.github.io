@@ -11,9 +11,13 @@
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/expenses/CategoryDocument.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/expenses/ExpenseController.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/expenses/ExpenseDocument.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/expenses/ExpenseRuleDocument.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/firestore/FirestoreCollections.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/firestore/FirestoreGateway.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/governance/AuditEventDocument.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/governance/AuditService.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/migration/MigrationController.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/observability/RequestLoggingFilter.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/payments/PaymentController.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/payments/PaymentDocument.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/plans/PlanCatalog.java
