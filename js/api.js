@@ -200,6 +200,11 @@ class SessionManager {
       return false;
     }
 
+    // Sessão emitida pelo backend Spring Boot (modo migração REST):
+    // mantém compatibilidade com o restante do front-end sem exigir
+    // verificação local via js/oauth.js.
+    if (tokens && tokens.legacy) return true;
+
     try {
       await OAuth.verifyAccessToken(tokens.access_token);
       return true;
@@ -2584,4 +2589,500 @@ class ApiFacade {
   }
 }
 
-const Api = new ApiFacade();
+class BackendApiFacade {
+  constructor(baseUrl, fallback) {
+    this.baseUrl = String(baseUrl || "").replace(/\/+$/, "");
+    this.fallback = fallback;
+  }
+
+  _getBearerToken() {
+    const raw = Auth.getToken();
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && parsed.access_token ? parsed.access_token : raw;
+    } catch (_err) {
+      return raw;
+    }
+  }
+
+  async _request(path, opts = {}) {
+    const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+    const bearer = this._getBearerToken();
+    if (bearer) headers.Authorization = "Bearer " + bearer;
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...opts,
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!response.ok) {
+      let msg = `Erro HTTP ${response.status}`;
+      try {
+        const err = await response.json();
+        msg = err && err.message ? err.message : msg;
+      } catch (_err) {
+        // ignora parse do erro
+      }
+      const error = new Error(msg);
+      error.status = response.status;
+      throw error;
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  _planFromBackend(code, payload) {
+    const fallback = typeof getPlan === "function" ? getPlan(code) : null;
+    return {
+      label: payload && payload.name ? payload.name : (fallback && fallback.label) || code,
+      price_month: payload && typeof payload.monthly_price === "number" ? payload.monthly_price : (fallback && fallback.price_month) || 0,
+      max_users: (fallback && fallback.max_users) || Infinity,
+      max_expenses_day:
+        payload && Number.isFinite(payload.daily_expense_limit)
+          ? payload.daily_expense_limit
+          : (fallback && fallback.max_expenses_day) || Infinity,
+      max_budget_imports_day: (fallback && fallback.max_budget_imports_day) || Infinity,
+      overage_price:
+        payload && typeof payload.overage_price === "number"
+          ? payload.overage_price
+          : (fallback && fallback.overage_price) || 0,
+      budget_import_overage_price: (fallback && fallback.budget_import_overage_price) || 0,
+    };
+  }
+
+  _buildPlansObject(payload) {
+    if (payload && !Array.isArray(payload) && payload.free && payload.premium) return payload;
+    const out = {};
+    const rows = payload && Array.isArray(payload.plans) ? payload.plans : Array.isArray(payload) ? payload : [];
+    rows.forEach((row) => {
+      if (!row || !row.code) return;
+      out[row.code] = this._planFromBackend(row.code, row);
+    });
+    if (!out.free) out.free = this._planFromBackend("free", null);
+    if (!out.premium) out.premium = this._planFromBackend("premium", null);
+    return out;
+  }
+
+  // ---------- módulos migrados para backend ----------
+  signup(payload) {
+    return this._request("/api/v1/auth/signup", { method: "POST", body: payload });
+  }
+  login(payload) {
+    return this._request("/api/v1/auth/login", { method: "POST", body: payload });
+  }
+  async me() {
+    const [mePayload, plansPayload] = await Promise.all([
+      this._request("/api/v1/auth/me"),
+      this._request("/api/v1/plans").catch(() => null),
+    ]);
+    if (mePayload && mePayload.user && mePayload.tenant) {
+      const plans = this._buildPlansObject(plansPayload || {});
+      return {
+        user: {
+          ...mePayload.user,
+          tax_document: mePayload.user.tax_document || null,
+        },
+        tenant: {
+          ...mePayload.tenant,
+          plan_details: plans[mePayload.tenant.plan] || this._planFromBackend(mePayload.tenant.plan || "free", null),
+        },
+      };
+    }
+    const user = mePayload || {};
+    const plans = this._buildPlansObject(plansPayload || {});
+    const plan = (plansPayload && plansPayload.current_plan) || "free";
+    return {
+      user: {
+        id: user.id || null,
+        name: user.name || "",
+        email: user.email || "",
+        role: user.role || "member",
+        tax_document: user.tax_document || null,
+      },
+      tenant: {
+        id: user.tenant_id || null,
+        name: "Conta",
+        plan,
+        plan_details: plans[plan] || this._planFromBackend(plan, null),
+      },
+    };
+  }
+  async plans() {
+    const payload = await this._request("/api/v1/plans");
+    return this._buildPlansObject(payload);
+  }
+  async changePlan(plan) {
+    await this._request("/api/v1/plans/change", { method: "POST", body: { plan } });
+    const me = await this.me();
+    return me.tenant;
+  }
+  async listUsers() {
+    const rows = await this._request("/api/v1/users");
+    return (rows || []).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      tax_document: u.tax_document || null,
+      created_at: u.created_at || null,
+    }));
+  }
+  async inviteUser(payload) {
+    await this._request("/api/v1/users/invite", { method: "POST", body: payload });
+    return { ok: true };
+  }
+  async listCategories() {
+    const rows = await this._request("/api/v1/categories");
+    return (rows || [])
+      .map((c) => ({ id: c.id, name: c.name }))
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  }
+  async addCategory(name) {
+    await this._request("/api/v1/categories", { method: "POST", body: { name } });
+    return { ok: true };
+  }
+  async listExpenseRules() {
+    const [rules, categories] = await Promise.all([
+      this._request("/api/v1/expense-rules"),
+      this.listCategories(),
+    ]);
+    const categoryById = new Map((categories || []).map((c) => [c.id, c.name]));
+    return (rules || [])
+      .map((r) => ({
+        id: r.id,
+        category_id: r.category_id,
+        category_name: categoryById.get(r.category_id) || null,
+        keyword: r.keyword,
+        match_type: r.match_type || "contains",
+        created_at: r.created_at || null,
+      }))
+      .sort((a, b) => String(a.keyword || "").localeCompare(String(b.keyword || "")));
+  }
+  async addExpenseRule(payload) {
+    return this._request("/api/v1/expense-rules", { method: "POST", body: payload });
+  }
+  deleteExpenseRule(id) {
+    return this._request(`/api/v1/expense-rules/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  applyExpenseRulesToUncategorized(payload = {}) {
+    return this._request("/api/v1/expenses/apply-rules", { method: "POST", body: payload });
+  }
+  async listExpenses(allUsers = false, filters = {}) {
+    const params = new URLSearchParams({ allUsers: allUsers ? "true" : "false" });
+    if (filters.month) params.set("month", filters.month);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    if (Number.isFinite(filters.limit)) params.set("limit", String(filters.limit));
+    if (Number.isFinite(filters.offset)) params.set("offset", String(filters.offset));
+    const [rows, categories, users] = await Promise.all([
+      this._request(`/api/v1/expenses?${params.toString()}`),
+      this.listCategories(),
+      allUsers ? this.listUsers() : Promise.resolve([]),
+    ]);
+    const categoryById = new Map((categories || []).map((c) => [c.id, c.name]));
+    const userById = new Map((users || []).map((u) => [u.id, u.name]));
+    return (rows || [])
+      .map((e) => ({
+        id: e.id,
+        amount: Number(e.amount || 0),
+        date: e.date,
+        created_at: e.created_at || e.date || null,
+        description: e.description || "",
+        transaction_number: e.transaction_number || null,
+        category_id: e.category_id || null,
+        category_name: e.category_name || categoryById.get(e.category_id) || null,
+        auto_categorized_by_rule: !!e.auto_categorized_by_rule,
+        user_id: e.user_id || null,
+        user_name: userById.get(e.user_id) || null,
+        is_extra: !!e.is_extra,
+        extra_charge: Number(e.extra_charge || 0),
+        generated_by_mercado_pago: !!e.generated_by_mercado_pago,
+        mercado_pago_payment_id: e.mercado_pago_payment_id || null,
+        generated_by_mercado_pago_source: e.generated_by_mercado_pago_source || null,
+      }))
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  }
+  async getExpenseQuota() {
+    const q = await this._request("/api/v1/expenses/quota");
+    const max = Number(q.daily_limit);
+    return {
+      plan: q.plan || "free",
+      used_today: Number(q.used_today || 0),
+      max_per_day: Number.isFinite(max) ? max : Infinity,
+      overage_price: Number(q.overage_price || 0),
+      unlimited: !Number.isFinite(max) || max >= 1000000,
+    };
+  }
+  async addExpense(payload) {
+    const quotaBefore = await this.getExpenseQuota();
+    const created = await this._request("/api/v1/expenses", { method: "POST", body: payload });
+    const isExtra = !!(created && created.is_extra) || (!quotaBefore.unlimited && quotaBefore.used_today >= quotaBefore.max_per_day);
+    return {
+      id: created && created.id ? created.id : null,
+      is_extra: isExtra,
+      extra_charge: isExtra ? Number((created && created.extra_charge) || quotaBefore.overage_price || 0) : 0,
+      plan: quotaBefore.plan || "free",
+    };
+  }
+  async updateExpense(id, payload) {
+    await this._request(`/api/v1/expenses/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+    return { ok: true };
+  }
+  deleteExpense(id) {
+    return this._request(`/api/v1/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  async listPayments(allUsers = false, filters = {}) {
+    const params = new URLSearchParams({ allUsers: allUsers ? "true" : "false" });
+    if (filters.month) params.set("month", filters.month);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    if (Number.isFinite(filters.limit)) params.set("limit", String(filters.limit));
+    if (Number.isFinite(filters.offset)) params.set("offset", String(filters.offset));
+    const [rows, users] = await Promise.all([
+      this._request(`/api/v1/payments?${params.toString()}`),
+      allUsers ? this.listUsers() : Promise.resolve([]),
+    ]);
+    const userById = new Map((users || []).map((u) => [u.id, u.name]));
+    return (rows || [])
+      .map((p) => ({
+        ...p,
+        amount: Number(p.amount || 0),
+        user_name: userById.get(p.user_id) || p.user_name || null,
+      }))
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  }
+  addPayment(payload) {
+    return this._request("/api/v1/payments", { method: "POST", body: payload });
+  }
+  async getMercadoPagoStatus() {
+    const [status, expenses, payments] = await Promise.all([
+      this._request("/api/v1/payments/mercado-pago/status"),
+      this.listExpenses(true).catch(() => []),
+      this.listPayments(true).catch(() => []),
+    ]);
+    const mpExpenses = (expenses || []).filter((e) => e.generated_by_mercado_pago);
+    const mpPayments = (payments || []).filter((p) => p.verifiedByMercadoPago);
+    const lastSyncDate =
+      [...mpExpenses.map((e) => e.date), ...mpPayments.map((p) => p.date)]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+    return {
+      connected: !!(status && status.connected),
+      expenses_count: mpExpenses.length,
+      expenses_total: mpExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0),
+      payments_verified_count: Number((status && status.payments_verified_count) || mpPayments.length || 0),
+      last_sync_date: lastSyncDate,
+      automation: {
+        last_reconcile: null,
+        last_expenses_api: null,
+        last_open_finance_sync: null,
+        last_oauth_account_sync: null,
+      },
+      automation_configured: false,
+      last_run_at: null,
+    };
+  }
+  async verifyMercadoPagoTransactionId(transactionId) {
+    const query = String(transactionId || "").trim();
+    if (!query) throw new Error("Informe o ID da transação.");
+    const normalized = query.toUpperCase();
+    const sameId = (value) => String(value || "").trim().toUpperCase() === normalized;
+    const [expenses, payments] = await Promise.all([this.listExpenses(true), this.listPayments(true)]);
+
+    const matchedExpenses = (expenses || [])
+      .filter((e) => sameId(e.mercado_pago_payment_id) || sameId(e.transaction_number))
+      .map((e) => ({
+        id: e.id,
+        date: e.date || null,
+        amount: Number(e.amount) || 0,
+        description: e.description || "",
+        generated_by_mercado_pago: !!e.generated_by_mercado_pago,
+        match_field: sameId(e.mercado_pago_payment_id) ? "mercadoPagoPaymentId" : "transaction_number",
+      }));
+    const matchedPayments = (payments || [])
+      .filter((p) => sameId(p.mercadoPagoPaymentId) || sameId(p.txid) || sameId(p.manualTxnNumber))
+      .map((p) => ({
+        id: p.id,
+        date: p.date || null,
+        amount: Number(p.amount) || 0,
+        type: p.type || null,
+        txid: p.txid || null,
+        verified_by_mercado_pago: !!p.verifiedByMercadoPago,
+        match_field: sameId(p.mercadoPagoPaymentId)
+          ? "mercadoPagoPaymentId"
+          : sameId(p.txid)
+            ? "txid"
+            : "manualTxnNumber",
+      }));
+
+    const found = matchedExpenses.length > 0 || matchedPayments.length > 0;
+    let status = "not_found";
+    let message = "ID não encontrado nos registros desta conta.";
+    if (matchedPayments.some((p) => p.verified_by_mercado_pago)) {
+      status = "verified";
+      message = "ID encontrado e já confirmado pelo Mercado Pago.";
+    } else if (matchedExpenses.some((e) => e.generated_by_mercado_pago)) {
+      status = "imported";
+      message = "ID encontrado em despesa importada pela integração do Mercado Pago.";
+    } else if (found) {
+      status = "found";
+      message = "ID encontrado em registros da conta, sem confirmação automática do Mercado Pago.";
+    }
+    return {
+      query,
+      found,
+      status,
+      message,
+      summary: { expenses: matchedExpenses.length, payments: matchedPayments.length, rejections: 0 },
+      matches: { expenses: matchedExpenses, payments: matchedPayments, rejections: [] },
+    };
+  }
+  updateProfile(payload) {
+    return this._request("/api/v1/users/me", { method: "PUT", body: payload });
+  }
+  changePassword(payload) {
+    return this._request("/api/v1/users/me/change-password", { method: "POST", body: payload });
+  }
+  listBudgets(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/budgets${params}`);
+  }
+  setBudget(payload) {
+    return this._request("/api/v1/budgets", { method: "POST", body: payload });
+  }
+  deleteBudget(id) {
+    return this._request(`/api/v1/budgets/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  getAlerts(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/alerts${params}`);
+  }
+  listCategoryBudgets(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/category-budgets${params}`);
+  }
+  setCategoryBudget(payload) {
+    return this._request("/api/v1/category-budgets", { method: "POST", body: payload });
+  }
+  deleteCategoryBudget(id) {
+    return this._request(`/api/v1/category-budgets/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  importCategoryBudgets(payload) {
+    return this._request("/api/v1/category-budgets/import", { method: "POST", body: payload });
+  }
+  getBudgetImportQuota() {
+    return this._request("/api/v1/category-budgets/quota");
+  }
+  getBudgetOverview(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/category-budgets/overview${params}`);
+  }
+  copyCategoryBudgetsRecurring(payload) {
+    return this._request("/api/v1/category-budgets/copy-recurring", {
+      method: "POST",
+      body: payload,
+    });
+  }
+  listBudgetGroups() {
+    return this._request("/api/v1/budget-groups");
+  }
+  monthlyReport(allUsers = false) {
+    return this._request(`/api/v1/reports/monthly?allUsers=${allUsers ? "true" : "false"}`);
+  }
+  categoryReport(allUsers = false) {
+    return this._request(`/api/v1/reports/category?allUsers=${allUsers ? "true" : "false"}`);
+  }
+  getMonthlyProjection(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/projection${params}`);
+  }
+  getMonthlyCloseChecklist(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/monthly-close-checklist${params}`);
+  }
+  getConsolidatedExportData(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/consolidated-export${params}`);
+  }
+  getTransactionOriginReport(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/transaction-origin${params}`);
+  }
+  listBudgetLayouts() {
+    return this._request("/api/v1/budget-layouts");
+  }
+  saveBudgetLayout(payload) {
+    return this._request("/api/v1/budget-layouts", { method: "POST", body: payload });
+  }
+  deleteBudgetLayout(id) {
+    return this._request(`/api/v1/budget-layouts/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  listAds() {
+    return this._request("/api/v1/ads");
+  }
+  createAd(payload) {
+    return this._request("/api/v1/ads", { method: "POST", body: payload });
+  }
+  updateAd(id, payload) {
+    return this._request(`/api/v1/ads/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  }
+  deleteAd(id) {
+    return this._request(`/api/v1/ads/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  getCompanyProfile() {
+    return this._request("/api/v1/company-profile");
+  }
+  getMarketplaceCustomerProfile() {
+    return this._request("/api/v1/company-profile");
+  }
+  getPrivacyConsent() {
+    return this._request("/api/v1/privacy-consent");
+  }
+  setPrivacyConsent(consentMarketing) {
+    return this._request("/api/v1/privacy-consent", {
+      method: "POST",
+      body: { consent_marketing: !!consentMarketing },
+    });
+  }
+  exportMyData() {
+    return this._request("/api/v1/my-data/export");
+  }
+  deleteAccount() {
+    return this._request("/api/v1/account", { method: "DELETE" });
+  }
+  listAuditTrail(options = {}) {
+    const params = new URLSearchParams();
+    if (options.limit != null) params.set("limit", String(options.limit));
+    if (options.allUsers != null) params.set("allUsers", options.allUsers ? "true" : "false");
+    const query = params.toString();
+    return this._request(`/api/v1/audit-trail${query ? `?${query}` : ""}`);
+  }
+}
+
+function resolveBackendApiBase() {
+  if (typeof globalThis !== "undefined" && globalThis.__FINTECH_API_BASE__) {
+    return String(globalThis.__FINTECH_API_BASE__).trim();
+  }
+  try {
+    const fromStorage = localStorage.getItem("fintech_api_base_url");
+    return String(fromStorage || "").trim();
+  } catch (_err) {
+    return "";
+  }
+}
+
+const localApi = new ApiFacade();
+const backendBase = resolveBackendApiBase();
+const Api = backendBase
+  ? new Proxy(new BackendApiFacade(backendBase, localApi), {
+      get(target, prop) {
+        if (prop in target) {
+          const value = target[prop];
+          return typeof value === "function" ? value.bind(target) : value;
+        }
+        const fallbackValue = localApi[prop];
+        return typeof fallbackValue === "function" ? fallbackValue.bind(localApi) : fallbackValue;
+      },
+    })
+  : localApi;
