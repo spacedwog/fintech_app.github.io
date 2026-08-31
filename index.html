@@ -527,7 +527,7 @@
         </details>
         <details>
           <summary>É possível integrar com legado IBM COBOL?</summary>
-          <p>Não. A integração com COBOL foi descontinuada por segurança e simplificação da arquitetura; atualmente o app suporta integrações modernas de marketplace e Open Finance.</p>
+          <p>Sim. O app possui uma ponte COBOL local no módulo <code>orcamento_agent</code>: o script COBOL gera eventos de liquidação em JSON e o <code>cobol_bridge.py</code> reconcilia esses eventos com os pagamentos do sistema de forma idempotente.</p>
         </details>
         <details>
           <summary>Onde meus dados ficam salvos?</summary>

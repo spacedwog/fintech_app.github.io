@@ -27,9 +27,11 @@ mesmo cuidado de segurança (nenhum segredo sai da máquina local):
    opcional em despesas (modelo prático).
 6. **`cobol_bridge.py`** — ponte COBOL ativa para reconciliação financeira local
    por eventos (`payment_id`/`txid`/`amount`) com idempotência por `event_id`.
-7. **`ibm_tso_bridge.py`** — conector IBM Mainframe descontinuado; mantido apenas
+7. **`cobol_settlement_export.cbl`** — script COBOL que transforma liquidações
+   legadas (CSV) em eventos JSON compatíveis com o `cobol_bridge.py`.
+8. **`ibm_tso_bridge.py`** — conector IBM Mainframe descontinuado; mantido apenas
    para compatibilidade de CLI e retorna status de desativação.
-8. **`transaction_classifier_agent.py`** — classifica transações por categoria com
+9. **`transaction_classifier_agent.py`** — classifica transações por categoria com
    um agente heurístico (palavras-chave + direção + faixa de valor), devolvendo
    também confiança e evidências da decisão.
 
@@ -196,6 +198,26 @@ python3 test_cobol_bridge.py
 ```
 
 > `ibm_tso_bridge.py` segue descontinuado para execução remota TSO/Mainframe.
+
+### Script COBOL (geração de eventos)
+Para fechar o fluxo legado ponta a ponta, o script `cobol_settlement_export.cbl`
+gera o `cobol_events.json` no formato esperado pelo `cobol_bridge.py`.
+
+Entrada esperada (`cobol_settlements_input.csv`):
+
+`event_id;tenant_id;payment_id;txid;amount;status_quitacao;settled_at;liquidation_reference`
+
+Exemplo completo: `cobol_settlements_input.example.csv`.
+
+Execução local (com GnuCOBOL):
+
+```bash
+cd orcamento_agent
+cobc -x -free cobol_settlement_export.cbl -o cobol_settlement_export
+cp cobol_settlements_input.example.csv cobol_settlements_input.csv
+./cobol_settlement_export
+python3 cobol_bridge.py --events-json cobol_events.json --db-json ../db.json
+```
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).
