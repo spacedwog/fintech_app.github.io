@@ -15,6 +15,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -134,9 +135,8 @@ public class ExpenseController {
     public ExpenseDocument addExpense(@Valid @RequestBody ExpenseRequest req) {
         AuthUser user = SecurityUtils.currentUser();
         Map<String, Object> quota = quota();
-        if (Boolean.TRUE.equals(quota.get("over_quota"))) {
-            throw new ApiException(HttpStatus.PAYMENT_REQUIRED, "Limite diário excedido para o plano atual");
-        }
+        boolean isExtra = Boolean.TRUE.equals(quota.get("over_quota"));
+        double extraCharge = Number.class.isInstance(quota.get("overage_price")) ? ((Number) quota.get("overage_price")).doubleValue() : 0.0;
         String id = firestore.nextId(FirestoreCollections.EXPENSES);
         ExpenseDocument doc = new ExpenseDocument();
         doc.id = id;
@@ -148,6 +148,17 @@ public class ExpenseController {
         doc.category_id = req.category_id();
         doc.transaction_number = req.transaction_number();
         doc.generated_by_mercado_pago = false;
+        doc.generated_by_mercado_pago_source = null;
+        doc.mercado_pago_payment_id = null;
+        doc.created_at = OffsetDateTime.now().toString();
+        doc.is_extra = isExtra;
+        doc.extra_charge = isExtra ? extraCharge : 0.0;
+        if (doc.category_id == null || doc.category_id.isBlank()) {
+            doc.category_id = resolveCategoryByRule(user.tenantId(), doc.description);
+            doc.auto_categorized_by_rule = doc.category_id != null && !doc.category_id.isBlank();
+        } else {
+            doc.auto_categorized_by_rule = false;
+        }
         firestore.save(FirestoreCollections.EXPENSES, id, doc);
         return doc;
     }
@@ -163,6 +174,12 @@ public class ExpenseController {
         current.description = req.description();
         current.category_id = req.category_id();
         current.transaction_number = req.transaction_number();
+        if (current.category_id == null || current.category_id.isBlank()) {
+            current.category_id = resolveCategoryByRule(user.tenantId(), current.description);
+            current.auto_categorized_by_rule = current.category_id != null && !current.category_id.isBlank();
+        } else {
+            current.auto_categorized_by_rule = false;
+        }
         firestore.save(FirestoreCollections.EXPENSES, id, current);
         return current;
     }
@@ -199,6 +216,7 @@ public class ExpenseController {
                         : text.contains(keyword);
                 if (match) {
                     expense.category_id = rule.category_id;
+                    expense.auto_categorized_by_rule = true;
                     firestore.save(FirestoreCollections.EXPENSES, expense.id, expense);
                     updated++;
                     break;
@@ -211,5 +229,30 @@ public class ExpenseController {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private String resolveCategoryByRule(String tenantId, String description) {
+        String normalizedDescription = normalize(description);
+        if (normalizedDescription.isBlank()) return null;
+        List<ExpenseRuleDocument> rules = firestore.listByField(FirestoreCollections.EXPENSE_RULES, "tenant_id", tenantId, ExpenseRuleDocument.class);
+        for (ExpenseRuleDocument rule : rules) {
+            String keyword = normalize(rule.keyword);
+            if (keyword.isBlank()) continue;
+            boolean match = "exact".equalsIgnoreCase(safe(rule.match_type))
+                    ? normalizedDescription.equals(keyword)
+                    : normalizedDescription.contains(keyword);
+            if (match) return rule.category_id;
+        }
+        return null;
+    }
+
+    private String normalize(String value) {
+        String v = safe(value).toLowerCase().trim();
+        if (v.isBlank()) return "";
+        return java.text.Normalizer.normalize(v, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^a-z0-9\\s]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 }

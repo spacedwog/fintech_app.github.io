@@ -2631,6 +2631,38 @@ class BackendApiFacade {
     return response.json();
   }
 
+  _planFromBackend(code, payload) {
+    const fallback = typeof getPlan === "function" ? getPlan(code) : null;
+    return {
+      label: payload && payload.name ? payload.name : (fallback && fallback.label) || code,
+      price_month: payload && typeof payload.monthly_price === "number" ? payload.monthly_price : (fallback && fallback.price_month) || 0,
+      max_users: (fallback && fallback.max_users) || Infinity,
+      max_expenses_day:
+        payload && Number.isFinite(payload.daily_expense_limit)
+          ? payload.daily_expense_limit
+          : (fallback && fallback.max_expenses_day) || Infinity,
+      max_budget_imports_day: (fallback && fallback.max_budget_imports_day) || Infinity,
+      overage_price:
+        payload && typeof payload.overage_price === "number"
+          ? payload.overage_price
+          : (fallback && fallback.overage_price) || 0,
+      budget_import_overage_price: (fallback && fallback.budget_import_overage_price) || 0,
+    };
+  }
+
+  _buildPlansObject(payload) {
+    if (payload && !Array.isArray(payload) && payload.free && payload.premium) return payload;
+    const out = {};
+    const rows = payload && Array.isArray(payload.plans) ? payload.plans : Array.isArray(payload) ? payload : [];
+    rows.forEach((row) => {
+      if (!row || !row.code) return;
+      out[row.code] = this._planFromBackend(row.code, row);
+    });
+    if (!out.free) out.free = this._planFromBackend("free", null);
+    if (!out.premium) out.premium = this._planFromBackend("premium", null);
+    return out;
+  }
+
   // ---------- módulos migrados para backend ----------
   signup(payload) {
     return this._request("/api/v1/auth/signup", { method: "POST", body: payload });
@@ -2638,47 +2670,275 @@ class BackendApiFacade {
   login(payload) {
     return this._request("/api/v1/auth/login", { method: "POST", body: payload });
   }
-  me() {
-    return this._request("/api/v1/auth/me");
+  async me() {
+    const [mePayload, plansPayload] = await Promise.all([
+      this._request("/api/v1/auth/me"),
+      this._request("/api/v1/plans").catch(() => null),
+    ]);
+    if (mePayload && mePayload.user && mePayload.tenant) {
+      const plans = this._buildPlansObject(plansPayload || {});
+      return {
+        user: {
+          ...mePayload.user,
+          tax_document: mePayload.user.tax_document || null,
+        },
+        tenant: {
+          ...mePayload.tenant,
+          plan_details: plans[mePayload.tenant.plan] || this._planFromBackend(mePayload.tenant.plan || "free", null),
+        },
+      };
+    }
+    const user = mePayload || {};
+    const plans = this._buildPlansObject(plansPayload || {});
+    const plan = (plansPayload && plansPayload.current_plan) || "free";
+    return {
+      user: {
+        id: user.id || null,
+        name: user.name || "",
+        email: user.email || "",
+        role: user.role || "member",
+        tax_document: user.tax_document || null,
+      },
+      tenant: {
+        id: user.tenant_id || null,
+        name: "Conta",
+        plan,
+        plan_details: plans[plan] || this._planFromBackend(plan, null),
+      },
+    };
   }
-  plans() {
-    return this._request("/api/v1/plans");
+  async plans() {
+    const payload = await this._request("/api/v1/plans");
+    return this._buildPlansObject(payload);
   }
-  changePlan(plan) {
-    return this._request("/api/v1/plans/change", { method: "POST", body: { plan } });
+  async changePlan(plan) {
+    await this._request("/api/v1/plans/change", { method: "POST", body: { plan } });
+    const me = await this.me();
+    return me.tenant;
   }
-  listUsers() {
-    return this._request("/api/v1/users");
+  async listUsers() {
+    const rows = await this._request("/api/v1/users");
+    return (rows || []).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      tax_document: u.tax_document || null,
+      created_at: u.created_at || null,
+    }));
   }
-  inviteUser(payload) {
-    return this._request("/api/v1/users/invite", { method: "POST", body: payload });
+  async inviteUser(payload) {
+    await this._request("/api/v1/users/invite", { method: "POST", body: payload });
+    return { ok: true };
   }
-  listCategories() {
-    return this._request("/api/v1/categories");
+  async listCategories() {
+    const rows = await this._request("/api/v1/categories");
+    return (rows || [])
+      .map((c) => ({ id: c.id, name: c.name }))
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
   }
-  addCategory(name) {
-    return this._request("/api/v1/categories", { method: "POST", body: { name } });
+  async addCategory(name) {
+    await this._request("/api/v1/categories", { method: "POST", body: { name } });
+    return { ok: true };
   }
-  listExpenses(allUsers = false) {
-    return this._request(`/api/v1/expenses?allUsers=${allUsers ? "true" : "false"}`);
+  async listExpenseRules() {
+    const [rules, categories] = await Promise.all([
+      this._request("/api/v1/expense-rules"),
+      this.listCategories(),
+    ]);
+    const categoryById = new Map((categories || []).map((c) => [c.id, c.name]));
+    return (rules || [])
+      .map((r) => ({
+        id: r.id,
+        category_id: r.category_id,
+        category_name: categoryById.get(r.category_id) || null,
+        keyword: r.keyword,
+        match_type: r.match_type || "contains",
+        created_at: r.created_at || null,
+      }))
+      .sort((a, b) => String(a.keyword || "").localeCompare(String(b.keyword || "")));
   }
-  getExpenseQuota() {
-    return this._request("/api/v1/expenses/quota");
+  async addExpenseRule(payload) {
+    return this._request("/api/v1/expense-rules", { method: "POST", body: payload });
   }
-  addExpense(payload) {
-    return this._request("/api/v1/expenses", { method: "POST", body: payload });
+  deleteExpenseRule(id) {
+    return this._request(`/api/v1/expense-rules/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
-  updateExpense(id, payload) {
-    return this._request(`/api/v1/expenses/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  applyExpenseRulesToUncategorized(payload = {}) {
+    return this._request("/api/v1/expenses/apply-rules", { method: "POST", body: payload });
+  }
+  async listExpenses(allUsers = false, filters = {}) {
+    const params = new URLSearchParams({ allUsers: allUsers ? "true" : "false" });
+    if (filters.month) params.set("month", filters.month);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    const [rows, categories, users] = await Promise.all([
+      this._request(`/api/v1/expenses?${params.toString()}`),
+      this.listCategories(),
+      allUsers ? this.listUsers() : Promise.resolve([]),
+    ]);
+    const categoryById = new Map((categories || []).map((c) => [c.id, c.name]));
+    const userById = new Map((users || []).map((u) => [u.id, u.name]));
+    return (rows || [])
+      .map((e) => ({
+        id: e.id,
+        amount: Number(e.amount || 0),
+        date: e.date,
+        created_at: e.created_at || e.date || null,
+        description: e.description || "",
+        transaction_number: e.transaction_number || null,
+        category_id: e.category_id || null,
+        category_name: e.category_name || categoryById.get(e.category_id) || null,
+        auto_categorized_by_rule: !!e.auto_categorized_by_rule,
+        user_id: e.user_id || null,
+        user_name: userById.get(e.user_id) || null,
+        is_extra: !!e.is_extra,
+        extra_charge: Number(e.extra_charge || 0),
+        generated_by_mercado_pago: !!e.generated_by_mercado_pago,
+        mercado_pago_payment_id: e.mercado_pago_payment_id || null,
+        generated_by_mercado_pago_source: e.generated_by_mercado_pago_source || null,
+      }))
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  }
+  async getExpenseQuota() {
+    const q = await this._request("/api/v1/expenses/quota");
+    const max = Number(q.daily_limit);
+    return {
+      plan: q.plan || "free",
+      used_today: Number(q.used_today || 0),
+      max_per_day: Number.isFinite(max) ? max : Infinity,
+      overage_price: Number(q.overage_price || 0),
+      unlimited: !Number.isFinite(max) || max >= 1000000,
+    };
+  }
+  async addExpense(payload) {
+    const quotaBefore = await this.getExpenseQuota();
+    const created = await this._request("/api/v1/expenses", { method: "POST", body: payload });
+    const isExtra = !!(created && created.is_extra) || (!quotaBefore.unlimited && quotaBefore.used_today >= quotaBefore.max_per_day);
+    return {
+      id: created && created.id ? created.id : null,
+      is_extra: isExtra,
+      extra_charge: isExtra ? Number((created && created.extra_charge) || quotaBefore.overage_price || 0) : 0,
+      plan: quotaBefore.plan || "free",
+    };
+  }
+  async updateExpense(id, payload) {
+    await this._request(`/api/v1/expenses/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+    return { ok: true };
   }
   deleteExpense(id) {
     return this._request(`/api/v1/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
-  listPayments(allUsers = false) {
-    return this._request(`/api/v1/payments?allUsers=${allUsers ? "true" : "false"}`);
+  async listPayments(allUsers = false, filters = {}) {
+    const params = new URLSearchParams({ allUsers: allUsers ? "true" : "false" });
+    if (filters.month) params.set("month", filters.month);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    const [rows, users] = await Promise.all([
+      this._request(`/api/v1/payments?${params.toString()}`),
+      allUsers ? this.listUsers() : Promise.resolve([]),
+    ]);
+    const userById = new Map((users || []).map((u) => [u.id, u.name]));
+    return (rows || [])
+      .map((p) => ({
+        ...p,
+        amount: Number(p.amount || 0),
+        user_name: userById.get(p.user_id) || p.user_name || null,
+      }))
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   }
   addPayment(payload) {
     return this._request("/api/v1/payments", { method: "POST", body: payload });
+  }
+  async getMercadoPagoStatus() {
+    const [status, expenses, payments] = await Promise.all([
+      this._request("/api/v1/payments/mercado-pago/status"),
+      this.listExpenses(true).catch(() => []),
+      this.listPayments(true).catch(() => []),
+    ]);
+    const mpExpenses = (expenses || []).filter((e) => e.generated_by_mercado_pago);
+    const mpPayments = (payments || []).filter((p) => p.verifiedByMercadoPago);
+    const lastSyncDate =
+      [...mpExpenses.map((e) => e.date), ...mpPayments.map((p) => p.date)]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+    return {
+      connected: !!(status && status.connected),
+      expenses_count: mpExpenses.length,
+      expenses_total: mpExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0),
+      payments_verified_count: Number((status && status.payments_verified_count) || mpPayments.length || 0),
+      last_sync_date: lastSyncDate,
+      automation: {
+        last_reconcile: null,
+        last_expenses_api: null,
+        last_open_finance_sync: null,
+        last_oauth_account_sync: null,
+      },
+      automation_configured: false,
+      last_run_at: null,
+    };
+  }
+  async verifyMercadoPagoTransactionId(transactionId) {
+    const query = String(transactionId || "").trim();
+    if (!query) throw new Error("Informe o ID da transação.");
+    const normalized = query.toUpperCase();
+    const sameId = (value) => String(value || "").trim().toUpperCase() === normalized;
+    const [expenses, payments] = await Promise.all([this.listExpenses(true), this.listPayments(true)]);
+
+    const matchedExpenses = (expenses || [])
+      .filter((e) => sameId(e.mercado_pago_payment_id) || sameId(e.transaction_number))
+      .map((e) => ({
+        id: e.id,
+        date: e.date || null,
+        amount: Number(e.amount) || 0,
+        description: e.description || "",
+        generated_by_mercado_pago: !!e.generated_by_mercado_pago,
+        match_field: sameId(e.mercado_pago_payment_id) ? "mercadoPagoPaymentId" : "transaction_number",
+      }));
+    const matchedPayments = (payments || [])
+      .filter((p) => sameId(p.mercadoPagoPaymentId) || sameId(p.txid) || sameId(p.manualTxnNumber))
+      .map((p) => ({
+        id: p.id,
+        date: p.date || null,
+        amount: Number(p.amount) || 0,
+        type: p.type || null,
+        txid: p.txid || null,
+        verified_by_mercado_pago: !!p.verifiedByMercadoPago,
+        match_field: sameId(p.mercadoPagoPaymentId)
+          ? "mercadoPagoPaymentId"
+          : sameId(p.txid)
+            ? "txid"
+            : "manualTxnNumber",
+      }));
+
+    const found = matchedExpenses.length > 0 || matchedPayments.length > 0;
+    let status = "not_found";
+    let message = "ID não encontrado nos registros desta conta.";
+    if (matchedPayments.some((p) => p.verified_by_mercado_pago)) {
+      status = "verified";
+      message = "ID encontrado e já confirmado pelo Mercado Pago.";
+    } else if (matchedExpenses.some((e) => e.generated_by_mercado_pago)) {
+      status = "imported";
+      message = "ID encontrado em despesa importada pela integração do Mercado Pago.";
+    } else if (found) {
+      status = "found";
+      message = "ID encontrado em registros da conta, sem confirmação automática do Mercado Pago.";
+    }
+    return {
+      query,
+      found,
+      status,
+      message,
+      summary: { expenses: matchedExpenses.length, payments: matchedPayments.length, rejections: 0 },
+      matches: { expenses: matchedExpenses, payments: matchedPayments, rejections: [] },
+    };
+  }
+  updateProfile(payload) {
+    return this._request("/api/v1/users/me", { method: "PUT", body: payload });
+  }
+  changePassword(payload) {
+    return this._request("/api/v1/users/me/change-password", { method: "POST", body: payload });
   }
 }
 

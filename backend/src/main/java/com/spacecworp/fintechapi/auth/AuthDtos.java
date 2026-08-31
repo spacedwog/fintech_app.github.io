@@ -18,7 +18,11 @@ public class AuthDtos {
 
     public record RefreshRequest(@NotBlank String access_token) {}
 
-    public record UserPayload(String id, String tenant_id, String name, String email, String role) {}
+    public record UserPayload(String id, String tenant_id, String name, String email, String role, String tax_document) {}
+
+    public record TenantPayload(String id, String name, String plan) {}
+
+    public record MeResponse(UserPayload user, TenantPayload tenant) {}
 
     public record AuthResponse(String token, UserPayload user) {}
 

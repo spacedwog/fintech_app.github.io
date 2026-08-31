@@ -7,6 +7,7 @@ public class UserDocument {
     public String email;
     public String password;
     public String role;
+    public String tax_document;
     public String created_at;
 
     public UserDocument() {}
@@ -18,6 +19,7 @@ public class UserDocument {
         this.email = email;
         this.password = password;
         this.role = role;
+        this.tax_document = null;
         this.created_at = created_at;
     }
 }

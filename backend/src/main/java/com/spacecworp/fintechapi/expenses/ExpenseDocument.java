@@ -10,6 +10,12 @@ public class ExpenseDocument {
     public String category_id;
     public String transaction_number;
     public boolean generated_by_mercado_pago;
+    public String generated_by_mercado_pago_source;
+    public String mercado_pago_payment_id;
+    public String created_at;
+    public boolean auto_categorized_by_rule;
+    public boolean is_extra;
+    public double extra_charge;
 
     public ExpenseDocument() {}
 }

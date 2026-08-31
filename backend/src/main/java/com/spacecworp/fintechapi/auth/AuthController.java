@@ -35,8 +35,8 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public AuthDtos.UserPayload me() {
+    public AuthDtos.MeResponse me() {
         AuthUser user = SecurityUtils.currentUser();
-        return new AuthDtos.UserPayload(user.userId(), user.tenantId(), user.name(), user.email(), user.role());
+        return authService.me(user);
     }
 }
