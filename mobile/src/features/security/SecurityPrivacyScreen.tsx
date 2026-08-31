@@ -12,7 +12,7 @@ export default function SecurityPrivacyScreen() {
 
   const load = async () => {
     const [consent, audit] = await Promise.all([api.getPrivacyConsent(), api.listAuditTrail(50)]);
-    setMarketing(!!consent.marketing);
+    setMarketing(!!consent.consent_marketing);
     setAuditCount(audit.length);
   };
 
