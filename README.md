@@ -96,6 +96,7 @@ A ponte `orcamento_agent/cobol_bridge.py` está ativa para reconciliação finan
 - Faz conciliação por `payment_id`, `txid` ou `amount` (com filtro por tenant quando disponível).
 - Aplica quitação de pagamentos (`verifiedByAI=true`, `status=approved`) e mantém idempotência por `event_id`.
 - Funciona sobre `db.json` local e não depende de sessão TSO/Mainframe em tempo real.
+- Inclui um script COBOL (`orcamento_agent/cobol_settlement_export.cbl`) para gerar `cobol_events.json` a partir de liquidações legadas em CSV.
 
 ## Navegue pelo painel (`dashboard.html`)
 
