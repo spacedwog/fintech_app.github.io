@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.spacecworp.fintechapi.FintechApiApplicationTests" time="6.695" tests="7" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.spacecworp.fintechapi.notifications.RegistrationNotificationTests" time="0.093" tests="3" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="17"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -60,79 +60,16 @@
     <property name="java.class.version" value="61.0"/>
     <property name="LOGGED_APPLICATION_NAME" value="[fintech-api] "/>
   </properties>
-  <testcase name="nonAdminCannotEscalateAllUsersOnExpenseAndPaymentLists" classname="com.spacecworp.fintechapi.FintechApiApplicationTests" time="0.849">
-    <system-out><![CDATA[Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
-02:11:54.383 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.spacecworp.fintechapi.FintechApiApplicationTests]: FintechApiApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-02:11:54.520 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.spacecworp.fintechapi.FintechApiApplication for test class com.spacecworp.fintechapi.FintechApiApplicationTests
-
-  .   ____          _            __ _ _
- /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
-
- :: Spring Boot ::                (v3.5.5)
-
-2026-08-31T02:11:55.143Z  INFO 4332 --- [fintech-api] [           main] c.s.f.FintechApiApplicationTests         : Starting FintechApiApplicationTests using Java 17.0.20.1 with PID 4332 (started by runner in /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend)
-2026-08-31T02:11:55.144Z  INFO 4332 --- [fintech-api] [           main] c.s.f.FintechApiApplicationTests         : No active profile set, falling back to 1 default profile: "default"
-2026-08-31T02:11:57.643Z  WARN 4332 --- [fintech-api] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
-
-Using generated security password: f44d0705-df8a-451a-8bc1-17cd24c1ef6f
-
-This generated password is for development use only. Your security configuration must be updated before running your application in production.
-
-2026-08-31T02:11:57.652Z  INFO 4332 --- [fintech-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
-2026-08-31T02:11:58.393Z  INFO 4332 --- [fintech-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
-2026-08-31T02:11:58.393Z  INFO 4332 --- [fintech-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
-2026-08-31T02:11:58.395Z  INFO 4332 --- [fintech-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 2 ms
-2026-08-31T02:11:58.428Z  INFO 4332 --- [fintech-api] [           main] c.s.f.FintechApiApplicationTests         : Started FintechApiApplicationTests in 3.717 seconds (process running for 5.202)
-2026-08-31T02:11:59.053Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=de62fa0b-b373-4814-a6dd-351c86b90edf method=POST path=/api/v1/auth/login status=200 duration_ms=300 user_id=anonymous tenant_id=-
-2026-08-31T02:11:59.258Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=e72429ca-d57c-46b4-8667-cc257305e4cd method=GET path=/api/v1/expenses status=200 duration_ms=165 user_id=u2 tenant_id=t1
-2026-08-31T02:11:59.279Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=67ab4539-ffe0-40f6-997c-056ba8cce068 method=GET path=/api/v1/payments status=200 duration_ms=13 user_id=u2 tenant_id=t1
+  <testcase name="queueStopsAfterMaxRetries" classname="com.spacecworp.fintechapi.notifications.RegistrationNotificationTests" time="0.071">
+    <system-out><![CDATA[2026-08-31T02:12:00.987Z  INFO 4332 --- [fintech-api] [           main] c.s.f.n.RegistrationEmailQueue           : event=registration_email_enqueued user_id=u1 tenant_id=t1 email=maria@example.com
+2026-08-31T02:12:00.988Z  WARN 4332 --- [fintech-api] [           main] c.s.f.n.RegistrationEmailQueue           : event=registration_email_retry_scheduled user_id=u1 tenant_id=t1 email=maria@example.com attempts=1 next_in_ms=1 error=smtp down
+2026-08-31T02:12:00.994Z  WARN 4332 --- [fintech-api] [           main] c.s.f.n.RegistrationEmailQueue           : event=registration_email_give_up user_id=u1 tenant_id=t1 email=maria@example.com attempts=2 error=smtp down
 ]]></system-out>
   </testcase>
-  <testcase name="signupTriggersRegistrationConfirmationEmail" classname="com.spacecworp.fintechapi.FintechApiApplicationTests" time="0.302">
-    <system-out><![CDATA[2026-08-31T02:11:59.588Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=a8b5712c-d102-4edc-911b-ef05e6cb8b89 method=POST path=/api/v1/auth/signup status=200 duration_ms=108 user_id=anonymous tenant_id=-
+  <testcase name="queueRetriesAndEventuallySends" classname="com.spacecworp.fintechapi.notifications.RegistrationNotificationTests" time="0.018">
+    <system-out><![CDATA[2026-08-31T02:12:01.011Z  INFO 4332 --- [fintech-api] [           main] c.s.f.n.RegistrationEmailQueue           : event=registration_email_enqueued user_id=u1 tenant_id=t1 email=maria@example.com
+2026-08-31T02:12:01.012Z  WARN 4332 --- [fintech-api] [           main] c.s.f.n.RegistrationEmailQueue           : event=registration_email_retry_scheduled user_id=u1 tenant_id=t1 email=maria@example.com attempts=1 next_in_ms=1 error=smtp down
 ]]></system-out>
   </testcase>
-  <testcase name="apiContractValidationErrorEnvelope" classname="com.spacecworp.fintechapi.FintechApiApplicationTests" time="0.209">
-    <system-out><![CDATA[2026-08-31T02:11:59.795Z  WARN 4332 --- [fintech-api] [           main] c.s.f.common.RestExceptionHandler        : event=api_error request_id=b3ccabb7-12e2-424c-9e12-81b8baffcbda status=400 path=/api/v1/auth/login message=password: must not be blank; email: must not be blank
-2026-08-31T02:11:59.804Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=b3ccabb7-12e2-424c-9e12-81b8baffcbda method=POST path=/api/v1/auth/login status=400 duration_ms=24 user_id=anonymous tenant_id=-
-]]></system-out>
-  </testcase>
-  <testcase name="fullFlowLoginExpensePlanPaymentAndConfirmation" classname="com.spacecworp.fintechapi.FintechApiApplicationTests" time="0.375">
-    <system-out><![CDATA[2026-08-31T02:12:00.075Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=44876762-8c41-409c-a7e7-8d975b24d0b4 method=POST path=/api/v1/auth/login status=200 duration_ms=86 user_id=anonymous tenant_id=-
-2026-08-31T02:12:00.127Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=1a27fc86-5a20-469f-9303-d40e9713303a method=POST path=/api/v1/expenses status=200 duration_ms=49 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.136Z  INFO 4332 --- [fintech-api] [           main] c.s.fintechapi.governance.AuditService   : event=audit action=plan.changed entity=tenant_plan entity_id=plan_t1 tenant_id=t1 user_id=u1 metadata={new_plan=premium, previous_plan=free}
-2026-08-31T02:12:00.140Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=7bcf04b7-724f-4fc0-a300-dc5cb1f56d0f method=POST path=/api/v1/plans/change status=200 duration_ms=10 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.153Z  INFO 4332 --- [fintech-api] [           main] c.s.fintechapi.governance.AuditService   : event=audit action=payment.created entity=payment entity_id=payments_1003 tenant_id=t1 user_id=u1 metadata={txid=PIX-001, verified_by_ai=true, plan=premium, amount=19.99, verified_by_mercado_pago=false, type=plano}
-2026-08-31T02:12:00.155Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=8886e6dd-a5e2-4b3f-88bd-b89ed52a0d1c method=POST path=/api/v1/payments status=200 duration_ms=13 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.165Z  INFO 4332 --- [fintech-api] [           main] c.s.fintechapi.governance.AuditService   : event=audit action=payment.confirmed entity=payment entity_id=payments_1003 tenant_id=t1 user_id=u1 metadata={verified_by_mercado_pago=true, txid=PIX-001, mercado_pago_payment_id=MP-123}
-2026-08-31T02:12:00.166Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=bdcc1693-bdcd-4fe9-84f4-2c342d79968b method=POST path=/api/v1/payments/payments_1003/confirm status=200 duration_ms=7 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.172Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=80705338-187d-4ebb-ad55-8943c9de6a54 method=GET path=/api/v1/payments/mercado-pago/status status=200 duration_ms=4 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.179Z  INFO 4332 --- [fintech-api] [           main] c.s.fintechapi.governance.AuditService   : event=audit action=payment.reconciled entity=payment entity_id=payments_1003 tenant_id=t1 user_id=u1 metadata={manual_txn_number=, txid=PIX-001, mercado_pago_payment_id=MP-123}
-2026-08-31T02:12:00.180Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=74cfd7cd-22a8-4d0c-8ad5-14b341ce2b8b method=POST path=/api/v1/payments/reconcile/mercado-pago status=200 duration_ms=6 user_id=u1 tenant_id=t1
-]]></system-out>
-  </testcase>
-  <testcase name="prioritizedModulesIntegrationContracts" classname="com.spacecworp.fintechapi.FintechApiApplicationTests" time="0.303">
-    <system-out><![CDATA[2026-08-31T02:12:00.443Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=7fd4d529-e3c0-4430-92ee-ed0c42107126 method=POST path=/api/v1/auth/login status=200 duration_ms=76 user_id=anonymous tenant_id=-
-2026-08-31T02:12:00.452Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=2b7cb69f-1f4b-43f3-b720-1b814e3e54a5 method=GET path=/api/v1/auth/me status=200 duration_ms=7 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.462Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=980d9570-af3d-49eb-b903-652800de81c5 method=GET path=/api/v1/users status=200 duration_ms=9 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.473Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=b73b6e36-9bc9-43ed-b488-4389c240b690 method=POST path=/api/v1/expense-rules status=200 duration_ms=9 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.479Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=90c30e41-1972-4c54-a967-5d84fe6d2bfa method=GET path=/api/v1/expenses/quota status=200 duration_ms=5 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.484Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=f80d194d-3f69-439f-88ef-fcb9554b9e7e method=GET path=/api/v1/plans status=200 duration_ms=3 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.488Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=00beee03-a218-4dc4-ad93-eae2a2622cb3 method=GET path=/api/v1/payments/mercado-pago/status status=200 duration_ms=2 user_id=u1 tenant_id=t1
-]]></system-out>
-  </testcase>
-  <testcase name="contextLoads" classname="com.spacecworp.fintechapi.FintechApiApplicationTests" time="0.153"/>
-  <testcase name="idempotencyPreventsDuplicateFinancialWrites" classname="com.spacecworp.fintechapi.FintechApiApplicationTests" time="0.276">
-    <system-out><![CDATA[2026-08-31T02:12:00.895Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=b42c0818-4f42-4d4b-9939-5affd415fb41 method=POST path=/api/v1/auth/login status=200 duration_ms=76 user_id=anonymous tenant_id=-
-2026-08-31T02:12:00.903Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=a6628411-c93c-4410-ab67-92ff5b2a940e method=POST path=/api/v1/expenses status=200 duration_ms=5 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.908Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=bbcce069-8526-479b-bcf9-0675009f69c0 method=POST path=/api/v1/expenses status=200 duration_ms=3 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.913Z  INFO 4332 --- [fintech-api] [           main] c.s.fintechapi.governance.AuditService   : event=audit action=payment.created entity=payment entity_id=payments_1002 tenant_id=t1 user_id=u1 metadata={txid=TX-PAY-IDEMP-1, verified_by_ai=false, plan=premium, amount=19.99, verified_by_mercado_pago=false, type=plano}
-2026-08-31T02:12:00.914Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=20ef553b-a1bf-46cb-bbe7-b56de7a261b2 method=POST path=/api/v1/payments status=200 duration_ms=4 user_id=u1 tenant_id=t1
-2026-08-31T02:12:00.919Z  INFO 4332 --- [fintech-api] [           main] c.s.f.o.RequestLoggingFilter             : event=http_request request_id=d6536c68-998d-40dc-9c0d-43ad630adbe1 method=POST path=/api/v1/payments status=200 duration_ms=3 user_id=u1 tenant_id=t1
-]]></system-out>
-  </testcase>
+  <testcase name="aiAgentGeneratesTextAndResponsiveHtml" classname="com.spacecworp.fintechapi.notifications.RegistrationNotificationTests" time="0.001"/>
 </testsuite>

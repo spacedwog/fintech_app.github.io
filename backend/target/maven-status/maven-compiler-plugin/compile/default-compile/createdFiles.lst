@@ -18,6 +18,7 @@ com/spacecworp/fintechapi/payments/PaymentController$ReconcileRequest.class
 com/spacecworp/fintechapi/payments/PaymentController$ConfirmRequest.class
 com/spacecworp/fintechapi/security/AuthUser.class
 com/spacecworp/fintechapi/plans/PlanCatalog.class
+com/spacecworp/fintechapi/notifications/RegistrationEmailQueue.class
 com/spacecworp/fintechapi/users/UserDocument.class
 com/spacecworp/fintechapi/expenses/ExpenseController$CategoryRequest.class
 com/spacecworp/fintechapi/expenses/ExpenseController.class
@@ -36,6 +37,7 @@ com/spacecworp/fintechapi/expenses/ExpenseDocument.class
 com/spacecworp/fintechapi/migration/MigrationController$RestorePayload.class
 com/spacecworp/fintechapi/common/RestExceptionHandler.class
 com/spacecworp/fintechapi/auth/AuthDtos$TenantPayload.class
+com/spacecworp/fintechapi/notifications/RegistrationEmailQueue$PendingEmail.class
 com/spacecworp/fintechapi/users/UserController$UserResponse.class
 com/spacecworp/fintechapi/users/UserController$InviteUserRequest.class
 com/spacecworp/fintechapi/users/UserController$UpdateRoleRequest.class
@@ -48,6 +50,7 @@ com/spacecworp/fintechapi/config/CorsConfig.class
 com/spacecworp/fintechapi/notifications/RegistrationEmailAiAgent$EmailContent.class
 com/spacecworp/fintechapi/budgets/BudgetLayoutDocument.class
 com/spacecworp/fintechapi/common/ApiException.class
+com/spacecworp/fintechapi/payments/ReceiptAnalysisAiAgent.class
 com/spacecworp/fintechapi/auth/AuthDtos.class
 com/spacecworp/fintechapi/security/SecurityUtils.class
 com/spacecworp/fintechapi/auth/AuthDtos$UserPayload.class
@@ -61,7 +64,9 @@ com/spacecworp/fintechapi/auth/AuthDtos$AuthResponse.class
 com/spacecworp/fintechapi/security/JwtService.class
 com/spacecworp/fintechapi/migration/MigrationController$ImportPayload.class
 com/spacecworp/fintechapi/users/UserController.class
+com/spacecworp/fintechapi/payments/ReceiptAnalysisAiAgent$ReceiptTextAnalysisResult.class
 com/spacecworp/fintechapi/firestore/FirestoreGateway.class
+com/spacecworp/fintechapi/payments/PaymentController$ReceiptTextAnalysisRequest.class
 com/spacecworp/fintechapi/security/SecurityConfig.class
 com/spacecworp/fintechapi/migration/MigrationController$LegacySingleDocPayload.class
 com/spacecworp/fintechapi/reports/SystemController$ImportCategoryBudgetsRequest.class
