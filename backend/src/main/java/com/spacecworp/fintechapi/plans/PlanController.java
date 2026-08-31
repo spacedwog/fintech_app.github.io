@@ -4,6 +4,7 @@ import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.governance.AuditService;
 import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.security.SecurityUtils;
 import jakarta.validation.Valid;
@@ -21,9 +22,11 @@ import java.util.Map;
 @RequestMapping("/api/v1/plans")
 public class PlanController {
     private final FirestoreGateway firestore;
+    private final AuditService auditService;
 
-    public PlanController(FirestoreGateway firestore) {
+    public PlanController(FirestoreGateway firestore, AuditService auditService) {
         this.firestore = firestore;
+        this.auditService = auditService;
     }
 
     public record ChangePlanRequest(@NotBlank String plan) {}
@@ -58,6 +61,7 @@ public class PlanController {
     @PostMapping("/change")
     public Map<String, Object> change(@Valid @RequestBody ChangePlanRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireAdmin(user);
         if (PlanCatalog.find(req.plan()) == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Plano inválido");
         }
@@ -65,9 +69,18 @@ public class PlanController {
         PlanSubscriptionDocument current = rows.isEmpty()
                 ? new PlanSubscriptionDocument(firestore.nextId(FirestoreCollections.PLANS), user.tenantId(), req.plan(), Instant.now().toString())
                 : rows.get(0);
+        String previousPlan = current.plan;
         current.plan = req.plan().toLowerCase();
         current.updated_at = Instant.now().toString();
         firestore.save(FirestoreCollections.PLANS, current.id, current);
+        auditService.record(
+                user,
+                "plan.changed",
+                "tenant_plan",
+                current.id,
+                "Plano alterado",
+                Map.of("previous_plan", previousPlan == null ? "" : previousPlan, "new_plan", current.plan)
+        );
         return Map.of("ok", true, "plan", current.plan);
     }
 

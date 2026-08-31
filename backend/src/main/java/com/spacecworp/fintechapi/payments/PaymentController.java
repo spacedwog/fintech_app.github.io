@@ -3,12 +3,14 @@ package com.spacecworp.fintechapi.payments;
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.governance.AuditService;
 import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.security.SecurityUtils;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -18,11 +20,14 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/payments")
+@Validated
 public class PaymentController {
     private final FirestoreGateway firestore;
+    private final AuditService auditService;
 
-    public PaymentController(FirestoreGateway firestore) {
+    public PaymentController(FirestoreGateway firestore, AuditService auditService) {
         this.firestore = firestore;
+        this.auditService = auditService;
     }
 
     public record PaymentRequest(
@@ -76,12 +81,28 @@ public class PaymentController {
         doc.manualTxnNumber = req.manualTxnNumber();
         doc.mercadoPagoPaymentId = req.mercadoPagoPaymentId();
         firestore.save(FirestoreCollections.PAYMENTS, id, doc);
+        auditService.record(
+                user,
+                "payment.created",
+                "payment",
+                doc.id,
+                "Pagamento registrado",
+                Map.of(
+                        "type", safe(doc.type),
+                        "plan", safe(doc.plan),
+                        "amount", doc.amount,
+                        "txid", safe(doc.txid),
+                        "verified_by_ai", Boolean.TRUE.equals(doc.verifiedByAI),
+                        "verified_by_mercado_pago", Boolean.TRUE.equals(doc.verifiedByMercadoPago)
+                )
+        );
         return doc;
     }
 
     @PostMapping("/{id}/confirm")
     public PaymentDocument confirmPayment(@PathVariable String id, @RequestBody(required = false) ConfirmRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireAdmin(user);
         PaymentDocument payment = firestore.findById(FirestoreCollections.PAYMENTS, id, PaymentDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Pagamento não encontrado"));
         if (!user.tenantId().equals(payment.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
@@ -92,13 +113,29 @@ public class PaymentController {
             if (req.txid() != null && !req.txid().isBlank()) payment.txid = req.txid();
         }
         firestore.save(FirestoreCollections.PAYMENTS, payment.id, payment);
+        auditService.record(
+                user,
+                "payment.confirmed",
+                "payment",
+                payment.id,
+                "Pagamento confirmado",
+                Map.of(
+                        "txid", safe(payment.txid),
+                        "mercado_pago_payment_id", safe(payment.mercadoPagoPaymentId),
+                        "verified_by_mercado_pago", Boolean.TRUE.equals(payment.verifiedByMercadoPago)
+                )
+        );
         return payment;
     }
 
     @PostMapping("/reconcile/mercado-pago")
     public Map<String, Object> reconcileMercadoPago(@RequestBody ReconcileRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireAdmin(user);
         if (req == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Payload de reconciliação obrigatório");
+        if (safe(req.txid()).isBlank() && safe(req.mercadoPagoPaymentId()).isBlank() && safe(req.manualTxnNumber()).isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Informe ao menos um identificador para reconciliação");
+        }
 
         List<PaymentDocument> tenantPayments = firestore.listByField(FirestoreCollections.PAYMENTS, "tenant_id", user.tenantId(), PaymentDocument.class);
         PaymentDocument found = tenantPayments.stream().filter(p ->
@@ -108,6 +145,18 @@ public class PaymentController {
         ).findFirst().orElse(null);
 
         if (found == null) {
+            auditService.record(
+                    user,
+                    "payment.reconcile.not_found",
+                    "payment",
+                    "-",
+                    "Reconciliação sem correspondência",
+                    Map.of(
+                            "txid", safe(req.txid()),
+                            "mercado_pago_payment_id", safe(req.mercadoPagoPaymentId()),
+                            "manual_txn_number", safe(req.manualTxnNumber())
+                    )
+            );
             return Map.of("ok", false, "matched", false, "message", "Nenhum pagamento correspondente encontrado");
         }
 
@@ -115,6 +164,18 @@ public class PaymentController {
         if (req.txid() != null && !req.txid().isBlank()) found.txid = req.txid();
         if (req.mercadoPagoPaymentId() != null && !req.mercadoPagoPaymentId().isBlank()) found.mercadoPagoPaymentId = req.mercadoPagoPaymentId();
         firestore.save(FirestoreCollections.PAYMENTS, found.id, found);
+        auditService.record(
+                user,
+                "payment.reconciled",
+                "payment",
+                found.id,
+                "Pagamento reconciliado com Mercado Pago",
+                Map.of(
+                        "txid", safe(found.txid),
+                        "mercado_pago_payment_id", safe(found.mercadoPagoPaymentId),
+                        "manual_txn_number", safe(req.manualTxnNumber())
+                )
+        );
 
         return Map.of("ok", true, "matched", true, "payment_id", found.id);
     }
