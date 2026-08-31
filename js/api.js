@@ -2598,6 +2598,7 @@ class BackendApiFacade {
   constructor(baseUrl, fallback) {
     this.baseUrl = String(baseUrl || "").replace(/\/+$/, "");
     this.fallback = fallback;
+    this._unavailable = false;
   }
 
   _getBearerToken() {
@@ -2612,14 +2613,25 @@ class BackendApiFacade {
   }
 
   async _request(path, opts = {}) {
+    if (this._unavailable) {
+      const err = new Error("Backend indisponível");
+      err.code = "BACKEND_UNAVAILABLE";
+      throw err;
+    }
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
     const bearer = this._getBearerToken();
     if (bearer) headers.Authorization = "Bearer " + bearer;
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...opts,
-      headers,
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
-    });
+    let response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        ...opts,
+        headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+      });
+    } catch (networkErr) {
+      this._unavailable = true;
+      throw networkErr;
+    }
     if (!response.ok) {
       let msg = `Erro HTTP ${response.status}`;
       try {
@@ -3074,10 +3086,28 @@ function resolveBackendApiBase() {
   }
   try {
     const fromStorage = localStorage.getItem("fintech_api_base_url");
-    return String(fromStorage || "").trim();
+    const fromStorageNormalized = String(fromStorage || "").trim();
+    if (fromStorageNormalized) return fromStorageNormalized;
   } catch (_err) {
-    return "";
+    // ignora indisponibilidade do localStorage
   }
+  try {
+    const loc = typeof window !== "undefined" ? window.location : null;
+    if (!loc) return "";
+    const protocol = String(loc.protocol || "");
+    if (protocol === "http:" || protocol === "https:") return String(loc.origin || "").trim();
+  } catch (_err) {
+    // ambiente sem window/location
+  }
+  return "";
+}
+
+function isBackendRecoverableError(err) {
+  if (!err) return false;
+  if (err.code === "BACKEND_UNAVAILABLE") return true;
+  if (err.name === "TypeError") return true;
+  const status = Number(err.status);
+  return status === 0 || status === 404 || status === 405 || status === 502 || status === 503 || status === 504;
 }
 
 const localApi = new ApiFacade();
@@ -3087,7 +3117,21 @@ const Api = backendBase
       get(target, prop) {
         if (prop in target) {
           const value = target[prop];
-          return typeof value === "function" ? value.bind(target) : value;
+          if (typeof value !== "function") return value;
+          return async (...args) => {
+            if (target._unavailable && typeof localApi[prop] === "function") {
+              return localApi[prop](...args);
+            }
+            try {
+              return await value.apply(target, args);
+            } catch (err) {
+              if (typeof localApi[prop] === "function" && isBackendRecoverableError(err)) {
+                target._unavailable = true;
+                return localApi[prop](...args);
+              }
+              throw err;
+            }
+          };
         }
         const fallbackValue = localApi[prop];
         return typeof fallbackValue === "function" ? fallbackValue.bind(localApi) : fallbackValue;
