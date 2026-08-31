@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.spacecworp.fintechapi.FintechApiApplicationTests
 -------------------------------------------------------------------------------
-Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.548 s -- in com.spacecworp.fintechapi.FintechApiApplicationTests
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.960 s -- in com.spacecworp.fintechapi.FintechApiApplicationTests
