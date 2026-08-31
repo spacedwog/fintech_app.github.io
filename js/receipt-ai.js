@@ -59,6 +59,7 @@
   // sem precisar de <script type="module">.
   var PDFJS_CDN_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js';
   var PDFJS_WORKER_CDN_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js';
+  var OCR_TIMEOUT_MS = 12000;
 
   // Extensões/MIME types aceitos no upload do comprovante.
   var SUPPORTED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'pdf'];
@@ -96,6 +97,20 @@
   function closeEnough(a, b, tol) {
     tol = tol == null ? 0.05 : tol;
     return Math.abs(a - b) <= tol;
+  }
+
+  function withTimeout(promise, timeoutMs, timeoutMessage) {
+    var timer = null;
+    return Promise.race([
+      promise,
+      new Promise(function (_resolve, reject) {
+        timer = setTimeout(function () {
+          reject(new Error(timeoutMessage || 'Tempo limite excedido.'));
+        }, timeoutMs);
+      }),
+    ]).finally(function () {
+      if (timer) clearTimeout(timer);
+    });
   }
 
   class OcrEngineLoader {
@@ -184,9 +199,8 @@
           return pdf.getPage(1);
         })
         .then(function (page) {
-          // Escala 2x: melhora bastante a precisão do OCR em relação ao
-          // tamanho "nativo" (72dpi) do PDF.
-          var viewport = page.getViewport({ scale: 2 });
+          // Escala 1.5x: mantém legibilidade, mas reduz custo de OCR.
+          var viewport = page.getViewport({ scale: 1.5 });
           var canvas = document.createElement('canvas');
           canvas.width = viewport.width;
           canvas.height = viewport.height;
@@ -274,12 +288,13 @@
   }
 
   class ReceiptAnalyzer {
-    constructor(ocrLoader, classifier, merchantCnpjDigits, merchantName, pdfPageRenderer) {
+    constructor(ocrLoader, classifier, merchantCnpjDigits, merchantName, pdfPageRenderer, backendAnalyzer) {
       this.ocrLoader = ocrLoader;
       this.classifier = classifier;
       this.merchantCnpjDigits = merchantCnpjDigits;
       this.merchantName = merchantName;
       this.pdfPageRenderer = pdfPageRenderer;
+      this.backendAnalyzer = backendAnalyzer;
     }
 
     /**
@@ -325,7 +340,11 @@
       return sourcePromise
         .then(function (source) {
           return self.ocrLoader.load().then(function (Tesseract) {
-            return Tesseract.recognize(source, 'por');
+            return withTimeout(
+              Tesseract.recognize(source, 'por'),
+              OCR_TIMEOUT_MS,
+              'A leitura do comprovante demorou demais. Use a confirmação manual com número da transação.'
+            );
           });
         })
         .then(function (result) {
@@ -339,16 +358,57 @@
           var amounts = self.classifier.parseAmounts(text);
           var c = self.classifier.classify(text, amounts, merchantMatches, ctx);
 
-          return {
+          var fallbackResult = {
             ok: true,
             rawText: text,
             merchantMatches: merchantMatches,
             amountMatches: c.amountMatches,
             detectedAmount: c.detectedAmount,
             classification: c.classification,
-            confidence: c.confidence
+            confidence: c.confidence,
+            transactionNumber: null,
           };
+
+          if (!self.backendAnalyzer || !self.backendAnalyzer.isAvailable()) {
+            return fallbackResult;
+          }
+          return self.backendAnalyzer.analyzeText(text, ctx).then(function (backendResult) {
+            if (!backendResult || backendResult.ok !== true) return fallbackResult;
+            return {
+              ok: true,
+              rawText: text,
+              merchantMatches: !!backendResult.merchantMatches,
+              amountMatches: !!backendResult.amountMatches,
+              detectedAmount:
+                typeof backendResult.detectedAmount === 'number'
+                  ? backendResult.detectedAmount
+                  : fallbackResult.detectedAmount,
+              classification: backendResult.classification || fallbackResult.classification,
+              confidence:
+                typeof backendResult.confidence === 'number'
+                  ? Math.max(0, Math.min(1, backendResult.confidence))
+                  : fallbackResult.confidence,
+              transactionNumber: backendResult.transactionNumber || null,
+            };
+          }).catch(function () {
+            return fallbackResult;
+          });
         });
+    }
+  }
+
+  class BackendReceiptAnalyzer {
+    isAvailable() {
+      return !!(global.Api && typeof global.Api.analyzeReceiptText === 'function');
+    }
+
+    analyzeText(rawText, ctx) {
+      if (!this.isAvailable()) return Promise.reject(new Error('Backend indisponível.'));
+      return global.Api.analyzeReceiptText({
+        rawText: String(rawText || ''),
+        expectedAmount: typeof ctx.expectedAmount === 'number' ? ctx.expectedAmount : null,
+        expectedType: ctx.expectedType || null,
+      });
     }
   }
 
@@ -357,7 +417,8 @@
     new ReceiptClassifier(REFERENCE_AMOUNTS),
     MERCHANT_CNPJ_DIGITS,
     MERCHANT_NAME,
-    new PdfPageRenderer(new PdfEngineLoader(PDFJS_CDN_URL, PDFJS_WORKER_CDN_URL))
+    new PdfPageRenderer(new PdfEngineLoader(PDFJS_CDN_URL, PDFJS_WORKER_CDN_URL)),
+    new BackendReceiptAnalyzer()
   );
 
   global.ReceiptAI = {

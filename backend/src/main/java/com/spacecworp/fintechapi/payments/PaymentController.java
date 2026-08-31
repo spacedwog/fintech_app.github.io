@@ -25,10 +25,12 @@ import java.util.Map;
 public class PaymentController {
     private final FirestoreGateway firestore;
     private final AuditService auditService;
+    private final ReceiptAnalysisAiAgent receiptAnalysisAiAgent;
 
-    public PaymentController(FirestoreGateway firestore, AuditService auditService) {
+    public PaymentController(FirestoreGateway firestore, AuditService auditService, ReceiptAnalysisAiAgent receiptAnalysisAiAgent) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.receiptAnalysisAiAgent = receiptAnalysisAiAgent;
     }
 
     public record PaymentRequest(
@@ -46,6 +48,7 @@ public class PaymentController {
 
     public record ConfirmRequest(Boolean verifiedByMercadoPago, String mercadoPagoPaymentId, String txid) {}
     public record ReconcileRequest(String txid, String mercadoPagoPaymentId, String manualTxnNumber) {}
+    public record ReceiptTextAnalysisRequest(String rawText, Double expectedAmount, String expectedType) {}
 
     @GetMapping
     public List<PaymentDocument> listPayments(
@@ -126,6 +129,16 @@ public class PaymentController {
                 )
         );
         return doc;
+    }
+
+    @PostMapping("/receipt/analyze-text")
+    public ReceiptAnalysisAiAgent.ReceiptTextAnalysisResult analyzeReceiptText(
+            @RequestBody(required = false) ReceiptTextAnalysisRequest req
+    ) {
+        if (req == null || safe(req.rawText()).isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Texto do comprovante é obrigatório");
+        }
+        return receiptAnalysisAiAgent.analyzeText(req.rawText(), req.expectedAmount(), req.expectedType());
     }
 
     @PostMapping("/{id}/confirm")

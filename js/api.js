@@ -2349,6 +2349,11 @@ class ApiFacade {
   addPayment(payload) {
     return this.paymentService.addPayment(payload);
   }
+  analyzeReceiptText(payload) {
+    const err = new Error("Análise de comprovante via backend indisponível no modo local.");
+    err.status = 501;
+    return Promise.reject(err);
+  }
 
   // ---------- Ads ----------
   listAds(filters) {
@@ -2853,6 +2858,9 @@ class BackendApiFacade {
   }
   addPayment(payload) {
     return this._request("/api/v1/payments", { method: "POST", body: payload });
+  }
+  analyzeReceiptText(payload) {
+    return this._request("/api/v1/payments/receipt/analyze-text", { method: "POST", body: payload });
   }
   async getMercadoPagoStatus() {
     const [status, expenses, payments] = await Promise.all([
