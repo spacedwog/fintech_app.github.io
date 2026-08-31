@@ -24,7 +24,7 @@ Gestão de despesas pessoais em arquitetura **fullstack web**: frontend em HTML/
 - [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)
 - [Landing page: anúncios Google (AdSense x Google Ads)](#landing-page-anúncios-google-adsense-x-google-ads)
 - [Escopo funcional mínimo (core x complementar)](#escopo-funcional-mínimo-core-x-complementar)
-- [Integração IBM/Mainframe (descontinuada)](#integração-ibmmainframe-descontinuada)
+- [Integração COBOL no financeiro](#integração-cobol-no-financeiro)
 - [Nota Fiscal (NFS-e): emissão real via Focus NFe](#nota-fiscal-nfs-e-emissão-real-via-focus-nfe)
 - [Como o sistema funciona por baixo dos panos](#como-o-sistema-funciona-por-baixo-dos-panos)
 - [Grau tecnológico atual](#grau-tecnológico-atual)
@@ -89,13 +89,13 @@ Para manter foco em **Gestão de Despesas Pessoais**, o produto passa a seguir e
 - Integrações externas opcionais (Mercado Pago e Open Finance)
 - Automações administrativas fora do navegador (`orcamento_agent/`)
 
-## Integração IBM/Mainframe (descontinuada)
+## Integração COBOL no financeiro
 
-As conexões com legado IBM/Mainframe foram removidas com segurança.
+A ponte `orcamento_agent/cobol_bridge.py` está ativa para reconciliação financeira local baseada em eventos COBOL em JSON.
 
-- `orcamento_agent/cobol_bridge.py` e `orcamento_agent/ibm_tso_bridge.py` permanecem apenas por compatibilidade de CLI e retornam status de desativação.
-- Não há mais abertura de sessão TSO, execução de comandos no Mainframe ou reconciliação COBOL ativa neste projeto.
-- O foco de integrações externas ativas permanece em Mercado Pago e Open Finance.
+- Faz conciliação por `payment_id`, `txid` ou `amount` (com filtro por tenant quando disponível).
+- Aplica quitação de pagamentos (`verifiedByAI=true`, `status=approved`) e mantém idempotência por `event_id`.
+- Funciona sobre `db.json` local e não depende de sessão TSO/Mainframe em tempo real.
 
 ## Navegue pelo painel (`dashboard.html`)
 

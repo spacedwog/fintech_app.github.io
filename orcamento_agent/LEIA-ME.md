@@ -25,8 +25,8 @@ mesmo cuidado de segurança (nenhum segredo sai da máquina local):
    (vendedor/usuário) para consultar pagamentos, cobranças, saldo e movimentações
    permitidas pela API, com sincronização idempotente para o painel web e projeção
    opcional em despesas (modelo prático).
-6. **`cobol_bridge.py`** — integração legada descontinuada; mantido apenas para
-   compatibilidade operacional e retorna status de desativação.
+6. **`cobol_bridge.py`** — ponte COBOL ativa para reconciliação financeira local
+   por eventos (`payment_id`/`txid`/`amount`) com idempotência por `event_id`.
 7. **`ibm_tso_bridge.py`** — conector IBM Mainframe descontinuado; mantido apenas
    para compatibilidade de CLI e retorna status de desativação.
 8. **`transaction_classifier_agent.py`** — classifica transações por categoria com
@@ -117,10 +117,10 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
 - `test_mp_list_activities.py` — teste automatizado do `mp_list_activities.py` com
   pagamentos simulados (não chama a API real). Rode `python3 test_mp_list_activities.py`
   depois de qualquer alteração no script.
-- `cobol_bridge.py` — integração legada descontinuada (compatibilidade de CLI).
+- `cobol_bridge.py` — reconciliação financeira COBOL ativa por eventos JSON.
 - `ibm_tso_bridge.py` — integração IBM Mainframe/TSO descontinuada (compatibilidade de CLI).
 - `test_ibm_tso_bridge.py` — valida o modo desativado do `ibm_tso_bridge.py`.
-- `test_cobol_bridge.py` — valida o modo desativado do `cobol_bridge.py`.
+- `test_cobol_bridge.py` — valida reconciliação ativa e persistência no `db.json`.
 - `transaction_classifier_agent.py` — agente de classificação de transações
   (entrada em JSON, saída em JSON com categoria + confiança + evidências), além
   de verificação de pagamento/transação no contexto Mercado Pago, validação de
@@ -180,21 +180,22 @@ descrições, e-mail de quem pagou) — os nomes sugeridos acima (`mp_activities
 já estão cobertos pelo `.gitignore`; se usar outro nome, adicione-o também antes de
 commitar.
 
-## Integrações legadas IBM/Mainframe descontinuadas
-As integrações `cobol_bridge.py` e `ibm_tso_bridge.py` foram removidas com
-segurança e permanecem apenas para compatibilidade operacional.
+## Integração COBOL financeira (eventos JSON)
+A ponte `cobol_bridge.py` está ativa para processar liquidações financeiras
+oriundas de sistemas COBOL via arquivo de eventos JSON.
 
-- Não abrem sessão TSO.
-- Não executam comandos de Mainframe.
-- Não processam eventos para reconciliação.
+- Reconcilia pagamentos por `payment_id`, `txid` ou `amount`.
+- Atualiza o `db.json` com status de quitação e metadados da liquidação.
+- Mantém idempotência com controle de `event_id` em `runtime_state`.
 
-Para validação da desativação:
+Validação:
 
 ```bash
 cd orcamento_agent
 python3 test_cobol_bridge.py
-python3 test_ibm_tso_bridge.py
 ```
+
+> `ibm_tso_bridge.py` segue descontinuado para execução remota TSO/Mainframe.
 
 ## Como configurar
 1. Gere um Access Token em developers.mercadopago.com.br (veja o passo a passo que te mandei — Suas integrações → aplicação → Credenciais de teste/produção).
