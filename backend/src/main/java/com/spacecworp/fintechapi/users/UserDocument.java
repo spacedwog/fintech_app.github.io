@@ -8,6 +8,8 @@ public class UserDocument {
     public String password;
     public String role;
     public String tax_document;
+    public Boolean consent_marketing;
+    public String consent_updated_at;
     public String created_at;
 
     public UserDocument() {}
@@ -20,6 +22,8 @@ public class UserDocument {
         this.password = password;
         this.role = role;
         this.tax_document = null;
+        this.consent_marketing = false;
+        this.consent_updated_at = null;
         this.created_at = created_at;
     }
 }

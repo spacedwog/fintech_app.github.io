@@ -2940,6 +2940,120 @@ class BackendApiFacade {
   changePassword(payload) {
     return this._request("/api/v1/users/me/change-password", { method: "POST", body: payload });
   }
+  listBudgets(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/budgets${params}`);
+  }
+  setBudget(payload) {
+    return this._request("/api/v1/budgets", { method: "POST", body: payload });
+  }
+  deleteBudget(id) {
+    return this._request(`/api/v1/budgets/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  getAlerts(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/alerts${params}`);
+  }
+  listCategoryBudgets(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/category-budgets${params}`);
+  }
+  setCategoryBudget(payload) {
+    return this._request("/api/v1/category-budgets", { method: "POST", body: payload });
+  }
+  deleteCategoryBudget(id) {
+    return this._request(`/api/v1/category-budgets/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  importCategoryBudgets(payload) {
+    return this._request("/api/v1/category-budgets/import", { method: "POST", body: payload });
+  }
+  getBudgetImportQuota() {
+    return this._request("/api/v1/category-budgets/quota");
+  }
+  getBudgetOverview(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/category-budgets/overview${params}`);
+  }
+  copyCategoryBudgetsRecurring(payload) {
+    return this._request("/api/v1/category-budgets/copy-recurring", {
+      method: "POST",
+      body: payload,
+    });
+  }
+  listBudgetGroups() {
+    return this._request("/api/v1/budget-groups");
+  }
+  monthlyReport(allUsers = false) {
+    return this._request(`/api/v1/reports/monthly?allUsers=${allUsers ? "true" : "false"}`);
+  }
+  categoryReport(allUsers = false) {
+    return this._request(`/api/v1/reports/category?allUsers=${allUsers ? "true" : "false"}`);
+  }
+  getMonthlyProjection(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/projection${params}`);
+  }
+  getMonthlyCloseChecklist(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/monthly-close-checklist${params}`);
+  }
+  getConsolidatedExportData(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/consolidated-export${params}`);
+  }
+  getTransactionOriginReport(month) {
+    const params = month ? `?month=${encodeURIComponent(month)}` : "";
+    return this._request(`/api/v1/reports/transaction-origin${params}`);
+  }
+  listBudgetLayouts() {
+    return this._request("/api/v1/budget-layouts");
+  }
+  saveBudgetLayout(payload) {
+    return this._request("/api/v1/budget-layouts", { method: "POST", body: payload });
+  }
+  deleteBudgetLayout(id) {
+    return this._request(`/api/v1/budget-layouts/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  listAds() {
+    return this._request("/api/v1/ads");
+  }
+  createAd(payload) {
+    return this._request("/api/v1/ads", { method: "POST", body: payload });
+  }
+  updateAd(id, payload) {
+    return this._request(`/api/v1/ads/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  }
+  deleteAd(id) {
+    return this._request(`/api/v1/ads/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  getCompanyProfile() {
+    return this._request("/api/v1/company-profile");
+  }
+  getMarketplaceCustomerProfile() {
+    return this._request("/api/v1/company-profile");
+  }
+  getPrivacyConsent() {
+    return this._request("/api/v1/privacy-consent");
+  }
+  setPrivacyConsent(consentMarketing) {
+    return this._request("/api/v1/privacy-consent", {
+      method: "POST",
+      body: { consent_marketing: !!consentMarketing },
+    });
+  }
+  exportMyData() {
+    return this._request("/api/v1/my-data/export");
+  }
+  deleteAccount() {
+    return this._request("/api/v1/account", { method: "DELETE" });
+  }
+  listAuditTrail(options = {}) {
+    const params = new URLSearchParams();
+    if (options.limit != null) params.set("limit", String(options.limit));
+    if (options.allUsers != null) params.set("allUsers", options.allUsers ? "true" : "false");
+    const query = params.toString();
+    return this._request(`/api/v1/audit-trail${query ? `?${query}` : ""}`);
+  }
 }
 
 function resolveBackendApiBase() {
