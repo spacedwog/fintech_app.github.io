@@ -3102,39 +3102,6 @@ function resolveBackendApiBase() {
   return "";
 }
 
-function isBackendRecoverableError(err) {
-  if (!err) return false;
-  if (err.code === "BACKEND_UNAVAILABLE") return true;
-  if (err.name === "TypeError") return true;
-  const status = Number(err.status);
-  return status === 0 || status === 404 || status === 405 || status === 502 || status === 503 || status === 504;
-}
-
 const localApi = new ApiFacade();
 const backendBase = resolveBackendApiBase();
-const Api = backendBase
-  ? new Proxy(new BackendApiFacade(backendBase, localApi), {
-      get(target, prop) {
-        if (prop in target) {
-          const value = target[prop];
-          if (typeof value !== "function") return value;
-          return async (...args) => {
-            if (target._unavailable && typeof localApi[prop] === "function") {
-              return localApi[prop](...args);
-            }
-            try {
-              return await value.apply(target, args);
-            } catch (err) {
-              if (typeof localApi[prop] === "function" && isBackendRecoverableError(err)) {
-                target._unavailable = true;
-                return localApi[prop](...args);
-              }
-              throw err;
-            }
-          };
-        }
-        const fallbackValue = localApi[prop];
-        return typeof fallbackValue === "function" ? fallbackValue.bind(localApi) : fallbackValue;
-      },
-    })
-  : localApi;
+const Api = backendBase ? new BackendApiFacade(backendBase, localApi) : localApi;

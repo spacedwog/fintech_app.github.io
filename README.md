@@ -884,8 +884,8 @@ O `js/api.js` agora prioriza backend automaticamente:
 - Se existir API HTTP no mesmo origin da página (`window.location.origin`), o frontend usa REST por padrão.
 - Você ainda pode forçar um endpoint específico com `localStorage.setItem("fintech_api_base_url", "http://localhost:8080")`
   (ou `globalThis.__FINTECH_API_BASE__`).
-- Se o backend estiver indisponível (erro de rede/404/503), o frontend entra em fallback local automaticamente para manter o app funcionando.
-- Métodos não migrados seguem no fallback local para preservar compatibilidade de tela.
+- Se o backend estiver indisponível (erro de rede/404/503), o frontend mantém o erro da API (não há fallback automático para `localStorage` quando um endpoint backend está configurado).
+- O modo local (`localStorage`/Firestore no browser) só é usado quando não existe endpoint backend resolvido.
 
 ### Como rodar o backend
 
@@ -918,7 +918,7 @@ Ou, via workbench PowerShell na raiz do projeto:
     - `APP_REGISTRATION_EMAIL_RETRY_BASE_DELAY_MS` (default: `2000`)
 
 - **Modo backend (padrão quando disponível):** dados e autenticação passam pela API Spring Boot, com token JWT assinado no servidor e separação por `tenant_id` nas consultas/escritas.
-- **Modo local (fallback):** sem backend disponível, o app mantém o comportamento anterior (localStorage/Firestore no browser), incluindo as limitações de sincronização e fronteira de segurança lógica.
+- **Modo local (legado):** só é usado quando nenhum endpoint backend foi configurado/resolvido; mantém o comportamento anterior (localStorage/Firestore no browser), incluindo as limitações de sincronização e fronteira de segurança lógica.
 - **Concorrência no modo local:** reconexão offline usa merge de 3 vias em `js/db.js` (validado por `tests/firebase-sync.test.js`), mas gravações simultâneas online ainda seguem modelo "última gravação vence".
 - IDs de novos registros no modo local continuam sendo strings geradas no dispositivo (timestamp + sufixo aleatório), por desenho, para evitar colisão entre dispositivos.
 - **Confirmação de pagamento não é tempo real:** nem a IA de OCR do comprovante nem o `mp_reconcile.py` são um webhook bancário — o primeiro depende do usuário enviar o comprovante, o segundo depende de alguém rodar o script (manual ou agendado) e casa por valor+data, não por um identificador exato (ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)).
