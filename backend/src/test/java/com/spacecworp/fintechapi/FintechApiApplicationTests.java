@@ -10,6 +10,7 @@ import com.spacecworp.fintechapi.expenses.ExpenseRuleDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.FirestoreGateway;
 import com.spacecworp.fintechapi.governance.AuditEventDocument;
+import com.spacecworp.fintechapi.notifications.RegistrationConfirmationEmailService;
 import com.spacecworp.fintechapi.payments.PaymentDocument;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
 import com.spacecworp.fintechapi.users.UserDocument;
@@ -32,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -54,6 +57,9 @@ class FintechApiApplicationTests {
     @MockBean
     FirestoreGateway firestoreGateway;
 
+    @MockBean
+    RegistrationConfirmationEmailService registrationConfirmationEmailService;
+
     private final Map<String, Map<String, Object>> store = new HashMap<>();
     private final AtomicLong idSeq = new AtomicLong(1000);
 
@@ -75,6 +81,25 @@ class FintechApiApplicationTests {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void signupTriggersRegistrationConfirmationEmail() throws Exception {
+        String body = """
+                {
+                  "company_name":"Empresa X",
+                  "admin_name":"Maria Souza",
+                  "email":"maria@example.com",
+                  "password":"senha123"
+                }
+                """;
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.email").value("maria@example.com"));
+        verify(registrationConfirmationEmailService, times(1)).sendRegistrationConfirmation(any(UserDocument.class), any(TenantDocument.class));
     }
 
     @Test

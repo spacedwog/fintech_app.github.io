@@ -4,6 +4,7 @@ import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.notifications.RegistrationConfirmationEmailService;
 import com.spacecworp.fintechapi.plans.PlanController;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
 import com.spacecworp.fintechapi.security.AuthUser;
@@ -22,12 +23,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final PlanController planController;
+    private final RegistrationConfirmationEmailService registrationConfirmationEmailService;
 
-    public AuthService(FirestoreGateway firestore, PasswordEncoder passwordEncoder, JwtService jwtService, PlanController planController) {
+    public AuthService(
+            FirestoreGateway firestore,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            PlanController planController,
+            RegistrationConfirmationEmailService registrationConfirmationEmailService
+    ) {
         this.firestore = firestore;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.planController = planController;
+        this.registrationConfirmationEmailService = registrationConfirmationEmailService;
     }
 
     public AuthDtos.AuthResponse signup(AuthDtos.SignupRequest req) {
@@ -39,7 +48,8 @@ public class AuthService {
         String tenantId = firestore.nextId(FirestoreCollections.TENANTS);
         String userId = firestore.nextId(FirestoreCollections.USERS);
 
-        firestore.save(FirestoreCollections.TENANTS, tenantId, new TenantDocument(tenantId, req.company_name(), now));
+        TenantDocument tenant = new TenantDocument(tenantId, req.company_name(), now);
+        firestore.save(FirestoreCollections.TENANTS, tenantId, tenant);
 
         UserDocument user = new UserDocument(
                 userId,
@@ -61,6 +71,7 @@ public class AuthService {
             firestore.save(FirestoreCollections.CATEGORIES, categoryId, new CategoryDocument(categoryId, tenantId, categoryName));
         }
 
+        registrationConfirmationEmailService.sendRegistrationConfirmation(user, tenant);
         return toAuthResponse(user);
     }
 

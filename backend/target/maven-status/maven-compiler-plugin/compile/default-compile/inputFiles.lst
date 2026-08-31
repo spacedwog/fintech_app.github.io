@@ -22,6 +22,8 @@
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/governance/AuditEventDocument.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/governance/AuditService.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/migration/MigrationController.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/notifications/RegistrationConfirmationEmailService.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/notifications/RegistrationEmailAiAgent.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/observability/RequestLoggingFilter.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/payments/PaymentController.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/payments/PaymentDocument.java

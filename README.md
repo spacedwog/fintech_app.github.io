@@ -879,6 +879,15 @@ mvn spring-boot:run
 
 > Requer credenciais válidas para `GoogleCredentials.getApplicationDefault()` (Firestore).
 
+- **Confirmação de cadastro por e-mail (backend Java):**
+  - O `POST /api/v1/auth/signup` dispara envio de e-mail de confirmação ao cliente.
+  - O conteúdo é gerado por um agente IA interno (`RegistrationEmailAiAgent`) e enviado via SMTP (`spring-boot-starter-mail`).
+  - Variáveis úteis:
+    - `APP_REGISTRATION_EMAIL_ENABLED` (default: `true`)
+    - `APP_REGISTRATION_EMAIL_FROM` (default: `no-reply@spacecworp.com`)
+    - `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`
+    - `SPRING_MAIL_SMTP_AUTH`, `SPRING_MAIL_SMTP_STARTTLS`
+
 - **Sem Firebase configurado:** os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes — e limpar o cache/localStorage apaga todos os dados.
 - **Com Firebase configurado:** os dados sincronizam entre dispositivos, mas a segurança continua sendo apenas lógica (ver [Multi-tenancy](#como-o-sistema-funciona-por-baixo-dos-panos)) — não há Firebase Authentication real, então quem tiver a `apiKey` do projeto (pública, no código-fonte) pode ler/escrever o documento do Firestore diretamente.
 - Não há verdadeira separação de acesso entre "contas" — é só uma organização lógica dos dados dentro do mesmo documento/storage.
