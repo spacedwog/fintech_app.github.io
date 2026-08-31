@@ -879,12 +879,13 @@ Foi adicionada uma implementação de backend em **Spring Boot** no diretório a
 
 ### Frontend atual consumindo REST sem redesenho de UI
 
-O `js/api.js` agora suporta modo backend por configuração:
+O `js/api.js` agora prioriza backend automaticamente:
 
-- Defina `localStorage.setItem("fintech_api_base_url", "http://localhost:8080")`
-  (ou `globalThis.__FINTECH_API_BASE__`) para ativar chamadas REST nos módulos migrados.
-- Sem configuração, o comportamento anterior (client-side/localStorage/Firestore no browser) continua igual.
-- Métodos não migrados ainda seguem no fallback local para preservar compatibilidade de tela.
+- Se existir API HTTP no mesmo origin da página (`window.location.origin`), o frontend usa REST por padrão.
+- Você ainda pode forçar um endpoint específico com `localStorage.setItem("fintech_api_base_url", "http://localhost:8080")`
+  (ou `globalThis.__FINTECH_API_BASE__`).
+- Se o backend estiver indisponível (erro de rede/404/503), o frontend entra em fallback local automaticamente para manter o app funcionando.
+- Métodos não migrados seguem no fallback local para preservar compatibilidade de tela.
 
 ### Como rodar o backend
 
@@ -916,14 +917,12 @@ Ou, via workbench PowerShell na raiz do projeto:
     - `APP_REGISTRATION_EMAIL_RETRY_MAX_ATTEMPTS` (default: `3`)
     - `APP_REGISTRATION_EMAIL_RETRY_BASE_DELAY_MS` (default: `2000`)
 
-- **Sem Firebase configurado:** os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes — e limpar o cache/localStorage apaga todos os dados.
-- **Com Firebase configurado:** os dados sincronizam entre dispositivos, mas a segurança continua sendo apenas lógica (ver [Multi-tenancy](#como-o-sistema-funciona-por-baixo-dos-panos)) — não há Firebase Authentication real, então quem tiver a `apiKey` do projeto (pública, no código-fonte) pode ler/escrever o documento do Firestore diretamente.
-- Não há verdadeira separação de acesso entre "contas" — é só uma organização lógica dos dados dentro do mesmo documento/storage.
-- **Concorrência (reconectar depois de ficar offline):** quando um dispositivo que ficou offline volta a sincronizar, `js/db.js` faz um merge de 3 vias antes de gravar — isso evita que criações/edições/exclusões feitas em OUTRO dispositivo nesse meio tempo sejam apagadas (validado por `tests/firebase-sync.test.js`).
-- **Concorrência (duas gravações ao mesmo tempo, ambas online):** fora do cenário acima, gravações simultâneas dentro da mesma pequena janela de tempo ainda seguem o modelo simples "a última gravação vence" — sem travamento nem transação do Firestore nesse caminho.
-- IDs de novos registros (despesas, categorias etc.) são strings geradas no dispositivo (timestamp + sufixo aleatório), não um contador sequencial — de propósito, para não colidir quando dois dispositivos criam registros ao mesmo tempo.
+- **Modo backend (padrão quando disponível):** dados e autenticação passam pela API Spring Boot, com token JWT assinado no servidor e separação por `tenant_id` nas consultas/escritas.
+- **Modo local (fallback):** sem backend disponível, o app mantém o comportamento anterior (localStorage/Firestore no browser), incluindo as limitações de sincronização e fronteira de segurança lógica.
+- **Concorrência no modo local:** reconexão offline usa merge de 3 vias em `js/db.js` (validado por `tests/firebase-sync.test.js`), mas gravações simultâneas online ainda seguem modelo "última gravação vence".
+- IDs de novos registros no modo local continuam sendo strings geradas no dispositivo (timestamp + sufixo aleatório), por desenho, para evitar colisão entre dispositivos.
 - **Confirmação de pagamento não é tempo real:** nem a IA de OCR do comprovante nem o `mp_reconcile.py` são um webhook bancário — o primeiro depende do usuário enviar o comprovante, o segundo depende de alguém rodar o script (manual ou agendado) e casa por valor+data, não por um identificador exato (ver [Mercado Pago: confirmação automática de pagamentos](#mercado-pago-confirmação-automática-de-pagamentos)).
-- Para um SaaS real, com múltiplos usuários acessando de dispositivos diferentes e dados protegidos de verdade, o próximo passo seria adicionar Firebase Authentication e regras de segurança do Firestore por usuário (ver [Roadmap](#roadmap)).
-- **OAuth 2.0 próprio (`js/oauth.js`):** implementa o protocolo corretamente (Authorization Code + PKCE, tokens JWT assinados, revogação/rotação, exigência de canal protegido no fluxo e trilha local de auditoria/trace_id dos eventos OAuth — ver [Autenticação](#como-o-sistema-funciona-por-baixo-dos-panos)), mas a chave de assinatura mora no mesmo navegador do "banco" — não é uma fronteira de segurança real contra quem tem acesso a este dispositivo, e não interopera com apps terceiros (não é "Entrar com..." nenhum provedor externo).
+- Para uso SaaS em produção pública, mantenha o fluxo no backend e restrinja acesso direto ao Firestore para apenas service accounts do servidor.
+- **OAuth 2.0 próprio (`js/oauth.js`) no fallback local:** implementa o protocolo corretamente (Authorization Code + PKCE, tokens JWT assinados, revogação/rotação, exigência de canal protegido no fluxo e trilha local de auditoria/trace_id dos eventos OAuth), mas não é fronteira de segurança real contra quem tem acesso ao dispositivo.
 - **Nota Fiscal (NFS-e):** `nfse_issuer.py` só emite nota real depois que você contrata uma conta própria num provedor (Focus NFe, referência usada aqui) com certificado digital e-CNPJ — nada disso é fornecido por este repositório. Sem essa configuração, pagamentos ficam com `nfseStatus` pendente/aguardando documento, nunca uma nota fantasma.
 - **Certificação ISO:** este repositório mantém artefatos de conformidade em `compliance/`, mas isso não substitui um gap assessment profissional nem uma auditoria externa. Nenhuma norma está certificada hoje.
