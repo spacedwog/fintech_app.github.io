@@ -843,7 +843,13 @@ Foi adicionada uma implementação de backend em **Spring Boot** no diretório a
   - `expenses` (`/api/v1/expenses`, `/api/v1/expenses/quota`, `/api/v1/categories`)
   - `plans` (`/api/v1/plans`, `/api/v1/plans/change`)
   - `payments` (`/api/v1/payments`, `/api/v1/payments/mercado-pago/status`)
-- Migração/cutover inicial: `POST /api/v1/migration/import` (importa estrutura atual de dados)
+- Migração/cutover (documento legado `fintech_saas/db_v1` → coleções backend):
+  - `POST /api/v1/migration/map-legacy` (mapeia e mostra prévia + validação)
+  - `POST /api/v1/migration/import-legacy` (executa migração inicial e valida consistência)
+  - `GET /api/v1/migration/validate` (consistência por tenant/usuário)
+  - `GET /api/v1/migration/snapshot` (backup operacional pré-cutover)
+  - `POST /api/v1/migration/restore` (rollback com restore; suporta `wipe_first=true`)
+  - `GET /api/v1/migration/cutover-runbook` (plano de virada única + rollback)
 
 ### Contrato e padrão de erro
 
