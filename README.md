@@ -647,6 +647,22 @@ python -m http.server 5500
 
 Acesse `http://localhost:5500`.
 
+**Opção 3 — workbench em PowerShell (`.ps1`):**
+
+```powershell
+./scripts/workbench.ps1 -Action status
+./scripts/workbench.ps1 -Action frontend
+./scripts/workbench.ps1 -Action backend
+./scripts/workbench.ps1 -Action start
+./scripts/workbench.ps1 -Action test
+```
+
+- `status`: verifica pré-requisitos (`node`, `npm`, `python`, `mvn`)
+- `frontend`: inicia servidor local para o painel web
+- `backend`: inicia API Spring Boot
+- `start`: inicia frontend + backend
+- `test`: roda testes Node do painel e `mvn test` do backend
+
 ## Primeiro uso
 
 1. Abra `index.html` (ou `login.html` diretamente), clique em "Criar conta" e cadastre a primeira conta (você vira `admin` do tenant).
@@ -875,6 +891,14 @@ O `js/api.js` agora suporta modo backend por configuração:
 ```bash
 cd /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend
 mvn spring-boot:run
+```
+
+Ou, via workbench PowerShell na raiz do projeto:
+
+```powershell
+./scripts/workbench.ps1 -Action backend
+# ou:
+./scripts/workbench.ps1 -Action start
 ```
 
 > Requer credenciais válidas para `GoogleCredentials.getApplicationDefault()` (Firestore).
