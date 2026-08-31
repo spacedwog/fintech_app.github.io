@@ -1,8 +1,13 @@
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/FintechApiApplication.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/ads/AdDocument.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/auth/AuthController.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/auth/AuthDtos.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/auth/AuthService.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/auth/TenantDocument.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/budgets/BudgetDocument.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/budgets/BudgetGroupDocument.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/budgets/BudgetLayoutDocument.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/budgets/CategoryBudgetDocument.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/common/ApiError.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/common/ApiException.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/common/RestExceptionHandler.java
@@ -23,6 +28,7 @@
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/plans/PlanCatalog.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/plans/PlanController.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/plans/PlanSubscriptionDocument.java
+/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/reports/SystemController.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/security/AuthUser.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/security/JwtAuthenticationFilter.java
 /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend/src/main/java/com/spacecworp/fintechapi/security/JwtService.java

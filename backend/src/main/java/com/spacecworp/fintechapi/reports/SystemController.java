@@ -1,21 +1,22 @@
 package com.spacecworp.fintechapi.reports;
 
 import com.spacecworp.fintechapi.ads.AdDocument;
-import com.spacecworp.fintechapi.auth.AuthenticatedUser;
-import com.spacecworp.fintechapi.auth.CurrentUser;
-import com.spacecworp.fintechapi.auth.ForbiddenException;
+import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.budgets.BudgetDocument;
 import com.spacecworp.fintechapi.budgets.BudgetGroupDocument;
 import com.spacecworp.fintechapi.budgets.BudgetLayoutDocument;
 import com.spacecworp.fintechapi.budgets.CategoryBudgetDocument;
+import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.FirestoreGateway;
 import com.spacecworp.fintechapi.governance.AuditService;
+import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.users.UserDocument;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,14 +38,14 @@ public class SystemController {
     }
 
     @GetMapping("/budgets")
-    public List<BudgetDocument> listBudgets(@CurrentUser AuthenticatedUser currentUser,
+    public List<BudgetDocument> listBudgets(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                             @RequestParam(required = false) String month) {
         List<BudgetDocument> list = firestoreGateway.listByField(FirestoreCollections.BUDGETS, "tenant_id", currentUser.tenantId(), BudgetDocument.class);
         return list.stream().filter(b -> month == null || month.equals(b.month)).collect(Collectors.toList());
     }
 
     @PostMapping("/budgets")
-    public BudgetDocument setBudget(@CurrentUser AuthenticatedUser currentUser,
+    public BudgetDocument setBudget(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                     @Valid @RequestBody SetBudgetRequest request) {
         double limit = request.limit_value != null ? request.limit_value : (request.limit != null ? request.limit : Double.NaN);
         if (!Double.isFinite(limit)) throw new IllegalArgumentException("Limite é obrigatório.");
@@ -61,17 +62,17 @@ public class SystemController {
     }
 
     @DeleteMapping("/budgets/{id}")
-    public Map<String, Object> deleteBudget(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> deleteBudget(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                             @PathVariable String id) {
         BudgetDocument doc = firestoreGateway.findById(FirestoreCollections.BUDGETS, id, BudgetDocument.class)
                 .orElseThrow(() -> new NoSuchElementException("Budget not found"));
-        if (!currentUser.tenantId().equals(doc.tenant_id)) throw new ForbiddenException("Forbidden");
+        if (!currentUser.tenantId().equals(doc.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         firestoreGateway.delete(FirestoreCollections.BUDGETS, id);
         return Map.of("ok", true);
     }
 
     @GetMapping("/alerts")
-    public Map<String, Object> getAlerts(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> getAlerts(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                          @RequestParam(required = false) String month) {
         String targetMonth = month != null ? month : Instant.now().toString().substring(0, 7);
         List<ExpenseDocument> expenses = firestoreGateway.listByField(FirestoreCollections.EXPENSES, "tenant_id", currentUser.tenantId(), ExpenseDocument.class);
@@ -93,14 +94,14 @@ public class SystemController {
     }
 
     @GetMapping("/category-budgets")
-    public List<CategoryBudgetDocument> listCategoryBudgets(@CurrentUser AuthenticatedUser currentUser,
+    public List<CategoryBudgetDocument> listCategoryBudgets(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                             @RequestParam(required = false) String month) {
         return firestoreGateway.listByField(FirestoreCollections.CATEGORY_BUDGETS, "tenant_id", currentUser.tenantId(), CategoryBudgetDocument.class)
                 .stream().filter(c -> month == null || month.equals(c.month)).collect(Collectors.toList());
     }
 
     @PostMapping("/category-budgets")
-    public CategoryBudgetDocument upsertCategoryBudget(@CurrentUser AuthenticatedUser currentUser,
+    public CategoryBudgetDocument upsertCategoryBudget(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                        @Valid @RequestBody UpsertCategoryBudgetRequest request) {
         List<CategoryBudgetDocument> existingRows = firestoreGateway.listByField(FirestoreCollections.CATEGORY_BUDGETS, "tenant_id", currentUser.tenantId(), CategoryBudgetDocument.class);
         Optional<CategoryBudgetDocument> existing = existingRows.stream().filter(cb ->
@@ -121,16 +122,16 @@ public class SystemController {
     }
 
     @DeleteMapping("/category-budgets/{id}")
-    public Map<String, Object> deleteCategoryBudget(@CurrentUser AuthenticatedUser currentUser, @PathVariable String id) {
+    public Map<String, Object> deleteCategoryBudget(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser, @PathVariable String id) {
         CategoryBudgetDocument doc = firestoreGateway.findById(FirestoreCollections.CATEGORY_BUDGETS, id, CategoryBudgetDocument.class)
                 .orElseThrow(() -> new NoSuchElementException("Category budget not found"));
-        if (!currentUser.tenantId().equals(doc.tenant_id)) throw new ForbiddenException("Forbidden");
+        if (!currentUser.tenantId().equals(doc.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         firestoreGateway.delete(FirestoreCollections.CATEGORY_BUDGETS, id);
         return Map.of("ok", true);
     }
 
     @PostMapping("/category-budgets/import")
-    public Map<String, Object> importCategoryBudgets(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> importCategoryBudgets(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                      @Valid @RequestBody ImportCategoryBudgetsRequest request) {
         Map<String, Double> rowsByCategory = new LinkedHashMap<>();
         for (ImportCategoryBudgetsRequest.Line row : request.rows) {
@@ -157,27 +158,27 @@ public class SystemController {
             created++;
             applied.add(Map.of("category_id", doc.category_id, "category_name", doc.category_name, "previsto", doc.previsto));
         }
-        auditService.log(
+        auditService.record(
+                currentUser,
                 "budget.category_imported",
                 "category_budget",
+                "",
                 "Imported category budgets",
-                currentUser.userId(),
-                currentUser.tenantId(),
-                Map.of("count", created, "month", request.month)
+                new LinkedHashMap<>(Map.of("count", created, "month", request.month))
         );
         return Map.of("month", request.month, "created_categories", 0, "categories_count", applied.size(), "rows", applied, "is_extra", false, "extra_charge", 0);
     }
 
     @GetMapping("/category-budgets/quota")
-    public Map<String, Object> getCategoryBudgetImportQuota(@CurrentUser AuthenticatedUser currentUser) {
-        List<Map<String, Object>> userEvents = firestoreGateway.listByField(FirestoreCollections.AUDIT_EVENTS, "tenant_id", currentUser.tenantId(), Map.class);
+    public Map<String, Object> getCategoryBudgetImportQuota(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
+        List<Map> userEvents = firestoreGateway.listByField(FirestoreCollections.AUDIT_EVENTS, "tenant_id", currentUser.tenantId(), Map.class);
         long used = userEvents.stream().filter(e -> Objects.equals(e.get("user_id"), currentUser.userId()) && Objects.equals(e.get("action"), "budget.category_imported")).count();
         long dailyLimit = "admin".equals(currentUser.role()) ? 999 : 30;
         return Map.of("plan", "free", "used_today", used, "max_per_day", dailyLimit, "overage_price", 0, "unlimited", false);
     }
 
     @GetMapping("/category-budgets/overview")
-    public Map<String, Object> getBudgetOverview(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> getBudgetOverview(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                  @RequestParam(required = false) String month) {
         String targetMonth = month != null ? month : Instant.now().toString().substring(0, 7);
         List<ExpenseDocument> expenses = firestoreGateway.listByField(FirestoreCollections.EXPENSES, "tenant_id", currentUser.tenantId(), ExpenseDocument.class);
@@ -212,7 +213,7 @@ public class SystemController {
     }
 
     @PostMapping("/category-budgets/copy-recurring")
-    public Map<String, Object> copyRecurringBudget(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> copyRecurringBudget(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                    @Valid @RequestBody CopyRecurringBudgetRequest request) {
         String sourceMonth = request.sourceMonth;
         if (sourceMonth == null || sourceMonth.isBlank()) {
@@ -250,30 +251,44 @@ public class SystemController {
     }
 
     @GetMapping("/budget-groups")
-    public List<BudgetGroupDocument> listBudgetGroups(@CurrentUser AuthenticatedUser currentUser) {
+    public List<BudgetGroupDocument> listBudgetGroups(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
         List<BudgetGroupDocument> groups = firestoreGateway.listByField(FirestoreCollections.BUDGET_GROUPS, "tenant_id", currentUser.tenantId(), BudgetGroupDocument.class);
         groups.sort(Comparator.comparing(g -> String.valueOf(g.name)));
         return groups;
     }
 
     @GetMapping("/reports/monthly")
-    public List<Map<String, Object>> monthlyReport(@CurrentUser AuthenticatedUser currentUser,
+    public List<Map<String, Object>> monthlyReport(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                    @RequestParam(defaultValue = "false") boolean allUsers) {
         List<ExpenseDocument> expenses = scopedExpenses(currentUser, allUsers);
-        Map<String, Double> grouped = expenses.stream().collect(Collectors.groupingBy(e -> String.valueOf(e.date).substring(0, 7), Collectors.summingDouble(e -> e.amount)));
-        return grouped.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e -> Map.of("month", e.getKey(), "total", e.getValue())).collect(Collectors.toList());
+        Map<String, Double> grouped = expenses.stream().collect(Collectors.groupingBy(e -> safeMonth(e.date), Collectors.summingDouble(e -> e.amount)));
+        return grouped.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("month", e.getKey());
+            row.put("total", e.getValue());
+            return row;
+        }).collect(Collectors.toList());
     }
 
     @GetMapping("/reports/category")
-    public List<Map<String, Object>> categoryReport(@CurrentUser AuthenticatedUser currentUser,
+    public List<Map<String, Object>> categoryReport(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                     @RequestParam(defaultValue = "false") boolean allUsers) {
         List<ExpenseDocument> expenses = scopedExpenses(currentUser, allUsers);
-        Map<String, Double> grouped = expenses.stream().collect(Collectors.groupingBy(e -> Optional.ofNullable(e.category_name).orElse("Sem categoria"), Collectors.summingDouble(e -> e.amount)));
-        return grouped.entrySet().stream().sorted((a, b) -> Double.compare(b.getValue(), a.getValue())).map(e -> Map.of("category", e.getKey(), "total", e.getValue())).collect(Collectors.toList());
+        Map<String, String> categoryNameById = firestoreGateway.listByField(FirestoreCollections.CATEGORIES, "tenant_id", currentUser.tenantId(), CategoryDocument.class)
+                .stream().collect(Collectors.toMap(c -> c.id, c -> c.name, (a, b) -> a));
+        Map<String, Double> grouped = expenses.stream().collect(Collectors.groupingBy(
+                e -> categoryNameById.getOrDefault(e.category_id, "Sem categoria"),
+                Collectors.summingDouble(e -> e.amount)));
+        return grouped.entrySet().stream().sorted((a, b) -> Double.compare(b.getValue(), a.getValue())).map(e -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("category", e.getKey());
+            row.put("total", e.getValue());
+            return row;
+        }).collect(Collectors.toList());
     }
 
     @GetMapping("/reports/projection")
-    public Map<String, Object> projection(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> projection(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                           @RequestParam(required = false) String month) {
         String targetMonth = month != null ? month : Instant.now().toString().substring(0, 7);
         List<ExpenseDocument> expenses = scopedExpenses(currentUser, false).stream().filter(e -> e.date != null && e.date.startsWith(targetMonth)).collect(Collectors.toList());
@@ -298,7 +313,7 @@ public class SystemController {
     }
 
     @GetMapping("/reports/monthly-close-checklist")
-    public Map<String, Object> closeChecklist(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> closeChecklist(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                               @RequestParam(required = false) String month) {
         String targetMonth = month != null ? month : Instant.now().toString().substring(0, 7);
         List<ExpenseDocument> expenses = scopedExpenses(currentUser, false).stream().filter(e -> e.date != null && e.date.startsWith(targetMonth)).collect(Collectors.toList());
@@ -328,17 +343,19 @@ public class SystemController {
     }
 
     @GetMapping("/reports/transaction-origin")
-    public Map<String, Object> transactionOrigin(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> transactionOrigin(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                  @RequestParam(required = false) String month) {
         String targetMonth = month != null ? month : Instant.now().toString().substring(0, 7);
         List<ExpenseDocument> expenses = scopedExpenses(currentUser, false).stream().filter(e -> e.date != null && e.date.startsWith(targetMonth)).collect(Collectors.toList());
+        Map<String, String> categoryNameById = firestoreGateway.listByField(FirestoreCollections.CATEGORIES, "tenant_id", currentUser.tenantId(), CategoryDocument.class)
+                .stream().collect(Collectors.toMap(c -> c.id, c -> c.name, (a, b) -> a));
         List<Map<String, Object>> details = expenses.stream().map(e -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", e.id);
             m.put("date", e.date);
             m.put("description", e.description);
             m.put("amount", e.amount);
-            m.put("category_name", e.category_name);
+            m.put("category_name", categoryNameById.getOrDefault(e.category_id, "Sem categoria"));
             m.put("transaction_number", e.transaction_number);
             m.put("transaction_type", e.generated_by_mercado_pago ? "Pagamento importado (Mercado Pago)" : (e.transaction_number != null && !e.transaction_number.isBlank() ? "Despesa com comprovante" : "Despesa sem comprovante"));
             m.put("detected_origin", e.generated_by_mercado_pago ? "Integração Mercado Pago" : "Lançamento manual no painel");
@@ -356,7 +373,7 @@ public class SystemController {
     }
 
     @GetMapping("/reports/consolidated-export")
-    public Map<String, Object> consolidatedExport(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> consolidatedExport(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                   @RequestParam(required = false) String month) {
         String targetMonth = month != null ? month : Instant.now().toString().substring(0, 7);
         Map<String, Object> projection = projection(currentUser, targetMonth);
@@ -375,12 +392,12 @@ public class SystemController {
     }
 
     @GetMapping("/budget-layouts")
-    public List<BudgetLayoutDocument> listBudgetLayouts(@CurrentUser AuthenticatedUser currentUser) {
+    public List<BudgetLayoutDocument> listBudgetLayouts(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
         return firestoreGateway.listByField(FirestoreCollections.BUDGET_LAYOUTS, "tenant_id", currentUser.tenantId(), BudgetLayoutDocument.class);
     }
 
     @PostMapping("/budget-layouts")
-    public BudgetLayoutDocument createBudgetLayout(@CurrentUser AuthenticatedUser currentUser,
+    public BudgetLayoutDocument createBudgetLayout(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                    @RequestBody BudgetLayoutDocument request) {
         request.id = UUID.randomUUID().toString();
         request.tenant_id = currentUser.tenantId();
@@ -390,25 +407,25 @@ public class SystemController {
     }
 
     @DeleteMapping("/budget-layouts/{id}")
-    public Map<String, Object> deleteBudgetLayout(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> deleteBudgetLayout(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                    @PathVariable String id) {
         BudgetLayoutDocument doc = firestoreGateway.findById(FirestoreCollections.BUDGET_LAYOUTS, id, BudgetLayoutDocument.class)
                 .orElseThrow(() -> new NoSuchElementException("Layout not found"));
-        if (!currentUser.tenantId().equals(doc.tenant_id)) throw new ForbiddenException("Forbidden");
+        if (!currentUser.tenantId().equals(doc.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         firestoreGateway.delete(FirestoreCollections.BUDGET_LAYOUTS, id);
         return Map.of("ok", true);
     }
 
     @GetMapping("/ads")
-    public List<AdDocument> listAds(@CurrentUser AuthenticatedUser currentUser) {
+    public List<AdDocument> listAds(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
         return firestoreGateway.listByField(FirestoreCollections.ADS, "tenant_id", currentUser.tenantId(), AdDocument.class)
                 .stream().filter(a -> Boolean.TRUE.equals(a.is_active)).collect(Collectors.toList());
     }
 
     @PostMapping("/ads")
-    public AdDocument createAd(@CurrentUser AuthenticatedUser currentUser,
+    public AdDocument createAd(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                @RequestBody AdDocument request) {
-        if (!"admin".equals(currentUser.role())) throw new ForbiddenException("Admin required");
+        if (!"admin".equals(currentUser.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         request.id = UUID.randomUUID().toString();
         request.tenant_id = currentUser.tenantId();
         request.user_id = currentUser.userId();
@@ -420,13 +437,13 @@ public class SystemController {
     }
 
     @PutMapping("/ads/{id}")
-    public AdDocument updateAd(@CurrentUser AuthenticatedUser currentUser,
+    public AdDocument updateAd(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                @PathVariable String id,
                                @RequestBody AdDocument request) {
-        if (!"admin".equals(currentUser.role())) throw new ForbiddenException("Admin required");
+        if (!"admin".equals(currentUser.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         AdDocument existing = firestoreGateway.findById(FirestoreCollections.ADS, id, AdDocument.class)
                 .orElseThrow(() -> new NoSuchElementException("Ad not found"));
-        if (!currentUser.tenantId().equals(existing.tenant_id)) throw new ForbiddenException("Forbidden");
+        if (!currentUser.tenantId().equals(existing.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         existing.title = request.title;
         existing.description = request.description;
         existing.image_url = request.image_url;
@@ -440,14 +457,14 @@ public class SystemController {
     }
 
     @DeleteMapping("/ads/{id}")
-    public Map<String, Object> deleteAd(@CurrentUser AuthenticatedUser currentUser, @PathVariable String id) {
-        if (!"admin".equals(currentUser.role())) throw new ForbiddenException("Admin required");
+    public Map<String, Object> deleteAd(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser, @PathVariable String id) {
+        if (!"admin".equals(currentUser.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         firestoreGateway.delete(FirestoreCollections.ADS, id);
         return Map.of("ok", true);
     }
 
     @GetMapping("/company-profile")
-    public Map<String, Object> getCompanyProfile(@CurrentUser AuthenticatedUser currentUser) {
+    public Map<String, Object> getCompanyProfile(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
         return Map.of(
                 "tenant_id", currentUser.tenantId(),
                 "name", "Empresa",
@@ -458,7 +475,7 @@ public class SystemController {
     }
 
     @GetMapping("/privacy-consent")
-    public Map<String, Object> getPrivacyConsent(@CurrentUser AuthenticatedUser currentUser) {
+    public Map<String, Object> getPrivacyConsent(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
         UserDocument me = firestoreGateway.findById(FirestoreCollections.USERS, currentUser.userId(), UserDocument.class)
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
         return Map.of(
@@ -468,7 +485,7 @@ public class SystemController {
     }
 
     @PostMapping("/privacy-consent")
-    public Map<String, Object> setPrivacyConsent(@CurrentUser AuthenticatedUser currentUser,
+    public Map<String, Object> setPrivacyConsent(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                   @Valid @RequestBody SetPrivacyConsentRequest request) {
         UserDocument me = firestoreGateway.findById(FirestoreCollections.USERS, currentUser.userId(), UserDocument.class)
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
@@ -479,7 +496,7 @@ public class SystemController {
     }
 
     @GetMapping("/my-data/export")
-    public Map<String, Object> exportMyData(@CurrentUser AuthenticatedUser currentUser) {
+    public Map<String, Object> exportMyData(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
         UserDocument me = firestoreGateway.findById(FirestoreCollections.USERS, currentUser.userId(), UserDocument.class)
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
         List<ExpenseDocument> expenses = scopedExpenses(currentUser, false);
@@ -496,49 +513,70 @@ public class SystemController {
     }
 
     @DeleteMapping("/account")
-    public Map<String, Object> deleteAccount(@CurrentUser AuthenticatedUser currentUser) {
+    public Map<String, Object> deleteAccount(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
         firestoreGateway.delete(FirestoreCollections.USERS, currentUser.userId());
         return Map.of("ok", true);
     }
 
     @GetMapping("/audit-trail")
-    public List<Map<String, Object>> listAuditTrail(@CurrentUser AuthenticatedUser currentUser,
+    public List<Map<String, Object>> listAuditTrail(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
                                                     @RequestParam(defaultValue = "100") int limit,
                                                     @RequestParam(defaultValue = "true") boolean allUsers) {
-        List<Map<String, Object>> list = firestoreGateway.listByField(FirestoreCollections.AUDIT_EVENTS, "tenant_id", currentUser.tenantId(), Map.class);
-        Stream<Map<String, Object>> stream = list.stream();
+        List<Map> list = firestoreGateway.listByField(FirestoreCollections.AUDIT_EVENTS, "tenant_id", currentUser.tenantId(), Map.class);
+        Stream<Map> stream = list.stream();
         if (!(allUsers && "admin".equals(currentUser.role()))) {
             stream = stream.filter(e -> Objects.equals(e.get("user_id"), currentUser.userId()));
         }
         return stream
                 .sorted((a, b) -> String.valueOf(b.get("created_at")).compareTo(String.valueOf(a.get("created_at"))))
                 .limit(Math.max(1, Math.min(limit, 500)))
+                .map(e -> (Map<String, Object>) e)
                 .collect(Collectors.toList());
     }
 
-    private List<ExpenseDocument> scopedExpenses(AuthenticatedUser currentUser, boolean allUsers) {
+    private List<ExpenseDocument> scopedExpenses(AuthUser currentUser, boolean allUsers) {
         return firestoreGateway.listByField(FirestoreCollections.EXPENSES, "tenant_id", currentUser.tenantId(), ExpenseDocument.class)
                 .stream()
                 .filter(e -> (allUsers && "admin".equals(currentUser.role())) || currentUser.userId().equals(e.user_id))
                 .collect(Collectors.toList());
     }
 
-    public record SetBudgetRequest(Double limit, Double limit_value, @NotBlank String month) {}
-
-    public record UpsertCategoryBudgetRequest(
-            String budget_id,
-            String category_id,
-            String category_name,
-            @NotBlank String month,
-            @NotNull Double previsto,
-            Boolean imported_from_budget
-    ) {}
-
-    public record ImportCategoryBudgetsRequest(@NotBlank String month, @NotNull List<Line> rows) {
-        public record Line(String categoria, @NotNull Double previsto) {}
+    private String safeMonth(String date) {
+        if (date == null || date.length() < 7) return "0000-00";
+        return date.substring(0, 7);
     }
 
-    public record CopyRecurringBudgetRequest(@NotBlank String targetMonth, String sourceMonth, Double adjustmentPercent) {}
+    public static class SetBudgetRequest {
+        public Double limit;
+        public Double limit_value;
+        @NotBlank public String month;
+    }
 
-    public record SetPrivacyConsentRequest(@NotNull Boolean consent_marketing) {}
+    public static class UpsertCategoryBudgetRequest {
+        public String budget_id;
+        public String category_id;
+        public String category_name;
+        @NotBlank public String month;
+        @NotNull public Double previsto;
+        public Boolean imported_from_budget;
+    }
+
+    public static class ImportCategoryBudgetsRequest {
+        @NotBlank public String month;
+        @NotNull public List<Line> rows;
+        public static class Line {
+            public String categoria;
+            @NotNull public Double previsto;
+        }
+    }
+
+    public static class CopyRecurringBudgetRequest {
+        @NotBlank public String targetMonth;
+        public String sourceMonth;
+        public Double adjustmentPercent;
+    }
+
+    public static class SetPrivacyConsentRequest {
+        @NotNull public Boolean consent_marketing;
+    }
 }
