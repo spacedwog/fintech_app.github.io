@@ -90,4 +90,16 @@ public class FirestoreGateway {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Falha de listagem no Firestore");
         }
     }
+
+    public List<String> listDocumentIds(String collection) {
+        try {
+            List<QueryDocumentSnapshot> docs = firestore.collection(collection).get().get().getDocuments();
+            List<String> out = new ArrayList<>(docs.size());
+            for (QueryDocumentSnapshot doc : docs) out.add(doc.getId());
+            return out;
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Falha de listagem no Firestore");
+        }
+    }
 }
