@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Fintech Spacecworp Mobile",
+    "slug": "fintech-spacecworp-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.spacecworp.fintech.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryAddUsageDescription": "O app pode salvar exportações de relatórios para compartilhamento.",
+        "NSUserTrackingUsageDescription": "Este app respeita consentimento LGPD e solicita autorização antes de recursos de marketing."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Permite proteger a sessão financeira usando autenticação biométrica no dispositivo."
+        }
+      ],
+      "expo-document-picker",
+      "expo-file-system",
+      "expo-sharing"
+    ],
+    "extra": {
+      "appStoreCompliance": {
+        "privacyPolicy": "LGPD + consentimento explícito",
+        "dataMinimization": true,
+        "secureSessionStorage": true
+      }
+    }
+  }
+}

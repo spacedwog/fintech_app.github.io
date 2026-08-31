@@ -60,6 +60,7 @@ public class PaymentController {
             @RequestParam(required = false) Integer offset
     ) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "payments:read");
         boolean canSeeAllUsers = allUsers && "admin".equals(user.role());
         int resolvedLimit = normalizeLimit(limit, 1000);
         int resolvedOffset = Math.max(0, offset == null ? 0 : offset);
@@ -78,6 +79,7 @@ public class PaymentController {
     @PostMapping
     public PaymentDocument addPayment(@Valid @RequestBody PaymentRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "payments:write");
         if (!safe(req.idempotency_key()).isBlank()) {
             PaymentDocument existingByKey = firestore.listByField(FirestoreCollections.PAYMENTS, "tenant_id", user.tenantId(), PaymentDocument.class).stream()
                     .filter(p -> user.userId().equals(p.user_id))
@@ -135,6 +137,8 @@ public class PaymentController {
     public ReceiptAnalysisAiAgent.ReceiptTextAnalysisResult analyzeReceiptText(
             @RequestBody(required = false) ReceiptTextAnalysisRequest req
     ) {
+        AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "payments:write");
         if (req == null || safe(req.rawText()).isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Texto do comprovante é obrigatório");
         }
@@ -144,6 +148,7 @@ public class PaymentController {
     @PostMapping("/{id}/confirm")
     public PaymentDocument confirmPayment(@PathVariable String id, @RequestBody(required = false) ConfirmRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "payments:write");
         SecurityUtils.requireAdmin(user);
         PaymentDocument payment = firestore.findById(FirestoreCollections.PAYMENTS, id, PaymentDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Pagamento não encontrado"));
@@ -173,6 +178,7 @@ public class PaymentController {
     @PostMapping("/reconcile/mercado-pago")
     public Map<String, Object> reconcileMercadoPago(@RequestBody ReconcileRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "payments:write");
         SecurityUtils.requireAdmin(user);
         if (req == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Payload de reconciliação obrigatório");
         if (safe(req.txid()).isBlank() && safe(req.mercadoPagoPaymentId()).isBlank() && safe(req.manualTxnNumber()).isBlank()) {
@@ -225,6 +231,7 @@ public class PaymentController {
     @GetMapping("/mercado-pago/status")
     public Map<String, Object> mercadoPagoStatus() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "payments:read");
         List<PaymentDocument> payments = firestore.listByField(FirestoreCollections.PAYMENTS, "tenant_id", user.tenantId(), PaymentDocument.class);
 
         long verified = payments.stream().filter(p -> Boolean.TRUE.equals(p.verifiedByMercadoPago)).count();
@@ -247,6 +254,7 @@ public class PaymentController {
     @GetMapping("/reconciliation/status")
     public Map<String, Object> reconciliationStatus() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "payments:read");
         List<PaymentDocument> payments = firestore.listByField(FirestoreCollections.PAYMENTS, "tenant_id", user.tenantId(), PaymentDocument.class);
         long total = payments.size();
         long verifiedByMP = payments.stream().filter(p -> Boolean.TRUE.equals(p.verifiedByMercadoPago)).count();

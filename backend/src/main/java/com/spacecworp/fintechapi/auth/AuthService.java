@@ -76,6 +76,9 @@ public class AuthService {
     }
 
     public AuthDtos.AuthResponse login(AuthDtos.LoginRequest req) {
+        if (Boolean.FALSE.equals(req.oauth_consent())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Consentimento OAuth é obrigatório");
+        }
         List<UserDocument> users = firestore.listByField(FirestoreCollections.USERS, "email", req.email().toLowerCase(), UserDocument.class);
         if (users.isEmpty()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas");
         UserDocument user = users.get(0);
@@ -106,14 +109,15 @@ public class AuthService {
         TenantDocument tenant = firestore.findById(FirestoreCollections.TENANTS, session.tenantId(), TenantDocument.class)
                 .orElse(new TenantDocument(session.tenantId(), "Conta", null));
         PlanSubscriptionDocument sub = planController.currentSubscription(session.tenantId());
-        AuthDtos.UserPayload userPayload = new AuthDtos.UserPayload(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document);
+        AuthDtos.UserPayload userPayload = new AuthDtos.UserPayload(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document, buildScopes(user.role));
         AuthDtos.TenantPayload tenantPayload = new AuthDtos.TenantPayload(tenant.id, tenant.name, sub.plan);
         return new AuthDtos.MeResponse(userPayload, tenantPayload);
     }
 
     private AuthDtos.AuthResponse toAuthResponse(UserDocument user) {
-        List<String> scopes = List.of("expenses:read", "expenses:write", "plans:read", "payments:write");
+        List<String> scopes = buildScopes(user.role);
         String accessToken = jwtService.issue(new AuthUser(user.id, user.tenant_id, user.name, user.email, user.role, scopes));
+        String scopesJson = scopes.stream().map(s -> "\"" + escape(s) + "\"").collect(java.util.stream.Collectors.joining(","));
         String legacySessionToken = "{" +
                 "\"legacy\":true," +
                 "\"user_id\":\"" + user.id + "\"," +
@@ -121,18 +125,48 @@ public class AuthService {
                 "\"name\":\"" + escape(user.name) + "\"," +
                 "\"email\":\"" + user.email + "\"," +
                 "\"role\":\"" + user.role + "\"," +
-                "\"scope\":[\"expenses:read\",\"expenses:write\",\"plans:read\",\"payments:write\"]," +
+                "\"scope\":[" + scopesJson + "]," +
                 "\"access_token\":\"" + accessToken + "\"," +
                 "\"refresh_token\":\"" + accessToken + "\"," +
                 "\"token_type\":\"Bearer\"," +
                 "\"expires_in\":3600" +
                 "}";
 
-        AuthDtos.UserPayload payload = new AuthDtos.UserPayload(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document);
+        AuthDtos.UserPayload payload = new AuthDtos.UserPayload(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document, scopes);
         return new AuthDtos.AuthResponse(legacySessionToken, payload);
     }
 
     private String escape(String value) {
         return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private List<String> buildScopes(String role) {
+        List<String> base = List.of(
+                "profile:read",
+                "profile:write",
+                "categories:read",
+                "categories:write",
+                "expense_rules:read",
+                "expense_rules:write",
+                "expenses:read",
+                "expenses:write",
+                "budgets:read",
+                "budgets:write",
+                "reports:read",
+                "payments:read",
+                "payments:write",
+                "plans:read",
+                "team:read",
+                "privacy:read",
+                "privacy:write",
+                "audit:read",
+                "invoices:read"
+        );
+        if ("admin".equalsIgnoreCase(role)) {
+            return java.util.stream.Stream.concat(base.stream(), java.util.stream.Stream.of("plans:write", "team:write"))
+                    .distinct()
+                    .toList();
+        }
+        return base;
     }
 }
