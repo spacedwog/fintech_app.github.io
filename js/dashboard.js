@@ -2027,6 +2027,7 @@ class DashboardController {
             expectedType: "despesa",
           });
           const suggestedTxn =
+            String(analysis.transactionNumber || "").trim() ||
             this._extractTransactionNumberFromReceiptText(analysis.rawText) ||
             String(expense.transaction_number || "").trim();
           this.receiptLinkDraft = { expense, analysis, transactionNumber: suggestedTxn };
