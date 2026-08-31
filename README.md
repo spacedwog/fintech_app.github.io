@@ -881,12 +881,16 @@ mvn spring-boot:run
 
 - **Confirmação de cadastro por e-mail (backend Java):**
   - O `POST /api/v1/auth/signup` dispara envio de e-mail de confirmação ao cliente.
-  - O conteúdo é gerado por um agente IA interno (`RegistrationEmailAiAgent`) e enviado via SMTP (`spring-boot-starter-mail`).
+  - O conteúdo é gerado por um agente IA interno (`RegistrationEmailAiAgent`) com versão texto + template HTML responsivo.
+  - O envio ocorre por fila assíncrona com retry e backoff (`RegistrationEmailQueue` + `RegistrationConfirmationEmailService`) via SMTP (`spring-boot-starter-mail`).
   - Variáveis úteis:
     - `APP_REGISTRATION_EMAIL_ENABLED` (default: `true`)
     - `APP_REGISTRATION_EMAIL_FROM` (default: `no-reply@spacecworp.com`)
     - `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`
     - `SPRING_MAIL_SMTP_AUTH`, `SPRING_MAIL_SMTP_STARTTLS`
+    - `APP_REGISTRATION_EMAIL_QUEUE_POLL_MS` (default: `1500`)
+    - `APP_REGISTRATION_EMAIL_RETRY_MAX_ATTEMPTS` (default: `3`)
+    - `APP_REGISTRATION_EMAIL_RETRY_BASE_DELAY_MS` (default: `2000`)
 
 - **Sem Firebase configurado:** os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes — e limpar o cache/localStorage apaga todos os dados.
 - **Com Firebase configurado:** os dados sincronizam entre dispositivos, mas a segurança continua sendo apenas lógica (ver [Multi-tenancy](#como-o-sistema-funciona-por-baixo-dos-panos)) — não há Firebase Authentication real, então quem tiver a `apiKey` do projeto (pública, no código-fonte) pode ler/escrever o documento do Firestore diretamente.

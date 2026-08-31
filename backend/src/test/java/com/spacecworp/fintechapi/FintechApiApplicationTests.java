@@ -10,7 +10,7 @@ import com.spacecworp.fintechapi.expenses.ExpenseRuleDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.FirestoreGateway;
 import com.spacecworp.fintechapi.governance.AuditEventDocument;
-import com.spacecworp.fintechapi.notifications.RegistrationConfirmationEmailService;
+import com.spacecworp.fintechapi.notifications.RegistrationEmailQueue;
 import com.spacecworp.fintechapi.payments.PaymentDocument;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
 import com.spacecworp.fintechapi.users.UserDocument;
@@ -58,7 +58,7 @@ class FintechApiApplicationTests {
     FirestoreGateway firestoreGateway;
 
     @MockBean
-    RegistrationConfirmationEmailService registrationConfirmationEmailService;
+    RegistrationEmailQueue registrationEmailQueue;
 
     private final Map<String, Map<String, Object>> store = new HashMap<>();
     private final AtomicLong idSeq = new AtomicLong(1000);
@@ -99,7 +99,7 @@ class FintechApiApplicationTests {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.email").value("maria@example.com"));
-        verify(registrationConfirmationEmailService, times(1)).sendRegistrationConfirmation(any(UserDocument.class), any(TenantDocument.class));
+        verify(registrationEmailQueue, times(1)).enqueue(any(UserDocument.class), any(TenantDocument.class));
     }
 
     @Test

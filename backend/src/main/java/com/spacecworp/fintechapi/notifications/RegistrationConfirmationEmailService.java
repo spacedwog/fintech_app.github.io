@@ -6,9 +6,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import jakarta.mail.internet.MimeMessage;
 
 @Service
 public class RegistrationConfirmationEmailService {
@@ -31,7 +33,7 @@ public class RegistrationConfirmationEmailService {
         this.enabled = enabled;
     }
 
-    public void sendRegistrationConfirmation(UserDocument user, TenantDocument tenant) {
+    public void sendRegistrationConfirmationNow(UserDocument user, TenantDocument tenant) {
         if (user == null || user.email == null || user.email.isBlank()) return;
         RegistrationEmailAiAgent.EmailContent content = aiAgent.compose(user, tenant);
 
@@ -46,16 +48,17 @@ public class RegistrationConfirmationEmailService {
             return;
         }
 
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromAddress);
-            message.setTo(user.email);
-            message.setSubject(content.subject());
-            message.setText(content.text());
+        try {            
+            MimeMessage message = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(user.email);
+            helper.setSubject(content.subject());
+            helper.setText(content.text(), content.html());
             sender.send(message);
             log.info("event=registration_email_sent user_id={} tenant_id={} email={}", user.id, user.tenant_id, user.email);
         } catch (Exception ex) {
-            log.warn("event=registration_email_failed user_id={} tenant_id={} email={} error={}", user.id, user.tenant_id, user.email, ex.getMessage());
+            throw new IllegalStateException("Falha ao enviar e-mail de cadastro: " + ex.getMessage(), ex);
         }
     }
 }
