@@ -40,7 +40,7 @@ public class PlanController {
         List<PlanSubscriptionDocument> rows = firestore.listByField(FirestoreCollections.PLANS, "tenant_id", user.tenantId(), PlanSubscriptionDocument.class);
         PlanSubscriptionDocument current = rows.isEmpty()
                 ? new PlanSubscriptionDocument(firestore.nextId(FirestoreCollections.PLANS), user.tenantId(), req.plan(), Instant.now().toString())
-                : rows.getFirst();
+                : rows.get(0);
         current.plan = req.plan().toLowerCase();
         current.updated_at = Instant.now().toString();
         firestore.save(FirestoreCollections.PLANS, current.id, current);
@@ -54,6 +54,6 @@ public class PlanController {
             firestore.save(FirestoreCollections.PLANS, seeded.id, seeded);
             return seeded;
         }
-        return rows.getFirst();
+        return rows.get(0);
     }
 }

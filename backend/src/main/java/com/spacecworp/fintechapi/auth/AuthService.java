@@ -65,7 +65,7 @@ public class AuthService {
     public AuthDtos.AuthResponse login(AuthDtos.LoginRequest req) {
         List<UserDocument> users = firestore.listByField(FirestoreCollections.USERS, "email", req.email().toLowerCase(), UserDocument.class);
         if (users.isEmpty()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas");
-        UserDocument user = users.getFirst();
+        UserDocument user = users.get(0);
         if (!passwordEncoder.matches(req.password(), user.password)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas");
         }
