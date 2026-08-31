@@ -1984,6 +1984,15 @@ class DashboardController {
     ].join("\n");
   }
 
+  _isReceiptReadTimeoutError(err) {
+    const message = String((err && err.message) || err || "").toLowerCase();
+    return (
+      message.includes("demorou demais") ||
+      message.includes("tempo limite excedido") ||
+      message.includes("timeout")
+    );
+  }
+
   async _setupReceiptLinkingView() {
     const selectEl = document.getElementById("receipt-link-expense-select");
     const fileEl = document.getElementById("receipt-link-file-input");
@@ -2018,9 +2027,10 @@ class DashboardController {
         }
 
         statusEl.textContent = "Agente IA analisando comprovante...";
+        let expense = null;
         try {
           const expenses = await Api.listExpenses();
-          const expense = expenses.find((item) => String(item.id) === expenseId);
+          expense = expenses.find((item) => String(item.id) === expenseId);
           if (!expense) throw new Error("Despesa não encontrada.");
           const analysis = await ReceiptAI.analyze(file, {
             expectedAmount: Number(expense.amount) || 0,
@@ -2039,6 +2049,29 @@ class DashboardController {
         } catch (err) {
           statusEl.textContent = (err && err.message) || "Não foi possível analisar o comprovante.";
           statusEl.title = this._buildReceiptLinkOcrDiagnosticTooltip(statusEl.textContent);
+          if (expense && this._isReceiptReadTimeoutError(err) && this.manualTxnModal) {
+            this.manualTxnModal.open({
+              reason: statusEl.textContent,
+              onConfirm: (txnNumber) => {
+                const manualNumber = String(txnNumber || "").trim();
+                const fallbackAnalysis = {
+                  ok: false,
+                  manualTxnNumber: manualNumber,
+                  amountMatches: false,
+                  merchantMatches: false,
+                  classification: "outros",
+                  confidence: 0,
+                  detectedAmount: Number(expense.amount) || 0,
+                };
+                this.receiptLinkDraft = { expense, analysis: fallbackAnalysis, transactionNumber: manualNumber };
+                txnInputEl.value = manualNumber;
+                this._renderReceiptLinkAnalysis(this.receiptLinkDraft);
+                this._goToReceiptLinkPage(2);
+                statusEl.textContent = "Leitura automática demorou demais. Número da transação informado manualmente.";
+                statusEl.title = "";
+              },
+            });
+          }
         }
       });
 
