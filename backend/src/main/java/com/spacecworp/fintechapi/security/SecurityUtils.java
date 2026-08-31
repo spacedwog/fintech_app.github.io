@@ -21,4 +21,11 @@ public final class SecurityUtils {
             throw new ApiException(HttpStatus.FORBIDDEN, "Apenas administradores podem executar esta ação");
         }
     }
+
+    public static void requireScope(AuthUser user, String scope) {
+        if (scope == null || scope.isBlank()) return;
+        if (user.scope() == null || !user.scope().contains(scope)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Escopo obrigatório: " + scope);
+        }
+    }
 }

@@ -35,6 +35,7 @@ public class PlanController {
     @GetMapping
     public Map<String, Object> plans() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "plans:read");
         PlanSubscriptionDocument current = currentSubscription(user.tenantId());
         PlanCatalog.PlanDto currentPlan = PlanCatalog.find(current.plan);
         return Map.of("plans", PlanCatalog.ALL, "current_plan", current.plan, "limits", currentPlan);
@@ -43,6 +44,7 @@ public class PlanController {
     @GetMapping("/active")
     public Map<String, Object> activePlan() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "plans:read");
         PlanSubscriptionDocument current = currentSubscription(user.tenantId());
         PlanCatalog.PlanDto plan = PlanCatalog.find(current.plan);
         int usedToday = (int) firestore.listByField(FirestoreCollections.EXPENSES, "tenant_id", user.tenantId(), ExpenseDocument.class).stream()
@@ -61,6 +63,7 @@ public class PlanController {
     @PostMapping("/change")
     public Map<String, Object> change(@Valid @RequestBody ChangePlanRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "plans:write");
         SecurityUtils.requireAdmin(user);
         if (PlanCatalog.find(req.plan()) == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Plano inválido");
@@ -87,6 +90,7 @@ public class PlanController {
     @PostMapping("/overage/preview")
     public Map<String, Object> previewOverage(@Valid @RequestBody OveragePreviewRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "plans:read");
         PlanCatalog.PlanDto plan = PlanCatalog.find(currentSubscription(user.tenantId()).plan);
         double unitPrice;
         if ("expense".equalsIgnoreCase(req.type())) {

@@ -48,12 +48,14 @@ public class ExpenseController {
     @GetMapping("/categories")
     public List<CategoryDocument> listCategories() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "categories:read");
         return firestore.listByField(FirestoreCollections.CATEGORIES, "tenant_id", user.tenantId(), CategoryDocument.class);
     }
 
     @PostMapping("/categories")
     public CategoryDocument addCategory(@Valid @RequestBody CategoryRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "categories:write");
         String id = firestore.nextId(FirestoreCollections.CATEGORIES);
         CategoryDocument doc = new CategoryDocument(id, user.tenantId(), req.name().trim());
         firestore.save(FirestoreCollections.CATEGORIES, id, doc);
@@ -63,12 +65,14 @@ public class ExpenseController {
     @GetMapping("/expense-rules")
     public List<ExpenseRuleDocument> listExpenseRules() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expense_rules:read");
         return firestore.listByField(FirestoreCollections.EXPENSE_RULES, "tenant_id", user.tenantId(), ExpenseRuleDocument.class);
     }
 
     @PostMapping("/expense-rules")
     public ExpenseRuleDocument addExpenseRule(@Valid @RequestBody ExpenseRuleRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expense_rules:write");
         boolean categoryExists = !firestore.listByFields(FirestoreCollections.CATEGORIES, Map.of("tenant_id", user.tenantId(), "id", req.category_id()), CategoryDocument.class).isEmpty();
         if (!categoryExists) throw new ApiException(HttpStatus.BAD_REQUEST, "Categoria inválida");
 
@@ -86,6 +90,7 @@ public class ExpenseController {
     @DeleteMapping("/expense-rules/{id}")
     public Map<String, Object> deleteExpenseRule(@PathVariable String id) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expense_rules:write");
         ExpenseRuleDocument current = firestore.findById(FirestoreCollections.EXPENSE_RULES, id, ExpenseRuleDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Regra não encontrada"));
         if (!user.tenantId().equals(current.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
@@ -103,6 +108,7 @@ public class ExpenseController {
             @RequestParam(required = false) Integer offset
     ) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expenses:read");
         boolean canSeeAllUsers = allUsers && "admin".equals(user.role());
         int resolvedLimit = normalizeLimit(limit, 1000);
         int resolvedOffset = Math.max(0, offset == null ? 0 : offset);
@@ -121,6 +127,7 @@ public class ExpenseController {
     @GetMapping("/expenses/quota")
     public Map<String, Object> quota() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expenses:read");
         PlanCatalog.PlanDto plan = PlanCatalog.find(planController.currentSubscription(user.tenantId()).plan);
         int usedToday = (int) firestore.listByField(FirestoreCollections.EXPENSES, "tenant_id", user.tenantId(), ExpenseDocument.class).stream()
                 .filter(e -> user.userId().equals(e.user_id))
@@ -144,6 +151,7 @@ public class ExpenseController {
     @PostMapping("/expenses")
     public ExpenseDocument addExpense(@Valid @RequestBody ExpenseRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expenses:write");
         if (safe(req.idempotency_key()).length() >= 8) {
             ExpenseDocument existingByKey = firestore.listByField(FirestoreCollections.EXPENSES, "tenant_id", user.tenantId(), ExpenseDocument.class).stream()
                     .filter(e -> user.userId().equals(e.user_id))
@@ -195,6 +203,7 @@ public class ExpenseController {
     @PutMapping("/expenses/{id}")
     public ExpenseDocument updateExpense(@PathVariable String id, @Valid @RequestBody ExpenseRequest req) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expenses:write");
         ExpenseDocument current = firestore.findById(FirestoreCollections.EXPENSES, id, ExpenseDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Despesa não encontrada"));
         if (!user.tenantId().equals(current.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
@@ -216,6 +225,7 @@ public class ExpenseController {
     @DeleteMapping("/expenses/{id}")
     public Map<String, Object> deleteExpense(@PathVariable String id) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expenses:write");
         ExpenseDocument current = firestore.findById(FirestoreCollections.EXPENSES, id, ExpenseDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Despesa não encontrada"));
         if (!user.tenantId().equals(current.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
@@ -226,6 +236,7 @@ public class ExpenseController {
     @PostMapping("/expenses/apply-rules")
     public Map<String, Object> applyRules(@RequestBody(required = false) ApplyRulesRequest payload) {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "expenses:write");
         String month = payload == null ? null : payload.month();
 
         List<ExpenseRuleDocument> rules = firestore.listByField(FirestoreCollections.EXPENSE_RULES, "tenant_id", user.tenantId(), ExpenseRuleDocument.class);

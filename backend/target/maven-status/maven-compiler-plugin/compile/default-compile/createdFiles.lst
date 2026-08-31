@@ -37,6 +37,7 @@ com/spacecworp/fintechapi/expenses/ExpenseDocument.class
 com/spacecworp/fintechapi/migration/MigrationController$RestorePayload.class
 com/spacecworp/fintechapi/common/RestExceptionHandler.class
 com/spacecworp/fintechapi/auth/AuthDtos$TenantPayload.class
+com/spacecworp/fintechapi/auth/AuthDtos$RevokeRequest.class
 com/spacecworp/fintechapi/notifications/RegistrationEmailQueue$PendingEmail.class
 com/spacecworp/fintechapi/users/UserController$UserResponse.class
 com/spacecworp/fintechapi/users/UserController$InviteUserRequest.class

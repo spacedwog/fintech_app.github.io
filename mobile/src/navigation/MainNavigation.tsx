@@ -24,6 +24,8 @@ type MenuKey =
 export default function MainNavigation() {
   const { me, logout } = useAuth();
   const [active, setActive] = useState<MenuKey>("budget-expenses");
+  const scopes = me?.user.scope || [];
+  const canAccessTeam = me?.user.role === "admin" || scopes.includes("team:read");
 
   const Current = useMemo(() => {
     if (active === "budget-expenses") return <BudgetExpensesScreen />;
@@ -49,7 +51,9 @@ export default function MainNavigation() {
         <AppButton title="Nota Fiscal" variant={active === "invoices" ? "primary" : "secondary"} onPress={() => setActive("invoices")} />
         <AppButton title="Plano" variant={active === "plan" ? "primary" : "secondary"} onPress={() => setActive("plan")} />
         <AppButton title="Resumo" variant={active === "reports" ? "primary" : "secondary"} onPress={() => setActive("reports")} />
-        <AppButton title="Compartilhamento" variant={active === "team" ? "primary" : "secondary"} onPress={() => setActive("team")} />
+        {canAccessTeam ? (
+          <AppButton title="Compartilhamento" variant={active === "team" ? "primary" : "secondary"} onPress={() => setActive("team")} />
+        ) : null}
         <AppButton title="Segurança/Privacidade" variant={active === "security-privacy" ? "primary" : "secondary"} onPress={() => setActive("security-privacy")} />
         <AppButton title="Configurações" variant={active === "settings" ? "primary" : "secondary"} onPress={() => setActive("settings")} />
       </View>

@@ -13,6 +13,7 @@ export interface User {
   email: string;
   role: Role;
   tax_document?: string | null;
+  scope?: string[];
 }
 
 export interface PlanDetails {

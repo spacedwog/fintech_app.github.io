@@ -38,6 +38,7 @@ public class UserController {
     @GetMapping
     public List<UserResponse> listUsers() {
         AuthUser user = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(user, "team:read");
         return firestore.listByField(FirestoreCollections.USERS, "tenant_id", user.tenantId(), UserDocument.class).stream()
                 .map(u -> new UserResponse(u.id, u.tenant_id, u.name, u.email, u.role, u.tax_document))
                 .toList();
@@ -46,6 +47,7 @@ public class UserController {
     @GetMapping("/me")
     public UserResponse me() {
         AuthUser session = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(session, "profile:read");
         UserDocument user = firestore.findById(FirestoreCollections.USERS, session.userId(), UserDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
         return new UserResponse(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document);
@@ -54,6 +56,7 @@ public class UserController {
     @PutMapping("/me")
     public UserResponse updateProfile(@Valid @RequestBody UpdateProfileRequest req) {
         AuthUser session = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(session, "profile:write");
         UserDocument user = firestore.findById(FirestoreCollections.USERS, session.userId(), UserDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
         user.name = req.name().trim();
@@ -65,6 +68,7 @@ public class UserController {
     @PostMapping("/invite")
     public UserResponse inviteUser(@Valid @RequestBody InviteUserRequest req) {
         AuthUser actor = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(actor, "team:write");
         SecurityUtils.requireAdmin(actor);
 
         String normalized = req.email().toLowerCase();
@@ -81,6 +85,7 @@ public class UserController {
     @PatchMapping("/{id}/role")
     public UserResponse updateRole(@PathVariable String id, @Valid @RequestBody UpdateRoleRequest req) {
         AuthUser actor = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(actor, "team:write");
         SecurityUtils.requireAdmin(actor);
         UserDocument target = firestore.findById(FirestoreCollections.USERS, id, UserDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
@@ -94,6 +99,7 @@ public class UserController {
     @PostMapping("/{id}/reset-password")
     public Map<String, Object> resetPassword(@PathVariable String id, @RequestBody Map<String, String> body) {
         AuthUser actor = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(actor, "team:write");
         SecurityUtils.requireAdmin(actor);
         String newPassword = body.getOrDefault("new_password", "").trim();
         if (newPassword.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "new_password é obrigatório");
@@ -108,6 +114,7 @@ public class UserController {
     @PostMapping("/me/change-password")
     public Map<String, Object> changeMyPassword(@Valid @RequestBody ChangePasswordRequest req) {
         AuthUser session = SecurityUtils.currentUser();
+        SecurityUtils.requireScope(session, "profile:write");
         UserDocument user = firestore.findById(FirestoreCollections.USERS, session.userId(), UserDocument.class)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
         if (!passwordEncoder.matches(req.currentPassword(), user.password)) {
