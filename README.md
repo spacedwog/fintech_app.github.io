@@ -826,6 +826,53 @@ Rode de novo sempre que alterar `cobol_bridge.py`.
 
 ## Limitações
 
+## Backend Spring Boot (migração completa para API REST)
+
+Foi adicionada uma implementação de backend em **Spring Boot** no diretório absoluto:
+
+- `/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend`
+
+### Decisões implementadas
+
+- Framework: **Spring Boot**
+- Banco: **Firestore** (via Firebase Admin SDK)
+- API versionada: **`/api/v1`**
+- Módulos prioritários entregues no backend:
+  - `auth` (`/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/me`)
+  - `users` (`/api/v1/users`, `/api/v1/users/invite`)
+  - `expenses` (`/api/v1/expenses`, `/api/v1/expenses/quota`, `/api/v1/categories`)
+  - `plans` (`/api/v1/plans`, `/api/v1/plans/change`)
+  - `payments` (`/api/v1/payments`, `/api/v1/payments/mercado-pago/status`)
+- Migração/cutover inicial: `POST /api/v1/migration/import` (importa estrutura atual de dados)
+
+### Contrato e padrão de erro
+
+- Validação com Bean Validation (`@NotBlank`, `@Email`, etc.)
+- Erro REST padronizado:
+  - `timestamp`
+  - `status`
+  - `error`
+  - `message`
+  - `path`
+
+### Frontend atual consumindo REST sem redesenho de UI
+
+O `js/api.js` agora suporta modo backend por configuração:
+
+- Defina `localStorage.setItem("fintech_api_base_url", "http://localhost:8080")`
+  (ou `globalThis.__FINTECH_API_BASE__`) para ativar chamadas REST nos módulos migrados.
+- Sem configuração, o comportamento anterior (client-side/localStorage/Firestore no browser) continua igual.
+- Métodos não migrados ainda seguem no fallback local para preservar compatibilidade de tela.
+
+### Como rodar o backend
+
+```bash
+cd /home/runner/work/fintech_app.github.io/fintech_app.github.io/backend
+mvn spring-boot:run
+```
+
+> Requer credenciais válidas para `GoogleCredentials.getApplicationDefault()` (Firestore).
+
 - **Sem Firebase configurado:** os dados ficam presos ao navegador/dispositivo onde foram criados — não sincronizam entre computadores ou navegadores diferentes — e limpar o cache/localStorage apaga todos os dados.
 - **Com Firebase configurado:** os dados sincronizam entre dispositivos, mas a segurança continua sendo apenas lógica (ver [Multi-tenancy](#como-o-sistema-funciona-por-baixo-dos-panos)) — não há Firebase Authentication real, então quem tiver a `apiKey` do projeto (pública, no código-fonte) pode ler/escrever o documento do Firestore diretamente.
 - Não há verdadeira separação de acesso entre "contas" — é só uma organização lógica dos dados dentro do mesmo documento/storage.

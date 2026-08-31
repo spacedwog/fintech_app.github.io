@@ -200,6 +200,11 @@ class SessionManager {
       return false;
     }
 
+    // Sessão emitida pelo backend Spring Boot (modo migração REST):
+    // mantém compatibilidade com o restante do front-end sem exigir
+    // verificação local via js/oauth.js.
+    if (tokens && tokens.legacy) return true;
+
     try {
       await OAuth.verifyAccessToken(tokens.access_token);
       return true;
@@ -2584,4 +2589,122 @@ class ApiFacade {
   }
 }
 
-const Api = new ApiFacade();
+class BackendApiFacade {
+  constructor(baseUrl, fallback) {
+    this.baseUrl = String(baseUrl || "").replace(/\/+$/, "");
+    this.fallback = fallback;
+  }
+
+  _getBearerToken() {
+    const raw = Auth.getToken();
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && parsed.access_token ? parsed.access_token : raw;
+    } catch (_err) {
+      return raw;
+    }
+  }
+
+  async _request(path, opts = {}) {
+    const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+    const bearer = this._getBearerToken();
+    if (bearer) headers.Authorization = "Bearer " + bearer;
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...opts,
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!response.ok) {
+      let msg = `Erro HTTP ${response.status}`;
+      try {
+        const err = await response.json();
+        msg = err && err.message ? err.message : msg;
+      } catch (_err) {
+        // ignora parse do erro
+      }
+      const error = new Error(msg);
+      error.status = response.status;
+      throw error;
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  // ---------- módulos migrados para backend ----------
+  signup(payload) {
+    return this._request("/api/v1/auth/signup", { method: "POST", body: payload });
+  }
+  login(payload) {
+    return this._request("/api/v1/auth/login", { method: "POST", body: payload });
+  }
+  me() {
+    return this._request("/api/v1/auth/me");
+  }
+  plans() {
+    return this._request("/api/v1/plans");
+  }
+  changePlan(plan) {
+    return this._request("/api/v1/plans/change", { method: "POST", body: { plan } });
+  }
+  listUsers() {
+    return this._request("/api/v1/users");
+  }
+  inviteUser(payload) {
+    return this._request("/api/v1/users/invite", { method: "POST", body: payload });
+  }
+  listCategories() {
+    return this._request("/api/v1/categories");
+  }
+  addCategory(name) {
+    return this._request("/api/v1/categories", { method: "POST", body: { name } });
+  }
+  listExpenses(allUsers = false) {
+    return this._request(`/api/v1/expenses?allUsers=${allUsers ? "true" : "false"}`);
+  }
+  getExpenseQuota() {
+    return this._request("/api/v1/expenses/quota");
+  }
+  addExpense(payload) {
+    return this._request("/api/v1/expenses", { method: "POST", body: payload });
+  }
+  updateExpense(id, payload) {
+    return this._request(`/api/v1/expenses/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  }
+  deleteExpense(id) {
+    return this._request(`/api/v1/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+  listPayments(allUsers = false) {
+    return this._request(`/api/v1/payments?allUsers=${allUsers ? "true" : "false"}`);
+  }
+  addPayment(payload) {
+    return this._request("/api/v1/payments", { method: "POST", body: payload });
+  }
+}
+
+function resolveBackendApiBase() {
+  if (typeof globalThis !== "undefined" && globalThis.__FINTECH_API_BASE__) {
+    return String(globalThis.__FINTECH_API_BASE__).trim();
+  }
+  try {
+    const fromStorage = localStorage.getItem("fintech_api_base_url");
+    return String(fromStorage || "").trim();
+  } catch (_err) {
+    return "";
+  }
+}
+
+const localApi = new ApiFacade();
+const backendBase = resolveBackendApiBase();
+const Api = backendBase
+  ? new Proxy(new BackendApiFacade(backendBase, localApi), {
+      get(target, prop) {
+        if (prop in target) {
+          const value = target[prop];
+          return typeof value === "function" ? value.bind(target) : value;
+        }
+        const fallbackValue = localApi[prop];
+        return typeof fallbackValue === "function" ? fallbackValue.bind(localApi) : fallbackValue;
+      },
+    })
+  : localApi;
