@@ -83,12 +83,19 @@
                     <include>*.html</include>
                     <include>ads.txt</include>
                     <include>sitemap.xml</include>
-                    <include>assets/**</include>
-                    <include>css/**</include>
-                    <include>img/**</include>
-                    <include>images/**</include>
-                    <include>js/**</include>
                 </includes>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../assets</directory>
+                <targetPath>static/assets</targetPath>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../css</directory>
+                <targetPath>static/css</targetPath>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../js</directory>
+                <targetPath>static/js</targetPath>
             </resource>
         </resources>
         <plugins>
