@@ -1,5 +1,6 @@
 .git
 .github
 .vscode
-backend/target
+backend/target/*
+!backend/target/fintech-api.jar
 mobile/node_modules
