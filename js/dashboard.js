@@ -3706,7 +3706,6 @@ class DashboardController {
       { title: "HTTPS obrigatório", detail: "Hospedado no GitHub Pages: todo tráfego (login, dados) é cifrado em trânsito (TLS)." },
       { title: "Content-Security-Policy", detail: "Meta tag CSP restringe de quais domínios o navegador pode carregar script/estilo/imagem/conexão (ver <head> deste documento)." },
       { title: "Isolamento por conta (tenant_id)", detail: "Toda consulta ao banco filtra pelo tenant_id da sessão — um usuário nunca lê dados de outra conta (js/api.js)." },
-      { title: "Consentimento de cookies", detail: "Preferências de cookies de medição podem ser gerenciadas pelo usuário na tela Privacidade." },
     ];
   }
 
@@ -3817,7 +3816,6 @@ class DashboardController {
       { data: "Despesas, categorias e orçamentos", finalidade: "Fornecer o serviço de controle financeiro.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Comprovante de Pix (imagem ou PDF, lido localmente no navegador)", finalidade: "Confirmar pagamentos.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Número da transação informado manualmente (quando a leitura automática do comprovante falha)", finalidade: "Permitir a confirmação do pagamento sem depender da IA de OCR.", base: "Execução de contrato (art. 7º, V)" },
-      { data: "Preferência de cookies de medição", finalidade: "Salvar a escolha de cookies de medição da conta.", base: "Consentimento (art. 7º, I)" },
     ];
   }
 
@@ -3828,7 +3826,6 @@ class DashboardController {
       "Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em excesso.",
       "Portabilidade dos dados a outro fornecedor, mediante requisição (botão \"Baixar meus dados\" abaixo).",
       "Eliminação dos dados tratados com consentimento (botão \"Excluir minha conta\" abaixo).",
-      "Revogação do consentimento de cookies de medição, a qualquer momento.",
       "Informação sobre com quem seus dados são compartilhados — apenas provedores de infraestrutura necessários para operação do serviço.",
     ];
   }
@@ -3850,20 +3847,6 @@ class DashboardController {
       document.getElementById("privacy-rights-list").innerHTML = DashboardController.PRIVACY_RIGHTS.map(
         (r) => `<li>${r}</li>`
       ).join("");
-
-      const consentInput = document.getElementById("privacy-marketing-consent");
-      const consentStatus = document.getElementById("privacy-consent-status");
-      if (consentInput) {
-        consentInput.addEventListener("change", async () => {
-          const granted = consentInput.checked;
-          await Api.setPrivacyConsent({ marketing: granted });
-          if (consentStatus) {
-            consentStatus.textContent = granted
-              ? "Cookies de medição autorizados."
-              : "Cookies de medição bloqueados.";
-          }
-        });
-      }
 
       const exportBtn = document.getElementById("privacy-export-btn");
       if (exportBtn) {
@@ -3901,13 +3884,6 @@ class DashboardController {
       }
     }
 
-    try {
-      const consent = await Api.getPrivacyConsent();
-      const consentInput = document.getElementById("privacy-marketing-consent");
-      if (consentInput) consentInput.checked = !!consent.marketing;
-    } catch (e) {
-      // sessão pode ter acabado de carregar — ignora silenciosamente
-    }
   }
 
   // ---------- Configurações ----------

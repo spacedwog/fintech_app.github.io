@@ -49,6 +49,7 @@ public class MigrationController {
             List<ExpenseDocument> expenses,
             List<Map<String, Object>> budgets,
             List<PaymentDocument> payments,
+            List<Map<String, Object>> ads,
             List<Map<String, Object>> budgetLayouts,
             List<Map<String, Object>> categoryBudgets,
             List<Map<String, Object>> budgetGroups,
