@@ -489,6 +489,7 @@ class DashboardController {
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
     this.googleChatLoading = false;
+    this.etlModalBound = false;
 
     this.manualTxnModal = new ManualTransactionModal();
     this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
@@ -544,6 +545,7 @@ class DashboardController {
       });
     }
     this._setupBudgetLayoutModal();
+    this._setupEtlNotifications();
     this._renderShell();
     this._bindNav();
     this._bindGlobalForms();
@@ -562,6 +564,106 @@ class DashboardController {
     // do navegador — o polling é o jeito de o painel perceber a mudança.
     this.mpStatus.render();
     setInterval(() => this.mpStatus.render(), 5000);
+    this._refreshEtlNotifications().catch(() => {});
+  }
+
+  _setupEtlNotifications() {
+    if (this.etlModalBound) return;
+    this.etlModalBound = true;
+
+    const btn = document.getElementById("etl-notifications-btn");
+    const modalEl = document.getElementById("etl-notifications-modal");
+    if (btn) {
+      btn.addEventListener("click", () => {
+        this._refreshEtlNotifications().catch(() => {});
+      });
+    }
+    if (modalEl) {
+      modalEl.addEventListener("show.bs.modal", () => {
+        this._refreshEtlNotifications().catch(() => {});
+      });
+    }
+  }
+
+  _formatEtlDate(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleString("pt-BR");
+  }
+
+  async _refreshEtlNotifications() {
+    const listEl = document.getElementById("etl-notifications-list");
+    const badgeEl = document.getElementById("etl-notifications-badge");
+    const btn = document.getElementById("etl-notifications-btn");
+    if (!listEl || !badgeEl || typeof Api === "undefined") return;
+
+    try {
+      const status = await Api.getMercadoPagoStatus();
+      const automation = status.automation || {};
+      const notifications = [];
+      const sources = [
+        { key: "last_reconcile", title: "Conciliação Mercado Pago" },
+        { key: "last_expenses_api", title: "Importação de despesas" },
+        { key: "last_open_finance_sync", title: "Sincronização Open Finance" },
+        { key: "last_oauth_account_sync", title: "Sincronização OAuth Account" },
+      ];
+
+      sources.forEach((source) => {
+        const payload = automation[source.key];
+        if (!payload || !payload.at) return;
+        const count = payload.importadas ?? payload.confirmados ?? payload.total ?? payload.quantidade ?? null;
+        notifications.push({
+          title: source.title,
+          at: payload.at,
+          detail: count == null ? "Processo ETL executado." : `Registros processados: ${count}.`,
+          level: "primary",
+        });
+      });
+
+      const rejected = ((automation.last_expenses_api || {}).verificacoes_rejeitadas || []).filter(Boolean);
+      rejected.forEach((item) => {
+        notifications.push({
+          title: "Rejeição na validação ETL",
+          at: item.at || status.last_run_at || null,
+          detail: String(item.reason || "Motivo não informado."),
+          level: "warning",
+        });
+      });
+
+      notifications.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+      badgeEl.textContent = String(notifications.length);
+      badgeEl.classList.toggle("bg-danger", notifications.length > 0);
+      badgeEl.classList.toggle("bg-secondary", notifications.length === 0);
+      if (btn) {
+        btn.title = notifications.length
+          ? `${notifications.length} notificação(ões) ETL disponível(is).`
+          : "Sem notificações ETL no momento.";
+      }
+
+      if (!notifications.length) {
+        listEl.innerHTML = '<li class="list-group-item">Sem notificações ETL para esta conta no momento.</li>';
+        return;
+      }
+
+      listEl.innerHTML = notifications.slice(0, 10).map((item) => {
+        const when = this._formatEtlDate(item.at) || "horário não informado";
+        return `
+          <li class="list-group-item d-flex justify-content-between align-items-start">
+            <div class="me-3">
+              <strong>${item.title}</strong>
+              <div class="small text-muted">${when}</div>
+              <div class="small">${item.detail}</div>
+            </div>
+            <span class="badge text-bg-${item.level} rounded-pill">ETL</span>
+          </li>
+        `;
+      }).join("");
+    } catch (_err) {
+      badgeEl.textContent = "0";
+      badgeEl.classList.remove("bg-danger");
+      badgeEl.classList.add("bg-secondary");
+      listEl.innerHTML = '<li class="list-group-item">Não foi possível carregar notificações ETL agora.</li>';
+    }
   }
 
   _renderShell() {
