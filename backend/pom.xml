@@ -87,47 +87,51 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
             <plugin>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
                 <executions>
                     <execution>
                         <phase>generate-resources</phase>
                         <goals>
-                            <goal>run</goal>
+                            <goal>copy-resources</goal>
                         </goals>
                         <configuration>
-                            <target>
-                                <delete dir="${project.build.directory}/generated-static"/>
-                                <mkdir dir="${project.build.directory}/generated-static"/>
-                                <copy todir="${project.build.directory}/generated-static">
-                                    <fileset dir="${project.basedir}/..">
-                                        <include name="index.html"/>
-                                        <include name="login.html"/>
-                                        <include name="dashboard.html"/>
-                                        <include name="ads.txt"/>
-                                        <include name="sitemap.xml"/>
-                                        <include name="favicon*.*"/>
-                                        <include name="*.ico"/>
-                                        <include name="*.png"/>
-                                        <include name="*.webmanifest"/>
-                                        <include name="manifest*.json"/>
-                                        <include name="robots.txt"/>
-                                        <include name="assets/**"/>
-                                        <include name="css/**"/>
-                                        <include name="js/**"/>
-                                        <exclude name="backend/**"/>
-                                        <exclude name="mobile/**"/>
-                                        <exclude name="tests/**"/>
-                                        <exclude name=".github/**"/>
-                                        <exclude name="compliance/**"/>
-                                        <exclude name="fibonacci_laplace_agent/**"/>
-                                        <exclude name="orcamento_agent/**"/>
-                                        <exclude name="ads_assets/**"/>
-                                        <exclude name="src/**"/>
-                                        <exclude name="COBOL Programming Course - Team Configuration/**"/>
-                                    </fileset>
-                                </copy>
-                            </target>
+                            <outputDirectory>${project.build.directory}/generated-static</outputDirectory>
+                            <overwrite>true</overwrite>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/..</directory>
+                                    <includes>
+                                        <include>**/*</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>backend/**</exclude>
+                                        <exclude>mobile/**</exclude>
+                                        <exclude>tests/**</exclude>
+                                        <exclude>.github/**</exclude>
+                                        <exclude>.git/**</exclude>
+                                        <exclude>.vscode/**</exclude>
+                                        <exclude>compliance/**</exclude>
+                                        <exclude>fibonacci_laplace_agent/**</exclude>
+                                        <exclude>orcamento_agent/**</exclude>
+                                        <exclude>ads_assets/**</exclude>
+                                        <exclude>src/**</exclude>
+                                        <exclude>scripts/**</exclude>
+                                        <exclude>COBOL Programming Course - Team Configuration/**</exclude>
+                                        <exclude>**/*.md</exclude>
+                                        <exclude>**/*.py</exclude>
+                                        <exclude>**/*.java</exclude>
+                                        <exclude>**/*.class</exclude>
+                                        <exclude>**/*.csv</exclude>
+                                        <exclude>**/*.xlsx</exclude>
+                                        <exclude>.gitignore</exclude>
+                                        <exclude>.hintrc</exclude>
+                                        <exclude>CNAME</exclude>
+                                        <exclude>db.json</exclude>
+                                        <exclude>LICENSE</exclude>
+                                    </excludes>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                 </executions>

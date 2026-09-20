@@ -31,6 +31,8 @@ O **Fintech Spacecworp** é uma plataforma de gestão de despesas pessoais com f
 2. Execute `mvn spring-boot:run`.
 3. Abra `http://localhost:8080/`.
 
+Para validar exatamente o empacotamento usado na nuvem, execute `mvn clean package` e depois `java -jar target/fintech-api.jar`.
+
 ### Configuração de dados
 
 - Na primeira execução, o app pode inicializar dados padrão a partir de `db.json`.
