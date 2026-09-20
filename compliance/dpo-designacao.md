@@ -5,7 +5,7 @@
 
 ## Nomeação
 
-Fica formalmente designada a função de Encarregado de Dados (DPO) para o programa de privacidade do sistema Fintech Spacecworp.
+Fica formalmente designada a função de Encarregado de Dados (DPO) para o programa de privacidade do sistema Spacecworp Despesas Pessoais.
 
 ## Responsabilidades
 

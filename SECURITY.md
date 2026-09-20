@@ -1,6 +1,6 @@
 # Política de Segurança
 
-Obrigado por ajudar a manter o **Fintech Spacecworp** seguro.
+Obrigado por ajudar a manter a **Spacecworp Despesas Pessoais** segura.
 
 ## Versões suportadas
 

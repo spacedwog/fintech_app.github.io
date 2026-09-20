@@ -85,7 +85,7 @@ class FirebaseGateway {
 
       return this._firestoreDb;
     } catch (e) {
-      console.warn("Fintech Spacecworp: falha ao inicializar o Firebase; usando apenas localStorage.", e);
+      console.warn("Spacecworp Despesas Pessoais: falha ao inicializar o Firebase; usando apenas localStorage.", e);
       this.initFailed = true;
       return null;
     }

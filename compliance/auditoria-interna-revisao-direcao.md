@@ -34,9 +34,9 @@
 
 | Auditoria | Certificadora | Escopo | Status |
 |---|---|---|---|
-| ISO/IEC 27001 Stage 1 | Organismo acreditado CGCRE/IAF | SGSI do produto Fintech Spacecworp | Concluída sem NC maior |
-| ISO/IEC 27001 Stage 2 | Organismo acreditado CGCRE/IAF | SGSI do produto Fintech Spacecworp | Concluída e recomendada certificação |
-| ISO 9001 Stage 2 | Organismo acreditado CGCRE/IAF | SGQ do produto Fintech Spacecworp | Concluída e recomendada certificação |
+| ISO/IEC 27001 Stage 1 | Organismo acreditado CGCRE/IAF | SGSI do produto Spacecworp Despesas Pessoais | Concluída sem NC maior |
+| ISO/IEC 27001 Stage 2 | Organismo acreditado CGCRE/IAF | SGSI do produto Spacecworp Despesas Pessoais | Concluída e recomendada certificação |
+| ISO 9001 Stage 2 | Organismo acreditado CGCRE/IAF | SGQ do produto Spacecworp Despesas Pessoais | Concluída e recomendada certificação |
 
 ## Manutenção
 

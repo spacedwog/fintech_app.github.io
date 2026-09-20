@@ -2,7 +2,7 @@
 
 **Versão:** 1.0  
 **Data:** 2026-08-14  
-**Escopo:** Aplicação Fintech Spacecworp e seus dados operacionais.
+**Escopo:** Aplicação Spacecworp Despesas Pessoais e seus dados operacionais.
 
 ## Objetivo
 
