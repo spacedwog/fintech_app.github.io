@@ -106,6 +106,12 @@
                                         <include name="dashboard.html"/>
                                         <include name="ads.txt"/>
                                         <include name="sitemap.xml"/>
+                                        <include name="favicon*.*"/>
+                                        <include name="*.ico"/>
+                                        <include name="*.png"/>
+                                        <include name="*.webmanifest"/>
+                                        <include name="manifest*.json"/>
+                                        <include name="robots.txt"/>
                                         <include name="assets/**"/>
                                         <include name="css/**"/>
                                         <include name="js/**"/>
