@@ -79,6 +79,8 @@ docker build -f backend/Dockerfile -t fintech-app-java .
 docker run -p 8080:8080 -e PORT=8080 -e APP_JWT_SECRET=troque-por-um-segredo-forte fintech-app-java
 ```
 
+O empacotamento Maven prepara automaticamente `backend/target/docker/fintech-api.jar` para esse fluxo.
+
 ## ⭐ Mantenha-se atualizado
 
 Acompanhe este repositório para receber atualizações de produto e arquitetura.
