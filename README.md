@@ -71,17 +71,6 @@ Fluxo sugerido:
 2. Publique em uma plataforma Java o JAR executável gerado em `target/` (ignore o arquivo `.jar.original`, quando existir).
 3. Defina as variáveis de ambiente obrigatórias do backend, especialmente `PORT`, `APP_JWT_SECRET` e as credenciais externas já usadas pelo projeto.
 
-Também é possível usar container:
-
-```bash
-cd backend && mvn clean package && cd ..
-docker build -f backend/Dockerfile -t fintech-app-java .
-docker run -p 8080:8080 -e PORT=8080 -e APP_JWT_SECRET=troque-por-um-segredo-forte fintech-app-java
-```
-
-O empacotamento Maven prepara automaticamente `backend/target/docker/fintech-api.jar` para esse fluxo.
-O `Dockerfile` consome esse artefato pré-gerado por padrão via `APP_JAR`.
-
 ## ⭐ Mantenha-se atualizado
 
 Acompanhe este repositório para receber atualizações de produto e arquitetura.

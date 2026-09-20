@@ -1,7 +1,0 @@
-.git
-.github
-.vscode
-backend/target/*
-!backend/target/docker/
-!backend/target/docker/fintech-api.jar
-mobile/node_modules
