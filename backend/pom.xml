@@ -101,7 +101,9 @@
                                 <mkdir dir="${project.build.directory}/generated-static"/>
                                 <copy todir="${project.build.directory}/generated-static">
                                     <fileset dir="${project.basedir}/..">
-                                        <include name="**/*.html"/>
+                                        <include name="index.html"/>
+                                        <include name="login.html"/>
+                                        <include name="dashboard.html"/>
                                         <include name="ads.txt"/>
                                         <include name="sitemap.xml"/>
                                         <include name="assets/**"/>
