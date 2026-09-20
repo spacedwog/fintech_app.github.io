@@ -30,7 +30,10 @@
 // `DB` abaixo.
 // ===============================
 
-const DB_JSON_KEY = "fintech_saas_db_v1"; // cache local / fallback (localStorage)
+const DB_JSON_KEY =
+  ((typeof globalThis !== "undefined" && globalThis.__FINTECH_DB_KEY__)
+    ? String(globalThis.__FINTECH_DB_KEY__)
+    : "fintech_saas_db_v1"); // cache local / fallback (localStorage)
 const DB_PENDING_SYNC_KEY = "fintech_saas_pending_sync_v1"; // flag: há mudanças locais ainda não enviadas ao Firestore
 const DB_LAST_SYNCED_KEY = "fintech_saas_last_synced_v1"; // "base" do último merge bem-sucedido com o Firestore (ver ThreeWayMerger)
 const DB_SEED_JSON_URL = "db.json"; // banco "de fábrica", só para o 1º carregamento

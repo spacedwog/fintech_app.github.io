@@ -591,6 +591,15 @@ class DashboardController {
     return Number.isNaN(d.getTime()) ? null : d.toLocaleString("pt-BR");
   }
 
+  _escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   async _refreshEtlNotifications() {
     const listEl = document.getElementById("etl-notifications-list");
     const badgeEl = document.getElementById("etl-notifications-badge");
@@ -646,13 +655,15 @@ class DashboardController {
       }
 
       listEl.innerHTML = notifications.slice(0, 10).map((item) => {
-        const when = this._formatEtlDate(item.at) || "horário não informado";
+        const when = this._escapeHtml(this._formatEtlDate(item.at) || "horário não informado");
+        const title = this._escapeHtml(item.title);
+        const detail = this._escapeHtml(item.detail);
         return `
           <li class="list-group-item d-flex justify-content-between align-items-start">
             <div class="me-3">
-              <strong>${item.title}</strong>
+              <strong>${title}</strong>
               <div class="small text-muted">${when}</div>
-              <div class="small">${item.detail}</div>
+              <div class="small">${detail}</div>
             </div>
             <span class="badge text-bg-${item.level} rounded-pill">ETL</span>
           </li>

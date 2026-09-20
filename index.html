@@ -562,6 +562,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/app-constants.js"></script>
   <script>
     // Tabs por persona
     (function () {
@@ -595,8 +596,11 @@
       if (!listEl || !badgeEl) return;
 
       function readDb() {
+        var dbKey = (typeof globalThis !== 'undefined' && globalThis.__FINTECH_DB_KEY__)
+          ? String(globalThis.__FINTECH_DB_KEY__)
+          : 'fintech_saas_db_v1';
         try {
-          var raw = localStorage.getItem('fintech_saas_db_v1');
+          var raw = localStorage.getItem(dbKey);
           return raw ? JSON.parse(raw) : null;
         } catch (_err) {
           return null;
@@ -609,15 +613,25 @@
         return isNaN(d.getTime()) ? null : d.toLocaleString('pt-BR');
       }
 
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
       function render() {
         var db = readDb() || {};
         var status = db.mercado_pago_status || {};
         var notifications = [];
+        var sourceKeys = ['last_reconcile', 'last_expenses_api', 'last_open_finance_sync', 'last_oauth_account_sync'];
 
-        Object.keys(status).forEach(function (scopeKey) {
-          var entry = status[scopeKey] || {};
-          ['last_reconcile', 'last_expenses_api', 'last_open_finance_sync', 'last_oauth_account_sync'].forEach(function (key) {
-            var payload = entry[key];
+        function collect(scopeKey, automation) {
+          if (!automation) return;
+          sourceKeys.forEach(function (key) {
+            var payload = automation[key];
             if (!payload || !payload.at) return;
             notifications.push({
               scope: scopeKey,
@@ -626,6 +640,15 @@
               status: payload.status || payload.result || 'executado',
             });
           });
+        }
+
+        if (status.automation) {
+          collect('conta', status.automation);
+        }
+
+        Object.keys(status).forEach(function (scopeKey) {
+          var entry = status[scopeKey] || {};
+          collect(scopeKey, entry.automation || entry);
         });
 
         notifications.sort(function (a, b) {
@@ -642,10 +665,13 @@
         }
 
         listEl.innerHTML = notifications.slice(0, 8).map(function (item) {
-          var when = formatDt(item.at) || 'data inválida';
+          var when = escapeHtml(formatDt(item.at) || 'data inválida');
+          var process = escapeHtml(item.process);
+          var scope = escapeHtml(item.scope);
+          var itemStatus = escapeHtml(item.status);
           return '<li class="list-group-item d-flex justify-content-between align-items-start">' +
-            '<div><strong>' + item.process + '</strong><br/><small class="text-muted">Escopo: ' + item.scope + ' • ' + when + '</small></div>' +
-            '<span class="badge text-bg-primary rounded-pill">' + item.status + '</span>' +
+            '<div><strong>' + process + '</strong><br/><small class="text-muted">Escopo: ' + scope + ' • ' + when + '</small></div>' +
+            '<span class="badge text-bg-primary rounded-pill">' + itemStatus + '</span>' +
             '</li>';
         }).join('');
       }
