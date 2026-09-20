@@ -80,6 +80,7 @@ docker run -p 8080:8080 -e PORT=8080 -e APP_JWT_SECRET=troque-por-um-segredo-for
 ```
 
 O empacotamento Maven prepara automaticamente `backend/target/docker/fintech-api.jar` para esse fluxo.
+O `Dockerfile` consome esse artefato pré-gerado por padrão via `APP_JAR`.
 
 ## ⭐ Mantenha-se atualizado
 
