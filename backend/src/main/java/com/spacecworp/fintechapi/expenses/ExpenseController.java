@@ -2,7 +2,7 @@ package com.spacecworp.fintechapi.expenses;
 
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.plans.PlanCatalog;
 import com.spacecworp.fintechapi.plans.PlanController;
 import com.spacecworp.fintechapi.security.AuthUser;
@@ -24,10 +24,10 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 @Validated
 public class ExpenseController {
-    private final FirestoreGateway firestore;
+    private final DocumentGateway firestore;
     private final PlanController planController;
 
-    public ExpenseController(FirestoreGateway firestore, PlanController planController) {
+    public ExpenseController(DocumentGateway firestore, PlanController planController) {
         this.firestore = firestore;
         this.planController = planController;
     }

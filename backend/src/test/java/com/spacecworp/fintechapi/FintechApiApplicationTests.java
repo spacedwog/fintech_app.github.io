@@ -8,7 +8,7 @@ import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseRuleDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.governance.AuditEventDocument;
 import com.spacecworp.fintechapi.notifications.RegistrationEmailQueue;
 import com.spacecworp.fintechapi.payments.PaymentDocument;
@@ -55,7 +55,7 @@ class FintechApiApplicationTests {
     Firestore firestore;
 
     @MockBean
-    FirestoreGateway firestoreGateway;
+    DocumentGateway firestoreGateway;
 
     @MockBean
     RegistrationEmailQueue registrationEmailQueue;

@@ -5,7 +5,7 @@ import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseRuleDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.governance.AuditEventDocument;
 import com.spacecworp.fintechapi.payments.PaymentDocument;
 import com.spacecworp.fintechapi.plans.PlanCatalog;
@@ -23,9 +23,9 @@ import java.util.function.Function;
 @RestController
 @RequestMapping("/api/v1/migration")
 public class MigrationController {
-    private final FirestoreGateway firestore;
+    private final DocumentGateway firestore;
 
-    public MigrationController(FirestoreGateway firestore) {
+    public MigrationController(DocumentGateway firestore) {
         this.firestore = firestore;
     }
 

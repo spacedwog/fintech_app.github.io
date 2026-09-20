@@ -2,7 +2,7 @@ package com.spacecworp.fintechapi.users;
 
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.security.SecurityUtils;
 import jakarta.validation.Valid;
@@ -21,10 +21,10 @@ import java.util.Map;
 @RequestMapping("/api/v1/users")
 @Validated
 public class UserController {
-    private final FirestoreGateway firestore;
+    private final DocumentGateway firestore;
     private final PasswordEncoder passwordEncoder;
 
-    public UserController(FirestoreGateway firestore, PasswordEncoder passwordEncoder) {
+    public UserController(DocumentGateway firestore, PasswordEncoder passwordEncoder) {
         this.firestore = firestore;
         this.passwordEncoder = passwordEncoder;
     }

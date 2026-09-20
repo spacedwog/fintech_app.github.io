@@ -3,7 +3,7 @@ package com.spacecworp.fintechapi.auth;
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.notifications.RegistrationEmailQueue;
 import com.spacecworp.fintechapi.plans.PlanController;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
@@ -19,14 +19,14 @@ import java.util.List;
 
 @Service
 public class AuthService {
-    private final FirestoreGateway firestore;
+    private final DocumentGateway firestore;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final PlanController planController;
     private final RegistrationEmailQueue registrationEmailQueue;
 
     public AuthService(
-            FirestoreGateway firestore,
+            DocumentGateway firestore,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             PlanController planController,

@@ -2,7 +2,7 @@ package com.spacecworp.fintechapi.payments;
 
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.governance.AuditService;
 import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.security.SecurityUtils;
@@ -23,11 +23,11 @@ import java.util.Map;
 @RequestMapping("/api/v1/payments")
 @Validated
 public class PaymentController {
-    private final FirestoreGateway firestore;
+    private final DocumentGateway firestore;
     private final AuditService auditService;
     private final ReceiptAnalysisAiAgent receiptAnalysisAiAgent;
 
-    public PaymentController(FirestoreGateway firestore, AuditService auditService, ReceiptAnalysisAiAgent receiptAnalysisAiAgent) {
+    public PaymentController(DocumentGateway firestore, AuditService auditService, ReceiptAnalysisAiAgent receiptAnalysisAiAgent) {
         this.firestore = firestore;
         this.auditService = auditService;
         this.receiptAnalysisAiAgent = receiptAnalysisAiAgent;

@@ -9,7 +9,7 @@ import com.spacecworp.fintechapi.budgets.CategoryBudgetDocument;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.governance.AuditService;
 import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.users.UserDocument;
@@ -29,10 +29,10 @@ import java.util.stream.Stream;
 @RequestMapping("/api/v1")
 @Validated
 public class SystemController {
-    private final FirestoreGateway firestoreGateway;
+    private final DocumentGateway firestoreGateway;
     private final AuditService auditService;
 
-    public SystemController(FirestoreGateway firestoreGateway, AuditService auditService) {
+    public SystemController(DocumentGateway firestoreGateway, AuditService auditService) {
         this.firestoreGateway = firestoreGateway;
         this.auditService = auditService;
     }
