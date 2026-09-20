@@ -90,7 +90,7 @@ public final class CloudEngineDesktopLauncher {
                     Arquitetura: %s
                     Tema desktop: %s
                     Backend: %s
-                    Executável: target/cloud-engine-desktop.jar
+                    Executável: target/cloud-engine-desktop-jar-with-dependencies.jar
                     """.formatted(shell.productName(), shell.architecture(), shell.desktopTheme(), baseUrl));
             modulePanel.revalidate();
             modulePanel.repaint();

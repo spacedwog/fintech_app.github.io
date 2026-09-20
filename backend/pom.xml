@@ -160,7 +160,6 @@
                         </goals>
                         <configuration>
                             <finalName>cloud-engine-desktop</finalName>
-                            <appendAssemblyId>false</appendAssemblyId>
                             <archive>
                                 <manifest>
                                     <mainClass>com.spacecworp.fintechapi.cloudengine.desktop.CloudEngineDesktopLauncher</mainClass>
