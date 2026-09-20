@@ -20,7 +20,9 @@ public final class CloudEngineProcedures {
                 """)) {
             update.setString(1, closedBy == null || closedBy.isBlank() ? "cloud-engine" : closedBy);
             update.setLong(2, budgetCycleId);
-            update.executeUpdate();
+            if (update.executeUpdate() == 0) {
+                throw new SQLException("Cloud Engine budget cycle not found: " + budgetCycleId);
+            }
         }
         try (PreparedStatement audit = connection.prepareStatement("""
                 insert into ce_audit_log (company_id, entity_type, entity_id, action, detail, created_at)

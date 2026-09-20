@@ -142,7 +142,11 @@ public final class CloudEngineDesktopLauncher {
 
         private String defaultBaseUrl() {
             String env = System.getenv("CLOUD_ENGINE_API_BASE");
-            return env == null || env.isBlank() ? "http://localhost:8080" : env.trim();
+            if (env != null && !env.isBlank()) {
+                return env.trim();
+            }
+            String port = System.getenv("PORT");
+            return "http://localhost:" + ((port == null || port.isBlank()) ? "8080" : port.trim());
         }
     }
 

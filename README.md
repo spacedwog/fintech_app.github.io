@@ -83,7 +83,7 @@ Fluxo sugerido:
 
 1. Gere os artefatos com `cd backend && mvn clean package`.
 2. Execute o cliente desktop com `java -jar target/cloud-engine-desktop-jar-with-dependencies.jar`.
-3. Opcionalmente defina `CLOUD_ENGINE_API_BASE` para apontar o jFrame para outro backend Java.
+3. Opcionalmente defina `CLOUD_ENGINE_API_BASE` para apontar o JFrame para outro backend Java.
 
 ## ⭐ Mantenha-se atualizado
 

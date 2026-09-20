@@ -134,7 +134,8 @@ create table if not exists ce_audit_log (
 
 create or replace view ce_v_budget_execution as
 select bc.reference_month,
-       cc.company_id,
+       bc.company_id,
+       bc.id as budget_cycle_id,
        cc.id as cost_center_id,
        ec.id as expense_category_id,
        sum(bl.planned_amount) as planned_amount,
@@ -148,16 +149,19 @@ select bc.reference_month,
                         and e.cost_center_id = cc.id
                         and e.expense_category_id = ec.id
                         and e.status = 'POSTED'
- group by bc.reference_month, cc.company_id, cc.id, ec.id;
+ group by bc.reference_month, bc.company_id, bc.id, cc.id, ec.id;
 
 create or replace view ce_v_payment_summary as
-select p.company_id,
+select bc.reference_month,
+       p.company_id,
        count(*) as payment_count,
        sum(p.amount) as total_amount,
        sum(case when p.status = 'PAID' then p.amount else 0 end) as paid_amount,
        sum(case when p.status <> 'PAID' then p.amount else 0 end) as pending_amount
   from ce_payment p
- group by p.company_id;
+  join ce_expense e on e.id = p.expense_id and e.status = 'POSTED'
+  join ce_budget_cycle bc on bc.id = e.budget_cycle_id
+ group by bc.reference_month, p.company_id;
 
 merge into ce_role (code, name) key(code) values
 ('ADMIN', 'Administrador ERP'),
@@ -168,9 +172,9 @@ create alias if not exists ERP_CLOSE_BUDGET_CYCLE for "com.spacecworp.fintechapi
 create alias if not exists ERP_REGISTER_AGENT_JOB for "com.spacecworp.fintechapi.cloudengine.infrastructure.jdbc.CloudEngineProcedures.registerAgentJob";
 
 create trigger if not exists ce_expense_audit_trigger
-after insert, update on ce_expense
+after insert, update, delete on ce_expense
 for each row call "com.spacecworp.fintechapi.cloudengine.infrastructure.jdbc.CloudEngineAuditTrigger";
 
 create trigger if not exists ce_payment_audit_trigger
-after insert, update on ce_payment
+after insert, update, delete on ce_payment
 for each row call "com.spacecworp.fintechapi.cloudengine.infrastructure.jdbc.CloudEngineAuditTrigger";

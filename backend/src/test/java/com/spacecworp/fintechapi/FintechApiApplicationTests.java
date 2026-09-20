@@ -373,6 +373,7 @@ class FintechApiApplicationTests {
         String token = loginAndGetToken("admin@example.com", "admin123");
 
         mockMvc.perform(get("/api/v1/cloud-engine/erp-overview")
+                        .queryParam("referenceMonth", month.toString())
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.referenceMonth").value(month.toString()))
@@ -425,12 +426,14 @@ class FintechApiApplicationTests {
         jdbcClient.sql("delete from ce_audit_log").update();
         jdbcClient.sql("delete from ce_payment").update();
         jdbcClient.sql("delete from ce_expense").update();
+        jdbcClient.sql("delete from ce_audit_log").update();
         jdbcClient.sql("delete from ce_budget_line").update();
         jdbcClient.sql("delete from ce_budget_cycle").update();
         jdbcClient.sql("delete from ce_expense_category").update();
         jdbcClient.sql("delete from ce_cost_center").update();
         jdbcClient.sql("delete from ce_agent_job").update();
         jdbcClient.sql("delete from ce_user_role").update();
+        jdbcClient.sql("delete from ce_role").update();
         jdbcClient.sql("delete from ce_user_account").update();
         jdbcClient.sql("delete from ce_company").update();
     }

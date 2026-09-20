@@ -5,6 +5,9 @@ import com.spacecworp.fintechapi.cloudengine.application.CloudEngineShellService
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.time.YearMonth;
 
 @RestController
 @RequestMapping("/api/v1/cloud-engine")
@@ -23,7 +26,11 @@ public class CloudEngineController {
     }
 
     @GetMapping("/erp-overview")
-    public CloudEngineErpService.ErpOverview erpOverview() {
-        return erpService.loadOverview();
+    public CloudEngineErpService.ErpOverview erpOverview(
+            @RequestParam(name = "referenceMonth", required = false) String referenceMonth
+    ) {
+        return referenceMonth == null || referenceMonth.isBlank()
+                ? erpService.loadOverview()
+                : erpService.loadOverview(YearMonth.parse(referenceMonth));
     }
 }

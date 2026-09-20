@@ -35,17 +35,13 @@ public class CloudEngineErpService {
                 .singleRow();
 
         Map<String, Object> paymentSummary = jdbcClient.sql("""
-                select coalesce(sum(p.amount), 0) as total_amount,
-                       coalesce(sum(case when p.status = 'PAID' then p.amount else 0 end), 0) as paid_amount,
-                       coalesce(sum(case when p.status <> 'PAID' then p.amount else 0 end), 0) as pending_amount
-                  from ce_payment p
-                  join ce_expense e on e.id = p.expense_id
-                 where e.occurred_on >= :monthStart
-                   and e.occurred_on < :nextMonthStart
-                   and e.status = 'POSTED'
+                select coalesce(sum(total_amount), 0) as total_amount,
+                       coalesce(sum(paid_amount), 0) as paid_amount,
+                       coalesce(sum(pending_amount), 0) as pending_amount
+                  from ce_v_payment_summary
+                 where reference_month = :referenceMonth
                 """)
-                .param("monthStart", monthStart)
-                .param("nextMonthStart", nextMonthStart)
+                .param("referenceMonth", monthStart)
                 .query()
                 .singleRow();
 
@@ -53,9 +49,15 @@ public class CloudEngineErpService {
                 select count(*)
                   from ce_agent_job
                  where status in ('QUEUED', 'RUNNING')
+                   and company_id in (
+                       select distinct company_id
+                         from ce_v_budget_execution
+                        where reference_month = :referenceMonth
+                   )
                    and requested_at >= :monthStart
                    and requested_at < :nextMonthStart
                 """)
+                .param("referenceMonth", monthStart)
                 .param("monthStart", monthStart.atStartOfDay())
                 .param("nextMonthStart", nextMonthStart.atStartOfDay())
                 .query(Integer.class)
