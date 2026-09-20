@@ -14,12 +14,12 @@ public class RegistrationEmailAiAgent {
         String firstName = extractFirstName(user == null ? null : user.name);
         String subject = "Cadastro confirmado • " + company;
         String text = "Olá " + firstName + ",\n\n"
-                + "Seu cadastro foi confirmado com sucesso no Fintech Spacecworp.\n"
+                + "Seu cadastro foi confirmado com sucesso na Spacecworp Despesas Pessoais.\n"
                 + "Conta: " + company + "\n"
                 + "E-mail: " + safe(user == null ? null : user.email, "-") + "\n"
                 + "Data: " + LocalDate.now() + "\n\n"
                 + "Você já pode acessar e começar a gerenciar suas despesas pessoais com segurança.\n\n"
-                + "Equipe Fintech Spacecworp";
+                + "Equipe Spacecworp Despesas Pessoais";
         String html = """
                 <!doctype html>
                 <html lang="pt-BR">
@@ -44,7 +44,7 @@ public class RegistrationEmailAiAgent {
                       <div class="card">
                         <span class="pill">Cadastro confirmado</span>
                         <h1 class="title">Olá %s, sua conta está pronta!</h1>
-                        <p class="muted">Seu cadastro foi confirmado com sucesso no Fintech Spacecworp.</p>
+                        <p class="muted">Seu cadastro foi confirmado com sucesso na Spacecworp Despesas Pessoais.</p>
                         <div class="kv">
                           <p><strong>Conta:</strong> %s</p>
                           <p><strong>E-mail:</strong> %s</p>

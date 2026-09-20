@@ -3565,7 +3565,7 @@ class DashboardController {
     const plan = plans[planKey];
     this.pixModal.open({
       amount: plan.price_month,
-      description: `Assinatura ${plan.label} — Fintech Spacecworp`,
+      description: `Assinatura ${plan.label} — Spacecworp Despesas Pessoais`,
       txidPrefix: "PLANO",
       expectedType: planKey === "premium" ? "plano_premium" : "plano_free",
       onConfirm: async (txid, analysis) => {
@@ -3720,7 +3720,7 @@ class DashboardController {
 
   static get SECURITY_THREATS() {
     return [
-      { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser o Fintech Spacecworp para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
+      { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser a Spacecworp Despesas Pessoais para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
       { name: "Força bruta de senha", what: "Tentar adivinhar sua senha por tentativa e erro.", mitigation: "Bloqueio temporário após 5 tentativas + hash PBKDF2 (100.000 iterações) dificultam ataque offline." },
       { name: "Ataques a aplicações web (XSS/injeção)", what: "Injetar código ou comandos maliciosos através de campos de formulário.", mitigation: "Sem SQL (Firestore/localStorage), escaping ao exibir dados do usuário, e Content-Security-Policy." },
       { name: "Man-in-the-middle", what: "Interceptar dados trafegando entre você e o servidor.", mitigation: "HTTPS/TLS obrigatório em toda comunicação com Firebase e com a página." },

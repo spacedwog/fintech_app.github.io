@@ -1,11 +1,11 @@
-# Fintech Spacecworp
+# Spacecworp | Gestão de Despesas Pessoais
 
 [![Stack](https://img.shields.io/badge/stack-Fullstack%20Web-2563eb)](#)
 [![Hospedagem](https://img.shields.io/badge/hospedagem-GitHub%20Pages-181717)](#)
 [![Idioma](https://img.shields.io/badge/idioma-PT--BR-16a34a)](#)
 [![Pagamentos](https://img.shields.io/badge/pagamentos-Pix%20real%20%2B%20Mercado%20Pago-00b1ea)](#)
 
-O **Fintech Spacecworp** é uma plataforma de gestão de despesas pessoais com frontend em HTML/CSS/JavaScript, autenticação e persistência via Firebase (Firestore), fallback em `localStorage` e suporte a pagamentos reais via Pix com confirmação opcional por API do Mercado Pago.
+A **Spacecworp** passa a se posicionar neste repositório como uma empresa de **gestão de despesas pessoais**, com uma plataforma focada em orçamento, controle de gastos, relatórios e pagamentos via Pix para pessoas físicas e grupos familiares.
 
 O aplicativo React Native anterior foi removido do repositório para concentrar a operação nas entregas web, backend Java e desktop Cloud Engine.
 
@@ -46,7 +46,7 @@ Para validar exatamente o empacotamento usado na nuvem, execute `mvn clean packa
 - **Frontend principal**: `index.html`, `login.html`, `dashboard.html`, `css/`, `js/`.
 - **Camada de negócio client-side**: `js/api.js`.
 - **Automação local opcional**: `orcamento_agent/`.
-- **Backend Java/Spring Boot**: `backend/` (API REST e servidor único para deploy em nuvem).
+- **Backend Java/Spring Boot**: `backend/` (API REST e servidor único para o produto de gestão de despesas pessoais).
 - **Cliente desktop Cloud Engine**: empacotado a partir de `backend/`.
 - **Testes**: `tests/`.
 

@@ -235,7 +235,7 @@ const Auth = new SessionManager();
 const COMPANY_PROFILE = {
   razao_social: "FELIPE RODRIGUES DOS SANTOS DESENVOLVIMENTO DE SOFTWARE LTDA",
   nome_fantasia: "SPACECWORP",
-  produto: "Fintech Spacecworp",
+  produto: "Spacecworp Despesas Pessoais",
   cnpj: "62.904.267/0001-60",
   porte: "ME (Microempresa)",
   inscricao_municipal_ccm: "0000251624",
