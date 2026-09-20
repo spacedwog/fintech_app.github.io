@@ -7,6 +7,8 @@
 
 O **Fintech Spacecworp** é uma plataforma de gestão de despesas pessoais com frontend em HTML/CSS/JavaScript, autenticação e persistência via Firebase (Firestore), fallback em `localStorage` e suporte a pagamentos reais via Pix com confirmação opcional por API do Mercado Pago.
 
+O aplicativo React Native anterior foi removido do repositório para concentrar a operação nas entregas web, backend Java e desktop Cloud Engine.
+
 ## ✨ Destaques
 
 - **Fluxo completo de orçamento e despesas** em tela paginada no `dashboard.html`.
@@ -45,6 +47,7 @@ Para validar exatamente o empacotamento usado na nuvem, execute `mvn clean packa
 - **Camada de negócio client-side**: `js/api.js`.
 - **Automação local opcional**: `orcamento_agent/`.
 - **Backend Java/Spring Boot**: `backend/` (API REST e servidor único para deploy em nuvem).
+- **Cliente desktop Cloud Engine**: empacotado a partir de `backend/`.
 - **Testes**: `tests/`.
 
 ## 🧪 Testes

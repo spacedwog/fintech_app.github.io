@@ -120,8 +120,6 @@
                                         <include>ads.txt</include>
                                         <include>sitemap.xml</include>
                                     </includes>
-                                    <excludes>
-                                    </excludes>
                                 </resource>
                                 <resource>
                                     <directory>${project.basedir}/../css</directory>
