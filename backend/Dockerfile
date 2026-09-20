@@ -3,7 +3,7 @@ WORKDIR /workspace
 
 COPY backend/pom.xml backend/pom.xml
 COPY backend/src backend/src
-COPY index.html login.html dashboard.html ads.txt sitemap.xml db.json ./
+COPY index.html login.html dashboard.html ads.txt sitemap.xml ./
 COPY assets assets
 COPY css css
 COPY js js
@@ -14,8 +14,5 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 COPY --from=build /workspace/backend/target/fintech-api-0.0.1-SNAPSHOT.jar app.jar
-
-ENV PORT=8080
-EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -27,7 +27,7 @@ O **Fintech Spacecworp** é uma plataforma de gestão de despesas pessoais com f
 
 ### Executar localmente com o servidor Java
 
-1. Entre em `/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend`.
+1. A partir da raiz do repositório, entre em `backend/`.
 2. Execute `mvn spring-boot:run`.
 3. Abra `http://localhost:8080/`.
 
@@ -63,7 +63,7 @@ A aplicação continua compatível com hospedagem estática e com **GitHub Pages
 
 ### Servidor Java na nuvem
 
-O diretório `backend/` agora empacota o frontend web dentro do artefato Spring Boot, permitindo publicar um único serviço Java na nuvem com site e API no mesmo domínio.
+O diretório `backend/` agora empacota o frontend web dentro do artefato Spring Boot, permitindo publicar um único serviço Java na nuvem com site e API no mesmo domínio. Nesse modo, o backend REST passa a ser a origem principal dos dados em produção.
 
 Fluxo sugerido:
 
@@ -74,8 +74,8 @@ Fluxo sugerido:
 Também é possível usar container:
 
 ```bash
-docker build -f backend/Dockerfile -t fintech-spacecworp .
-docker run -p 8080:8080 -e PORT=8080 fintech-spacecworp
+docker build -f backend/Dockerfile -t fintech-app-java .
+docker run -p 8080:8080 fintech-app-java
 ```
 
 ## ⭐ Mantenha-se atualizado

@@ -84,7 +84,6 @@
                     <include>dashboard.html</include>
                     <include>ads.txt</include>
                     <include>sitemap.xml</include>
-                    <include>db.json</include>
                     <include>assets/**</include>
                     <include>css/**</include>
                     <include>js/**</include>
