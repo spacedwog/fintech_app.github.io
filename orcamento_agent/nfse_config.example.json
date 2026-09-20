@@ -1,7 +1,7 @@
 {
   "provedor": "focus_nfe",
   "ambiente": "homologacao",
-  "focus_nfe_token": "aawpdTTDRero5mUF3nvKpCfRFlgdo75c",
+  "focus_nfe_token": "SUBSTITUA_PELO_TOKEN_DA_SUA_CONTA_FOCUS_NFE",
   "prestador": {
     "cnpj": "62904267000160",
     "inscricao_municipal": "0000251624",
@@ -12,7 +12,7 @@
   "servico": {
     "item_lista_servico": "AJUSTAR_CONFORME_PREFEITURA_DE_OSASCO",
     "codigo_tributario_municipio": "AJUSTAR_CONFORME_PREFEITURA_DE_OSASCO",
-    "discriminacao_padrao": "Assinatura de plataforma de gestao financeira (SaaS) - Fintech Spacecworp",
+    "discriminacao_padrao": "Assinatura da plataforma Spacecworp Despesas Pessoais (SaaS)",
     "aliquota": 0.02,
     "iss_retido": false
   },

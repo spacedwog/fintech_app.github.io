@@ -316,7 +316,7 @@ class LocalCache {
     try {
       return Schema.normalize(JSON.parse(raw));
     } catch (e) {
-      console.warn("Fintech Spacecworp: JSON salvo em localStorage estava corrompido; ignorando.", e);
+      console.warn("Spacecworp Despesas Pessoais: JSON salvo em localStorage estava corrompido; ignorando.", e);
       return null;
     }
   }
@@ -325,7 +325,7 @@ class LocalCache {
     try {
       localStorage.setItem(this.dbKey, JSON.stringify(db));
     } catch (e) {
-      console.warn("Fintech Spacecworp: não foi possível gravar no localStorage.", e);
+      console.warn("Spacecworp Despesas Pessoais: não foi possível gravar no localStorage.", e);
     }
   }
 
@@ -455,7 +455,7 @@ class SeedLoader {
       const res = await fetch(this.url, { cache: "no-store" });
       if (res.ok) return Schema.normalize(await res.json());
     } catch (e) {
-      console.warn("Fintech Spacecworp: não foi possível carregar o banco de fábrica (db.json).", e);
+      console.warn("Spacecworp Despesas Pessoais: não foi possível carregar o banco de fábrica (db.json).", e);
     }
     return null;
   }
@@ -543,7 +543,7 @@ class Database {
         this.cache.write(toWrite); // cache local reflete o resultado do merge
         this.cache.writeLastSynced(toWrite);
         this.cache.markPending(false);
-        console.info("Fintech Spacecworp: dados sincronizados com o Firebase.");
+        console.info("Spacecworp Despesas Pessoais: dados sincronizados com o Firebase.");
         return true;
       }
     } catch (e) {
@@ -592,7 +592,7 @@ class Database {
         }
         return seeded;
       } catch (e) {
-        console.warn("Fintech Spacecworp: Firebase indisponível agora (offline ou erro); usando localStorage.", e);
+        console.warn("Spacecworp Despesas Pessoais: Firebase indisponível agora (offline ou erro); usando localStorage.", e);
         // cai para o fallback local abaixo
       }
     }
@@ -641,7 +641,7 @@ class Database {
         })
         .catch((e) => {
           console.warn(
-            "Fintech Spacecworp: não foi possível sincronizar com o Firebase agora (offline ou erro); os dados estão seguros no localStorage e serão sincronizados automaticamente depois.",
+            "Spacecworp Despesas Pessoais: não foi possível sincronizar com o Firebase agora (offline ou erro); os dados estão seguros no localStorage e serão sincronizados automaticamente depois.",
             e
           );
           this.cache.markPending(true);

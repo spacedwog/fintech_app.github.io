@@ -271,8 +271,8 @@ class NfsePayloadBuilder:
     def build(self, payment, tomador):
         hoje = datetime.now().strftime("%Y-%m-%d")
         descricao = payment.get("type") == "plano" and (
-            f"Assinatura do plano {payment.get('plan') or ''} - Fintech Spacecworp"
-        ) or self.servico.get("discriminacao_padrao", "Servico Fintech Spacecworp")
+            f"Assinatura do plano {payment.get('plan') or ''} - Spacecworp Despesas Pessoais"
+        ) or self.servico.get("discriminacao_padrao", "Servico Spacecworp Despesas Pessoais")
 
         payload = {
             "data_emissao": hoje,

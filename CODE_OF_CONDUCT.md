@@ -2,7 +2,7 @@
 
 ## Nosso compromisso
 
-Nós, como mantenedores e contribuidores do projeto **Fintech Spacecworp**, nos comprometemos a tornar a participação na comunidade uma experiência livre de assédio para todas as pessoas, independentemente de idade, corpo, deficiência visível ou não, etnia, características sexuais, identidade e expressão de gênero, nível de experiência, educação, status socioeconômico, nacionalidade, aparência pessoal, raça, religião ou identidade e orientação sexual.
+Nós, como mantenedores e contribuidores do projeto **Spacecworp Despesas Pessoais**, nos comprometemos a tornar a participação na comunidade uma experiência livre de assédio para todas as pessoas, independentemente de idade, corpo, deficiência visível ou não, etnia, características sexuais, identidade e expressão de gênero, nível de experiência, educação, status socioeconômico, nacionalidade, aparência pessoal, raça, religião ou identidade e orientação sexual.
 
 Comprometemo-nos a agir e interagir de formas que contribuam para uma comunidade aberta, acolhedora, diversa, inclusiva e saudável.
 

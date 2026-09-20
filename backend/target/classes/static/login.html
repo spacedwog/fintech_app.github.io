@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fintech Spacecworp - Entrar</title>
+
+  <!-- Segurança (ver tela "Segurança" no painel): restringe de quais domínios o
+       navegador pode carregar script/estilo/fonte/imagem/conexão. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.google.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.googletagmanager.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <link rel="icon" type="image/png" href="assets/img/icon.png" />
+
+  <!-- Google tag (gtag.js) - Google Ads -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
+  <!-- Event snippet for Visualização de página (1) conversion page -->
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    // Privacidade/LGPD (Google Consent Mode v2): cookies de analytics/anúncios
+    // começam BLOQUEADOS até o usuário autorizar na tela "Privacidade" do
+    // painel (ver Api.getPrivacyConsent/setPrivacyConsent em js/api.js e
+    // _loadPrivacyView em js/dashboard.js, que sincroniza a preferência real
+    // assim que a sessão carrega).
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+    });
+    gtag('js', new Date());
+    gtag('config', 'AW-10926256695');
+    gtag('event', 'conversion', {
+        'send_to': 'AW-10926256695/lTEfCKWou9gcELfkhdoo',
+        'value': 1.0,
+        'currency': 'BRL'
+    });
+  </script>
+
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-MCN6MLH5');</script>
+  <!-- End Google Tag Manager -->
+
+  <!-- W3.CSS + Poppins + Font Awesome (mesma base do template "App Launch" do W3.CSS/W3Schools) -->
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:400,600,700,800" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MCN6MLH5"
+  height="0" width="0" class="hidden-frame"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+
+  <div class="auth-wrapper">
+
+    <!-- Painel de marca — hero "jumbo" no estilo App Launch (W3.CSS), tema de gestão pessoal -->
+    <div class="auth-brand">
+      <div class="auth-brand-inner">
+        <span class="auth-brand-logo"><i class="fa fa-university"></i> Fintech Spacecworp</span>
+
+        <h1 class="jumbo">Sua gestão<br /><b class="accent">pessoal,</b><br />sob controle.</h1>
+        <hr class="fade" />
+        <p class="lead">Despesas, orçamento importado de planilha, relatórios e alertas em um só painel — com
+           pagamento via Pix real e integrações externas opcionais operadas em camada segura fora do navegador.</p>
+
+        <!-- Grade de recursos, no espírito da seção "Features" do App Launch -->
+        <div class="auth-features">
+          <div class="feature">
+            <i class="fa fa-lock"></i>
+            <p>Seguro</p>
+          </div>
+          <div class="feature">
+            <i class="fa fa-file-excel-o"></i>
+            <p>Orçamento</p>
+          </div>
+          <div class="feature">
+            <i class="fa fa-users"></i>
+            <p>Equipe</p>
+          </div>
+          <div class="feature">
+            <i class="fa fa-qrcode"></i>
+            <p>Pix real</p>
+          </div>
+        </div>
+
+        <div class="auth-trust">
+          <i class="fa fa-check-circle"></i> Pix real com QR Code &amp; Copia-e-Cola
+          <span class="dot">•</span>
+          <i class="fa fa-check-circle"></i> Dados sincronizados na nuvem
+          <span class="dot">•</span>
+          <i class="fa fa-check-circle"></i> Previsto x Realizado por categoria
+        </div>
+      </div>
+    </div>
+
+    <!-- Painel do formulário -->
+    <div class="auth-forms">
+
+      <div class="auth-card" id="login-box">
+        <span class="auth-card-logo"><i class="fa fa-university"></i> Fintech Spacecworp</span>
+        <h1>Bem-vindo(a) de volta</h1>
+        <p class="subtitle">Entre na sua conta</p>
+
+        <div id="login-error" class="error-box hidden"></div>
+
+        <form id="login-form">
+          <div class="field field-icon">
+            <label>E-mail</label>
+            <i class="fa fa-envelope-o field-icon-glyph"></i>
+            <input type="email" id="login-email" required autocomplete="email" placeholder="voce@email.com" />
+          </div>
+          <div class="field field-icon">
+            <label>Senha</label>
+            <i class="fa fa-lock field-icon-glyph"></i>
+            <input type="password" id="login-password" required minlength="6" autocomplete="current-password" placeholder="••••••••" />
+          </div>
+          <button type="submit" class="primary w3-round-large"><i class="fa fa-sign-in"></i> Entrar</button>
+        </form>
+
+        <p class="switch-link">Ainda não tem conta? <a id="show-signup">Criar conta</a></p>
+      </div>
+
+      <div class="auth-card hidden" id="signup-box">
+        <span class="auth-card-logo"><i class="fa fa-university"></i> Fintech Spacecworp</span>
+        <h1>Crie sua conta</h1>
+        <p class="subtitle">Cadastre suas informações, conclua o onboarding e registre sua primeira despesa em minutos</p>
+
+        <div id="signup-error" class="error-box hidden"></div>
+
+        <form id="signup-form">
+          <div class="field field-icon">
+            <label>Nome do seu espaço</label>
+            <i class="fa fa-home field-icon-glyph"></i>
+            <input type="text" id="signup-company" required placeholder="Minhas Finanças" />
+          </div>
+          <div class="field field-icon">
+            <label>Seu nome</label>
+            <i class="fa fa-user-o field-icon-glyph"></i>
+            <input type="text" id="signup-name" required autocomplete="name" placeholder="Seu nome completo" />
+          </div>
+          <div class="field field-icon">
+            <label>E-mail</label>
+            <i class="fa fa-envelope-o field-icon-glyph"></i>
+            <input type="email" id="signup-email" required autocomplete="email" placeholder="voce@email.com" />
+          </div>
+          <div class="field field-icon">
+            <label>Senha</label>
+            <i class="fa fa-lock field-icon-glyph"></i>
+            <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+          </div>
+          <button type="submit" class="primary w3-round-large"><i class="fa fa-rocket"></i> Criar conta</button>
+        </form>
+
+        <p class="switch-link">Já tem conta? <a id="show-login">Entrar</a></p>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="oauth-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="oauth-consent-title">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="oauth-consent-title" class="m-0 fs-18">Permissões do login OAuth</h2>
+      </div>
+      <p class="small-muted mt-0">
+        Para entrar, vamos obter e usar os dados abaixo nesta conta:
+      </p>
+      <ul class="small-muted mt-0 mb-16">
+        <li>Identidade: nome, e-mail e função na conta</li>
+        <li>Escopo de acesso: leitura/escrita de despesas, relatórios e pagamentos</li>
+        <li>Sessão OAuth 2.0: token de acesso e refresh token com expiração</li>
+      </ul>
+      <p class="small-muted mt-0 mb-16">
+        Ao continuar, você autoriza o fluxo OAuth 2.0 com PKCE para esta aplicação.
+      </p>
+      <div id="oauth-consent-error" class="error-box hidden"></div>
+      <div class="button-row">
+        <button type="button" id="oauth-consent-cancel" class="secondary flex-1">Cancelar</button>
+        <button type="button" id="oauth-consent-continue" class="primary flex-1 mt-0">Continuar com OAuth</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase (Firestore) — banco de dados primário, com localStorage como fallback. -->
+  <!-- Ver README.md > "Conectando ao Firebase" para o passo a passo de configuração. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/plans.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/crypto-utils.js"></script>
+  <script src="js/oauth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth-page.js"></script>
+</body>
+</html>

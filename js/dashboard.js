@@ -10,7 +10,7 @@
 // caso o atributo onclick só enxerga o escopo global do navegador.
 // ===============================
 
-// Chave Pix real da SPACECWORP (a mesma usada no site principal).
+// Chave Pix real da operação Spacecworp Despesas Pessoais.
 const PIX_MERCHANT = { key: "62904267000160", name: "SPACECWORP", city: "OSASCO" };
 
 // ---------- SyncStatusIndicator: bolinha de status Firebase x localStorage ----------
@@ -361,7 +361,7 @@ class PixPaymentModal {
       this._setConfirmState(true, "Confirmar pagamento");
     } else {
       const reasons = [];
-      if (!result.merchantMatches) reasons.push("não encontramos o recebedor (SPACECWORP) no comprovante");
+      if (!result.merchantMatches) reasons.push("não encontramos o recebedor da Spacecworp Despesas Pessoais (SPACECWORP) no comprovante");
       if (!result.amountMatches) reasons.push(`o valor não bate com R$ ${this.currentAmount.toFixed(2)}`);
       this.receiptStatus.textContent =
         `⚠️ Não deu para validar automaticamente (${reasons.join(" e ")}). Confira o comprovante ou envie mesmo assim para revisão manual.`;
@@ -1959,7 +1959,7 @@ class DashboardController {
       }</p>` +
       `<ul class="small-muted mt-0 mb-0">` +
       `<li>Valor lido: ${result.detectedAmount == null ? "-" : `R$ ${Number(result.detectedAmount).toFixed(2)}`}</li>` +
-      `<li>Recebedor SPACECWORP identificado: ${result.merchantMatches ? "sim" : "não"}</li>` +
+      `<li>Recebedor da Spacecworp Despesas Pessoais (SPACECWORP) identificado: ${result.merchantMatches ? "sim" : "não"}</li>` +
       `<li>Tipo detectado: ${this._escapeHtml(detectedType)}</li>` +
       `<li>Confiança do agente IA: ${confidencePercent}%</li>` +
       `<li>Número de transação sugerido: ${this._escapeHtml(draft.transactionNumber || "não detectado")}</li>` +
@@ -3565,7 +3565,7 @@ class DashboardController {
     const plan = plans[planKey];
     this.pixModal.open({
       amount: plan.price_month,
-      description: `Assinatura ${plan.label} — Fintech Spacecworp`,
+      description: `Assinatura ${plan.label} — Spacecworp Despesas Pessoais`,
       txidPrefix: "PLANO",
       expectedType: planKey === "premium" ? "plano_premium" : "plano_free",
       onConfirm: async (txid, analysis) => {
@@ -3720,7 +3720,7 @@ class DashboardController {
 
   static get SECURITY_THREATS() {
     return [
-      { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser o Fintech Spacecworp para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
+      { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser a Spacecworp Despesas Pessoais para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
       { name: "Força bruta de senha", what: "Tentar adivinhar sua senha por tentativa e erro.", mitigation: "Bloqueio temporário após 5 tentativas + hash PBKDF2 (100.000 iterações) dificultam ataque offline." },
       { name: "Ataques a aplicações web (XSS/injeção)", what: "Injetar código ou comandos maliciosos através de campos de formulário.", mitigation: "Sem SQL (Firestore/localStorage), escaping ao exibir dados do usuário, e Content-Security-Policy." },
       { name: "Man-in-the-middle", what: "Interceptar dados trafegando entre você e o servidor.", mitigation: "HTTPS/TLS obrigatório em toda comunicação com Firebase e com a página." },

@@ -3,7 +3,7 @@ package com.spacecworp.fintechapi.plans;
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.governance.AuditService;
 import com.spacecworp.fintechapi.security.AuthUser;
 import com.spacecworp.fintechapi.security.SecurityUtils;
@@ -21,10 +21,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/plans")
 public class PlanController {
-    private final FirestoreGateway firestore;
+    private final DocumentGateway firestore;
     private final AuditService auditService;
 
-    public PlanController(FirestoreGateway firestore, AuditService auditService) {
+    public PlanController(DocumentGateway firestore, AuditService auditService) {
         this.firestore = firestore;
         this.auditService = auditService;
     }

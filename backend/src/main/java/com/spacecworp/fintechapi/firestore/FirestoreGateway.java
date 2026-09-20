@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 @Component
-public class FirestoreGateway {
+public class FirestoreGateway implements DocumentGateway {
     private final Firestore firestore;
 
     public FirestoreGateway(Firestore firestore) {

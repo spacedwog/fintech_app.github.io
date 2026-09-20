@@ -1,7 +1,7 @@
 package com.spacecworp.fintechapi.governance;
 
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
-import com.spacecworp.fintechapi.firestore.FirestoreGateway;
+import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.security.AuthUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,9 +14,9 @@ import java.util.Map;
 public class AuditService {
     private static final Logger log = LoggerFactory.getLogger(AuditService.class);
 
-    private final FirestoreGateway firestore;
+    private final DocumentGateway firestore;
 
-    public AuditService(FirestoreGateway firestore) {
+    public AuditService(DocumentGateway firestore) {
         this.firestore = firestore;
     }
 
