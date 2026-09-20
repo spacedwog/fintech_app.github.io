@@ -83,6 +83,9 @@
                     <include>**/*.html</include>
                     <include>ads.txt</include>
                     <include>sitemap.xml</include>
+                    <include>assets/**</include>
+                    <include>css/**</include>
+                    <include>js/**</include>
                 </includes>
                 <excludes>
                     <exclude>backend/**</exclude>
@@ -96,18 +99,6 @@
                     <exclude>src/**</exclude>
                     <exclude>COBOL Programming Course - Team Configuration/**</exclude>
                 </excludes>
-            </resource>
-            <resource>
-                <directory>${project.basedir}/../assets</directory>
-                <targetPath>static/assets</targetPath>
-            </resource>
-            <resource>
-                <directory>${project.basedir}/../css</directory>
-                <targetPath>static/css</targetPath>
-            </resource>
-            <resource>
-                <directory>${project.basedir}/../js</directory>
-                <targetPath>static/js</targetPath>
             </resource>
         </resources>
         <plugins>
