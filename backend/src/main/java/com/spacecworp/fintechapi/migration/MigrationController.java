@@ -49,7 +49,6 @@ public class MigrationController {
             List<ExpenseDocument> expenses,
             List<Map<String, Object>> budgets,
             List<PaymentDocument> payments,
-            List<Map<String, Object>> ads,
             List<Map<String, Object>> budgetLayouts,
             List<Map<String, Object>> categoryBudgets,
             List<Map<String, Object>> budgetGroups,
@@ -72,7 +71,6 @@ public class MigrationController {
         Map<String, Integer> mappedCounts = counts(mapped);
         Map<String, Integer> ignoredCounts = Map.of(
                 "budgets", safe(legacy.budgets()).size(),
-                "ads", safe(legacy.ads()).size(),
                 "budgetLayouts", safe(legacy.budgetLayouts()).size(),
                 "categoryBudgets", safe(legacy.categoryBudgets()).size(),
                 "budgetGroups", safe(legacy.budgetGroups()).size()
@@ -111,7 +109,6 @@ public class MigrationController {
                 "mapped_counts", counts(mapped),
                 "ignored_counts", Map.of(
                         "budgets", safe(legacy.budgets()).size(),
-                        "ads", safe(legacy.ads()).size(),
                         "budgetLayouts", safe(legacy.budgetLayouts()).size(),
                         "categoryBudgets", safe(legacy.categoryBudgets()).size(),
                         "budgetGroups", safe(legacy.budgetGroups()).size()

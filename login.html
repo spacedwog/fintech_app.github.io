@@ -7,43 +7,9 @@
 
   <!-- Segurança (ver tela "Segurança" no painel): restringe de quais domínios o
        navegador pode carregar script/estilo/fonte/imagem/conexão. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.google.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.googletagmanager.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.google.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <link rel="icon" type="image/png" href="assets/img/icon.png" />
-
-  <!-- Google tag (gtag.js) - Google Ads -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
-  <!-- Event snippet for Visualização de página (1) conversion page -->
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    // Privacidade/LGPD (Google Consent Mode v2): cookies de analytics/anúncios
-    // começam BLOQUEADOS até o usuário autorizar na tela "Privacidade" do
-    // painel (ver Api.getPrivacyConsent/setPrivacyConsent em js/api.js e
-    // _loadPrivacyView em js/dashboard.js, que sincroniza a preferência real
-    // assim que a sessão carrega).
-    gtag('consent', 'default', {
-      ad_storage: 'denied',
-      analytics_storage: 'denied',
-      ad_user_data: 'denied',
-      ad_personalization: 'denied',
-    });
-    gtag('js', new Date());
-    gtag('config', 'AW-10926256695');
-    gtag('event', 'conversion', {
-        'send_to': 'AW-10926256695/lTEfCKWou9gcELfkhdoo',
-        'value': 1.0,
-        'currency': 'BRL'
-    });
-  </script>
-
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','GTM-MCN6MLH5');</script>
-  <!-- End Google Tag Manager -->
 
   <!-- W3.CSS + Poppins + Font Awesome (mesma base do template "App Launch" do W3.CSS/W3Schools) -->
   <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
@@ -53,11 +19,6 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MCN6MLH5"
-  height="0" width="0" class="hidden-frame"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-
   <div class="auth-wrapper">
 
     <!-- Painel de marca — hero "jumbo" no estilo App Launch (W3.CSS), tema de gestão pessoal -->

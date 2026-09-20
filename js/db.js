@@ -50,7 +50,7 @@ function secureRandomBase36(size = 6) {
 
 const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Outros", "Mercado Pago"];
 const DB_COLLECTIONS = [
-  "tenants", "users", "categories", "expenses", "budgets", "payments", "ads", "budgetLayouts", "categoryBudgets", "budgetGroups", "expenseRules", "auditEvents",
+  "tenants", "users", "categories", "expenses", "budgets", "payments", "budgetLayouts", "categoryBudgets", "budgetGroups", "expenseRules", "auditEvents",
 ];
 
 // Campos que guardam um id (próprio ou de outra coleção/"FK"), por
@@ -62,7 +62,6 @@ const ID_FIELDS_BY_COLLECTION = {
   expenses: ["id", "tenant_id", "user_id", "category_id"],
   budgets: ["id", "tenant_id", "user_id"],
   payments: ["id", "tenant_id", "user_id"],
-  ads: ["id", "tenant_id", "user_id"],
   budgetLayouts: ["id", "tenant_id"],
   categoryBudgets: ["id", "tenant_id", "category_id"],
   budgetGroups: ["id", "tenant_id", "budget_category_id", "expense_category_id"],
@@ -219,7 +218,6 @@ class Schema {
       expenses: [], // { id, tenant_id, user_id, category_id, amount, date, description, created_at, is_extra, extra_charge }
       budgets: [], // { id, tenant_id, user_id, limit_value, month } -- limite geral (1 valor/mês, sem categoria)
       payments: [], // { id, tenant_id, user_id, type, plan, amount, txid, verifiedByAI, aiClassification, date }
-      ads: [], // { id, tenant_id, user_id, title, description, image_url, target_url, cta_label, is_active, placement, created_at, updated_at }
       // Layouts de leitura salvos no modal "Configurar layout de leitura"
       // (view Importar Orçamento) -- descrevem como ler uma planilha de
       // orçamento (aba, formato longo/largo, linhas e colunas) em vez de
@@ -249,7 +247,7 @@ class Schema {
       // execução de algum dos agentes.
       mercado_pago_status: null,
       _seq: {
-        tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, ads: 0, budgetLayouts: 0, categoryBudgets: 0, budgetGroups: 0, expenseRules: 0, auditEvents: 0,
+        tenants: 0, users: 0, categories: 0, expenses: 0, budgets: 0, payments: 0, budgetLayouts: 0, categoryBudgets: 0, budgetGroups: 0, expenseRules: 0, auditEvents: 0,
       },
     };
   }

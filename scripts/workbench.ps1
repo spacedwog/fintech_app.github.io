@@ -82,7 +82,6 @@ function Invoke-Tests {
         "mercado-pago-badge.test.js",
         "performance-smoke.test.js",
         "plan-limits.test.js",
-        "ads-api.test.js",
         "mercado-pago-transaction-check.test.js"
     )
 

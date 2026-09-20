@@ -1,6 +1,5 @@
 package com.spacecworp.fintechapi.reports;
 
-import com.spacecworp.fintechapi.ads.AdDocument;
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.budgets.BudgetDocument;
 import com.spacecworp.fintechapi.budgets.BudgetGroupDocument;
@@ -413,53 +412,6 @@ public class SystemController {
                 .orElseThrow(() -> new NoSuchElementException("Layout not found"));
         if (!currentUser.tenantId().equals(doc.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
         firestoreGateway.delete(FirestoreCollections.BUDGET_LAYOUTS, id);
-        return Map.of("ok", true);
-    }
-
-    @GetMapping("/ads")
-    public List<AdDocument> listAds(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser) {
-        return firestoreGateway.listByField(FirestoreCollections.ADS, "tenant_id", currentUser.tenantId(), AdDocument.class)
-                .stream().filter(a -> Boolean.TRUE.equals(a.is_active)).collect(Collectors.toList());
-    }
-
-    @PostMapping("/ads")
-    public AdDocument createAd(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
-                               @RequestBody AdDocument request) {
-        if (!"admin".equals(currentUser.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
-        request.id = UUID.randomUUID().toString();
-        request.tenant_id = currentUser.tenantId();
-        request.user_id = currentUser.userId();
-        request.created_at = Instant.now().toString();
-        request.updated_at = request.created_at;
-        request.is_active = request.is_active == null || request.is_active;
-        firestoreGateway.save(FirestoreCollections.ADS, request.id, request);
-        return request;
-    }
-
-    @PutMapping("/ads/{id}")
-    public AdDocument updateAd(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser,
-                               @PathVariable String id,
-                               @RequestBody AdDocument request) {
-        if (!"admin".equals(currentUser.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
-        AdDocument existing = firestoreGateway.findById(FirestoreCollections.ADS, id, AdDocument.class)
-                .orElseThrow(() -> new NoSuchElementException("Ad not found"));
-        if (!currentUser.tenantId().equals(existing.tenant_id)) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
-        existing.title = request.title;
-        existing.description = request.description;
-        existing.image_url = request.image_url;
-        existing.target_url = request.target_url;
-        existing.cta_label = request.cta_label;
-        existing.placement = request.placement;
-        existing.is_active = request.is_active;
-        existing.updated_at = Instant.now().toString();
-        firestoreGateway.save(FirestoreCollections.ADS, existing.id, existing);
-        return existing;
-    }
-
-    @DeleteMapping("/ads/{id}")
-    public Map<String, Object> deleteAd(@org.springframework.security.core.annotation.AuthenticationPrincipal AuthUser currentUser, @PathVariable String id) {
-        if (!"admin".equals(currentUser.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Acesso negado");
-        firestoreGateway.delete(FirestoreCollections.ADS, id);
         return Map.of("ok", true);
     }
 

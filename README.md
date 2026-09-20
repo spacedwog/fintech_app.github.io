@@ -17,7 +17,7 @@ O aplicativo React Native anterior foi removido do repositório para concentrar 
 - **Relatórios operacionais** com indicadores, projeções e exportação (CSV/Excel/PDF).
 - **Cobrança real via Pix** para upgrade de plano e excedente de uso.
 - **Confirmação automática de pagamentos** usando integração local com Mercado Pago (`orcamento_agent/`).
-- **LGPD e consentimento de anúncios** na landing page (`index.html`).
+- **LGPD e controles de privacidade** no produto web.
 
 ## ⚡️ Quickstart
 
