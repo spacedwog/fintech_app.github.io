@@ -80,10 +80,22 @@
                 <directory>${project.basedir}/..</directory>
                 <targetPath>static</targetPath>
                 <includes>
-                    <include>*.html</include>
+                    <include>**/*.html</include>
                     <include>ads.txt</include>
                     <include>sitemap.xml</include>
                 </includes>
+                <excludes>
+                    <exclude>backend/**</exclude>
+                    <exclude>mobile/**</exclude>
+                    <exclude>tests/**</exclude>
+                    <exclude>.github/**</exclude>
+                    <exclude>compliance/**</exclude>
+                    <exclude>fibonacci_laplace_agent/**</exclude>
+                    <exclude>orcamento_agent/**</exclude>
+                    <exclude>ads_assets/**</exclude>
+                    <exclude>src/**</exclude>
+                    <exclude>COBOL Programming Course - Team Configuration/**</exclude>
+                </excludes>
             </resource>
             <resource>
                 <directory>${project.basedir}/../assets</directory>
