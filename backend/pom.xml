@@ -77,34 +77,52 @@
                 <directory>src/main/resources</directory>
             </resource>
             <resource>
-                <directory>${project.basedir}/..</directory>
+                <directory>${project.build.directory}/generated-static</directory>
                 <targetPath>static</targetPath>
-                <includes>
-                    <include>**/*.html</include>
-                    <include>ads.txt</include>
-                    <include>sitemap.xml</include>
-                    <include>assets/**</include>
-                    <include>css/**</include>
-                    <include>js/**</include>
-                </includes>
-                <excludes>
-                    <exclude>backend/**</exclude>
-                    <exclude>mobile/**</exclude>
-                    <exclude>tests/**</exclude>
-                    <exclude>.github/**</exclude>
-                    <exclude>compliance/**</exclude>
-                    <exclude>fibonacci_laplace_agent/**</exclude>
-                    <exclude>orcamento_agent/**</exclude>
-                    <exclude>ads_assets/**</exclude>
-                    <exclude>src/**</exclude>
-                    <exclude>COBOL Programming Course - Team Configuration/**</exclude>
-                </excludes>
             </resource>
         </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <delete dir="${project.build.directory}/generated-static"/>
+                                <mkdir dir="${project.build.directory}/generated-static"/>
+                                <copy todir="${project.build.directory}/generated-static">
+                                    <fileset dir="${project.basedir}/..">
+                                        <include name="**/*.html"/>
+                                        <include name="ads.txt"/>
+                                        <include name="sitemap.xml"/>
+                                        <include name="assets/**"/>
+                                        <include name="css/**"/>
+                                        <include name="js/**"/>
+                                        <exclude name="backend/**"/>
+                                        <exclude name="mobile/**"/>
+                                        <exclude name="tests/**"/>
+                                        <exclude name=".github/**"/>
+                                        <exclude name="compliance/**"/>
+                                        <exclude name="fibonacci_laplace_agent/**"/>
+                                        <exclude name="orcamento_agent/**"/>
+                                        <exclude name="ads_assets/**"/>
+                                        <exclude name="src/**"/>
+                                        <exclude name="COBOL Programming Course - Team Configuration/**"/>
+                                    </fileset>
+                                </copy>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
