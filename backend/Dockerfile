@@ -8,11 +8,12 @@ COPY assets assets
 COPY css css
 COPY js js
 
-RUN mvn -f backend/pom.xml -DskipTests package
+RUN mvn -f backend/pom.xml -DskipTests package \
+    && cp backend/target/fintech-api.jar /workspace/app.jar
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 
-COPY --from=build /workspace/backend/target/fintech-api.jar app.jar
+COPY --from=build /workspace/app.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -75,7 +75,7 @@ Também é possível usar container:
 
 ```bash
 docker build -f backend/Dockerfile -t fintech-app-java .
-docker run -p 8080:8080 -e APP_JWT_SECRET=troque-por-um-segredo-forte fintech-app-java
+docker run -p 8080:8080 -e PORT=8080 -e APP_JWT_SECRET=troque-por-um-segredo-forte fintech-app-java
 ```
 
 ## ⭐ Mantenha-se atualizado
