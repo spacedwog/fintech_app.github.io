@@ -352,6 +352,76 @@ class FintechApiApplicationTests {
 
     @Test
     void cloudEngineErpOverviewAggregatesBudgetPaymentsAndAgents() {
+        YearMonth month = YearMonth.now();
+        seedCloudEngineOverviewData(month);
+
+        CloudEngineErpService.ErpOverview overview = cloudEngineErpService.loadOverview(month);
+
+        assertEquals(new BigDecimal("1000.00"), overview.plannedBudget());
+        assertEquals(new BigDecimal("250.00"), overview.executedBudget());
+        assertEquals(new BigDecimal("750.00"), overview.remainingBudget());
+        assertEquals(new BigDecimal("350.00"), overview.paymentTotal());
+        assertEquals(new BigDecimal("250.00"), overview.paymentPaid());
+        assertEquals(new BigDecimal("100.00"), overview.paymentPending());
+        assertEquals(2, overview.queuedAgents());
+    }
+
+    @Test
+    void cloudEngineErpOverviewEndpointRequiresAuthAndReturnsMonthlySummary() throws Exception {
+        YearMonth month = YearMonth.now();
+        seedCloudEngineOverviewData(month);
+        String token = loginAndGetToken("admin@example.com", "admin123");
+
+        mockMvc.perform(get("/api/v1/cloud-engine/erp-overview")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.referenceMonth").value(month.toString()))
+                .andExpect(jsonPath("$.plannedBudget").value(1000.00))
+                .andExpect(jsonPath("$.executedBudget").value(250.00))
+                .andExpect(jsonPath("$.paymentTotal").value(350.00))
+                .andExpect(jsonPath("$.queuedAgents").value(2));
+    }
+
+    private void seedCloudEngineOverviewData(YearMonth month) {
+        resetCloudEngineTables();
+        YearMonth previousMonth = month.minusMonths(1);
+        jdbcClient.sql("insert into ce_company (id, external_tenant_id, legal_name, trade_name) values (1, 'tenant-1', 'Empresa Teste Ltda', 'Empresa Teste')").update();
+        jdbcClient.sql("insert into ce_cost_center (id, company_id, code, name) values (10, 1, 'OPS', 'Operações')").update();
+        jdbcClient.sql("insert into ce_expense_category (id, company_id, code, name) values (20, 1, 'SOFT', 'Software')").update();
+        jdbcClient.sql("insert into ce_budget_cycle (id, company_id, reference_month, status) values (30, 1, ? , 'OPEN')")
+                .param(month.atDay(1))
+                .update();
+        jdbcClient.sql("insert into ce_budget_line (id, budget_cycle_id, cost_center_id, expense_category_id, planned_amount) values (40, 30, 10, 20, 1000.00)").update();
+        jdbcClient.sql("""
+                insert into ce_expense (id, company_id, budget_cycle_id, cost_center_id, expense_category_id, description, amount, occurred_on, status)
+                values (50, 1, 30, 10, 20, 'Licença SaaS', 250.00, ?, 'POSTED'),
+                       (51, 1, 30, 10, 20, 'Rascunho', 800.00, ?, 'DRAFT')
+                """)
+                .params(month.atDay(15), month.atDay(16))
+                .update();
+        jdbcClient.sql("""
+                insert into ce_payment (id, company_id, expense_id, payment_method, amount, status, paid_at)
+                values (60, 1, 50, 'PIX', 250.00, 'PAID', current_timestamp),
+                       (61, 1, 50, 'PIX', 100.00, 'PENDING', null),
+                       (62, 1, 51, 'PIX', 999.00, 'PAID', current_timestamp)
+                """).update();
+        jdbcClient.sql("""
+                insert into ce_agent_job (id, company_id, agent_type, payload_json, status, requested_at)
+                values (70, 1, 'reconciliation', '{}', 'QUEUED', ?),
+                       (71, 1, 'ocr', '{}', 'RUNNING', ?),
+                       (72, 1, 'etl', '{}', 'DONE', ?),
+                       (73, 1, 'legacy', '{}', 'QUEUED', ?)
+                """)
+                .params(
+                        month.atDay(5).atTime(8, 0),
+                        month.atDay(5).atTime(9, 0),
+                        month.atDay(5).atTime(10, 0),
+                        previousMonth.atDay(5).atTime(10, 0)
+                )
+                .update();
+    }
+
+    private void resetCloudEngineTables() {
         jdbcClient.sql("delete from ce_audit_log").update();
         jdbcClient.sql("delete from ce_payment").update();
         jdbcClient.sql("delete from ce_expense").update();
@@ -363,37 +433,6 @@ class FintechApiApplicationTests {
         jdbcClient.sql("delete from ce_user_role").update();
         jdbcClient.sql("delete from ce_user_account").update();
         jdbcClient.sql("delete from ce_company").update();
-
-        jdbcClient.sql("insert into ce_company (id, external_tenant_id, legal_name, trade_name) values (1, 'tenant-1', 'Empresa Teste Ltda', 'Empresa Teste')").update();
-        jdbcClient.sql("insert into ce_cost_center (id, company_id, code, name) values (10, 1, 'OPS', 'Operações')").update();
-        jdbcClient.sql("insert into ce_expense_category (id, company_id, code, name) values (20, 1, 'SOFT', 'Software')").update();
-        jdbcClient.sql("insert into ce_budget_cycle (id, company_id, reference_month, status) values (30, 1, DATE '2026-09-01', 'OPEN')").update();
-        jdbcClient.sql("insert into ce_budget_line (id, budget_cycle_id, cost_center_id, expense_category_id, planned_amount) values (40, 30, 10, 20, 1000.00)").update();
-        jdbcClient.sql("""
-                insert into ce_expense (id, company_id, budget_cycle_id, cost_center_id, expense_category_id, description, amount, occurred_on, status)
-                values (50, 1, 30, 10, 20, 'Licença SaaS', 250.00, DATE '2026-09-15', 'POSTED')
-                """).update();
-        jdbcClient.sql("""
-                insert into ce_payment (id, company_id, expense_id, payment_method, amount, status, paid_at)
-                values (60, 1, 50, 'PIX', 250.00, 'PAID', current_timestamp),
-                       (61, 1, 50, 'PIX', 100.00, 'PENDING', null)
-                """).update();
-        jdbcClient.sql("""
-                insert into ce_agent_job (id, company_id, agent_type, payload_json, status)
-                values (70, 1, 'reconciliation', '{}', 'QUEUED'),
-                       (71, 1, 'ocr', '{}', 'RUNNING'),
-                       (72, 1, 'etl', '{}', 'DONE')
-                """).update();
-
-        CloudEngineErpService.ErpOverview overview = cloudEngineErpService.loadOverview(YearMonth.of(2026, 9));
-
-        assertEquals(new BigDecimal("1000.00"), overview.plannedBudget());
-        assertEquals(new BigDecimal("250.00"), overview.executedBudget());
-        assertEquals(new BigDecimal("750.00"), overview.remainingBudget());
-        assertEquals(new BigDecimal("350.00"), overview.paymentTotal());
-        assertEquals(new BigDecimal("250.00"), overview.paymentPaid());
-        assertEquals(new BigDecimal("100.00"), overview.paymentPending());
-        assertEquals(2, overview.queuedAgents());
     }
 
     private void seedBaseData() {

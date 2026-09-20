@@ -20,6 +20,9 @@ public class CloudEngineErpService {
     }
 
     public ErpOverview loadOverview(YearMonth month) {
+        var monthStart = month.atDay(1);
+        var nextMonthStart = month.plusMonths(1).atDay(1);
+
         Map<String, Object> budgetExecution = jdbcClient.sql("""
                 select coalesce(sum(planned_amount), 0) as planned_amount,
                        coalesce(sum(executed_amount), 0) as executed_amount,
@@ -27,22 +30,34 @@ public class CloudEngineErpService {
                   from ce_v_budget_execution
                  where reference_month = :referenceMonth
                 """)
-                .param("referenceMonth", month.atDay(1))
+                .param("referenceMonth", monthStart)
                 .query()
                 .singleRow();
 
         Map<String, Object> paymentSummary = jdbcClient.sql("""
-                select coalesce(sum(total_amount), 0) as total_amount,
-                       coalesce(sum(paid_amount), 0) as paid_amount,
-                       coalesce(sum(pending_amount), 0) as pending_amount
-                  from ce_v_payment_summary
+                select coalesce(sum(p.amount), 0) as total_amount,
+                       coalesce(sum(case when p.status = 'PAID' then p.amount else 0 end), 0) as paid_amount,
+                       coalesce(sum(case when p.status <> 'PAID' then p.amount else 0 end), 0) as pending_amount
+                  from ce_payment p
+                  join ce_expense e on e.id = p.expense_id
+                 where e.occurred_on >= :monthStart
+                   and e.occurred_on < :nextMonthStart
+                   and e.status = 'POSTED'
                 """)
+                .param("monthStart", monthStart)
+                .param("nextMonthStart", nextMonthStart)
                 .query()
                 .singleRow();
 
         Integer queuedAgents = jdbcClient.sql("""
-                select count(*) from ce_agent_job where status in ('QUEUED', 'RUNNING')
+                select count(*)
+                  from ce_agent_job
+                 where status in ('QUEUED', 'RUNNING')
+                   and requested_at >= :monthStart
+                   and requested_at < :nextMonthStart
                 """)
+                .param("monthStart", monthStart.atStartOfDay())
+                .param("nextMonthStart", nextMonthStart.atStartOfDay())
                 .query(Integer.class)
                 .single();
 

@@ -147,6 +147,7 @@ select bc.reference_month,
   left join ce_expense e on e.budget_cycle_id = bc.id
                         and e.cost_center_id = cc.id
                         and e.expense_category_id = ec.id
+                        and e.status = 'POSTED'
  group by bc.reference_month, cc.company_id, cc.id, ec.id;
 
 create or replace view ce_v_payment_summary as
