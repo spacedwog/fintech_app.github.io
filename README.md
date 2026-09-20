@@ -68,14 +68,14 @@ O diretório `backend/` agora empacota o frontend web dentro do artefato Spring 
 Fluxo sugerido:
 
 1. Gere o artefato com `cd backend && mvn clean package`.
-2. Publique o JAR gerado (`target/fintech-api-0.0.1-SNAPSHOT.jar`) em uma plataforma Java.
+2. Publique o JAR gerado (`target/fintech-api.jar`) em uma plataforma Java.
 3. Defina as variáveis de ambiente obrigatórias do backend, especialmente `PORT`, `APP_JWT_SECRET` e as credenciais externas já usadas pelo projeto.
 
 Também é possível usar container:
 
 ```bash
 docker build -f backend/Dockerfile -t fintech-app-java .
-docker run -p 8080:8080 fintech-app-java
+docker run -p 8080:8080 -e APP_JWT_SECRET=troque-por-um-segredo-forte fintech-app-java
 ```
 
 ## ⭐ Mantenha-se atualizado

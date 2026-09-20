@@ -13,6 +13,6 @@ RUN mvn -f backend/pom.xml -DskipTests package
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 
-COPY --from=build /workspace/backend/target/fintech-api-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=build /workspace/backend/target/fintech-api.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
