@@ -25,6 +25,12 @@ O **Fintech Spacecworp** é uma plataforma de gestão de despesas pessoais com f
 2. Abra `index.html` no navegador ou sirva o diretório com um servidor estático.
 3. Acesse `login.html` para autenticação e depois `dashboard.html`.
 
+### Executar localmente com o servidor Java
+
+1. Entre em `/home/runner/work/fintech_app.github.io/fintech_app.github.io/backend`.
+2. Execute `mvn spring-boot:run`.
+3. Abra `http://localhost:8080/`.
+
 ### Configuração de dados
 
 - Na primeira execução, o app pode inicializar dados padrão a partir de `db.json`.
@@ -36,7 +42,7 @@ O **Fintech Spacecworp** é uma plataforma de gestão de despesas pessoais com f
 - **Frontend principal**: `index.html`, `login.html`, `dashboard.html`, `css/`, `js/`.
 - **Camada de negócio client-side**: `js/api.js`.
 - **Automação local opcional**: `orcamento_agent/`.
-- **Backend auxiliar**: `backend/` (suporte a integrações específicas).
+- **Backend Java/Spring Boot**: `backend/` (API REST e servidor único para deploy em nuvem).
 - **Testes**: `tests/`.
 
 ## 🧪 Testes
@@ -51,7 +57,26 @@ O projeto possui suíte em `tests/`. Execute os testes já existentes conforme o
 
 ## 🚀 Deploy
 
-A aplicação é compatível com hospedagem estática e está preparada para **GitHub Pages**.
+### Frontend estático
+
+A aplicação continua compatível com hospedagem estática e com **GitHub Pages**.
+
+### Servidor Java na nuvem
+
+O diretório `backend/` agora empacota o frontend web dentro do artefato Spring Boot, permitindo publicar um único serviço Java na nuvem com site e API no mesmo domínio.
+
+Fluxo sugerido:
+
+1. Gere o artefato com `cd backend && mvn clean package`.
+2. Publique o JAR gerado (`target/fintech-api-0.0.1-SNAPSHOT.jar`) em uma plataforma Java.
+3. Defina as variáveis de ambiente obrigatórias do backend, especialmente `PORT`, `APP_JWT_SECRET` e as credenciais externas já usadas pelo projeto.
+
+Também é possível usar container:
+
+```bash
+docker build -f backend/Dockerfile -t fintech-spacecworp .
+docker run -p 8080:8080 -e PORT=8080 fintech-spacecworp
+```
 
 ## ⭐ Mantenha-se atualizado
 

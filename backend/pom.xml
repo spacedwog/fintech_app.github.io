@@ -71,6 +71,26 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/..</directory>
+                <targetPath>static</targetPath>
+                <includes>
+                    <include>index.html</include>
+                    <include>login.html</include>
+                    <include>dashboard.html</include>
+                    <include>ads.txt</include>
+                    <include>sitemap.xml</include>
+                    <include>db.json</include>
+                    <include>assets/**</include>
+                    <include>css/**</include>
+                    <include>js/**</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
