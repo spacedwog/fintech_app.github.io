@@ -117,7 +117,6 @@
                                         <include>index.html</include>
                                         <include>login.html</include>
                                         <include>dashboard.html</include>
-                                        <include>ads.txt</include>
                                         <include>sitemap.xml</include>
                                     </includes>
                                 </resource>

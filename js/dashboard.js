@@ -489,6 +489,7 @@ class DashboardController {
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
     this.googleChatLoading = false;
+    this.etlModalBound = false;
 
     this.manualTxnModal = new ManualTransactionModal();
     this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
@@ -544,6 +545,7 @@ class DashboardController {
       });
     }
     this._setupBudgetLayoutModal();
+    this._setupEtlNotifications();
     this._renderShell();
     this._bindNav();
     this._bindGlobalForms();
@@ -562,6 +564,117 @@ class DashboardController {
     // do navegador — o polling é o jeito de o painel perceber a mudança.
     this.mpStatus.render();
     setInterval(() => this.mpStatus.render(), 5000);
+    this._refreshEtlNotifications().catch(() => {});
+  }
+
+  _setupEtlNotifications() {
+    if (this.etlModalBound) return;
+    this.etlModalBound = true;
+
+    const btn = document.getElementById("etl-notifications-btn");
+    const modalEl = document.getElementById("etl-notifications-modal");
+    if (btn) {
+      btn.addEventListener("click", () => {
+        this._refreshEtlNotifications().catch(() => {});
+      });
+    }
+    if (modalEl) {
+      modalEl.addEventListener("show.bs.modal", () => {
+        this._refreshEtlNotifications().catch(() => {});
+      });
+    }
+  }
+
+  _formatEtlDate(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleString("pt-BR");
+  }
+
+  _escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  async _refreshEtlNotifications() {
+    const listEl = document.getElementById("etl-notifications-list");
+    const badgeEl = document.getElementById("etl-notifications-badge");
+    const btn = document.getElementById("etl-notifications-btn");
+    if (!listEl || !badgeEl || typeof Api === "undefined") return;
+
+    try {
+      const status = await Api.getMercadoPagoStatus();
+      const automation = status.automation || {};
+      const notifications = [];
+      const sources = [
+        { key: "last_reconcile", title: "Conciliação Mercado Pago" },
+        { key: "last_expenses_api", title: "Importação de despesas" },
+        { key: "last_open_finance_sync", title: "Sincronização Open Finance" },
+        { key: "last_oauth_account_sync", title: "Sincronização OAuth Account" },
+      ];
+
+      sources.forEach((source) => {
+        const payload = automation[source.key];
+        if (!payload || !payload.at) return;
+        const count = payload.importadas ?? payload.confirmados ?? payload.total ?? payload.quantidade ?? null;
+        notifications.push({
+          title: source.title,
+          at: payload.at,
+          detail: count == null ? "Processo ETL executado." : `Registros processados: ${count}.`,
+          level: "primary",
+        });
+      });
+
+      const rejected = ((automation.last_expenses_api || {}).verificacoes_rejeitadas || []).filter(Boolean);
+      rejected.forEach((item) => {
+        notifications.push({
+          title: "Rejeição na validação ETL",
+          at: item.at || status.last_run_at || null,
+          detail: String(item.reason || "Motivo não informado."),
+          level: "warning",
+        });
+      });
+
+      notifications.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+      badgeEl.textContent = String(notifications.length);
+      badgeEl.classList.toggle("bg-danger", notifications.length > 0);
+      badgeEl.classList.toggle("bg-secondary", notifications.length === 0);
+      if (btn) {
+        btn.title = notifications.length
+          ? `${notifications.length} notificação(ões) ETL disponível(is).`
+          : "Sem notificações ETL no momento.";
+      }
+
+      if (!notifications.length) {
+        listEl.innerHTML = '<li class="list-group-item">Sem notificações ETL para esta conta no momento.</li>';
+        return;
+      }
+
+      listEl.innerHTML = notifications.slice(0, 10).map((item) => {
+        const when = this._escapeHtml(this._formatEtlDate(item.at) || "horário não informado");
+        const title = this._escapeHtml(item.title);
+        const detail = this._escapeHtml(item.detail);
+        return `
+          <li class="list-group-item d-flex justify-content-between align-items-start">
+            <div class="me-3">
+              <strong>${title}</strong>
+              <div class="small text-muted">${when}</div>
+              <div class="small">${detail}</div>
+            </div>
+            <span class="badge text-bg-${item.level} rounded-pill">ETL</span>
+          </li>
+        `;
+      }).join("");
+    } catch (_err) {
+      badgeEl.textContent = "0";
+      badgeEl.classList.remove("bg-danger");
+      badgeEl.classList.add("bg-secondary");
+      listEl.innerHTML = '<li class="list-group-item">Não foi possível carregar notificações ETL agora.</li>';
+    }
   }
 
   _renderShell() {
@@ -3706,7 +3819,6 @@ class DashboardController {
       { title: "HTTPS obrigatório", detail: "Hospedado no GitHub Pages: todo tráfego (login, dados) é cifrado em trânsito (TLS)." },
       { title: "Content-Security-Policy", detail: "Meta tag CSP restringe de quais domínios o navegador pode carregar script/estilo/imagem/conexão (ver <head> deste documento)." },
       { title: "Isolamento por conta (tenant_id)", detail: "Toda consulta ao banco filtra pelo tenant_id da sessão — um usuário nunca lê dados de outra conta (js/api.js)." },
-      { title: "Consentimento de cookies (Google Consent Mode)", detail: "Cookies de analytics/anúncios começam bloqueados (\"denied\") até o usuário autorizar na tela Privacidade." },
     ];
   }
 
@@ -3817,7 +3929,6 @@ class DashboardController {
       { data: "Despesas, categorias e orçamentos", finalidade: "Fornecer o serviço de controle financeiro.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Comprovante de Pix (imagem ou PDF, lido localmente no navegador)", finalidade: "Confirmar pagamentos.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Número da transação informado manualmente (quando a leitura automática do comprovante falha)", finalidade: "Permitir a confirmação do pagamento sem depender da IA de OCR.", base: "Execução de contrato (art. 7º, V)" },
-      { data: "Cookies do Google Ads / Tag Manager", finalidade: "Medir audiência e conversões de anúncios.", base: "Consentimento (art. 7º, I) — desativado por padrão" },
     ];
   }
 
@@ -3828,8 +3939,7 @@ class DashboardController {
       "Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em excesso.",
       "Portabilidade dos dados a outro fornecedor, mediante requisição (botão \"Baixar meus dados\" abaixo).",
       "Eliminação dos dados tratados com consentimento (botão \"Excluir minha conta\" abaixo).",
-      "Revogação do consentimento de cookies de analytics/anúncios, a qualquer momento.",
-      "Informação sobre com quem seus dados são compartilhados — apenas Firebase/Google (infraestrutura) e, se você consentir, Google Ads/Tag Manager.",
+      "Informação sobre com quem seus dados são compartilhados — apenas provedores de infraestrutura necessários para operação do serviço.",
     ];
   }
 
@@ -3850,28 +3960,6 @@ class DashboardController {
       document.getElementById("privacy-rights-list").innerHTML = DashboardController.PRIVACY_RIGHTS.map(
         (r) => `<li>${r}</li>`
       ).join("");
-
-      const consentInput = document.getElementById("privacy-marketing-consent");
-      const consentStatus = document.getElementById("privacy-consent-status");
-      if (consentInput) {
-        consentInput.addEventListener("change", async () => {
-          const granted = consentInput.checked;
-          await Api.setPrivacyConsent({ marketing: granted });
-          if (typeof gtag === "function") {
-            gtag("consent", "update", {
-              ad_storage: granted ? "granted" : "denied",
-              analytics_storage: granted ? "granted" : "denied",
-              ad_user_data: granted ? "granted" : "denied",
-              ad_personalization: granted ? "granted" : "denied",
-            });
-          }
-          if (consentStatus) {
-            consentStatus.textContent = granted
-              ? "Cookies de analytics/anúncios autorizados."
-              : "Cookies de analytics/anúncios bloqueados.";
-          }
-        });
-      }
 
       const exportBtn = document.getElementById("privacy-export-btn");
       if (exportBtn) {
@@ -3909,13 +3997,6 @@ class DashboardController {
       }
     }
 
-    try {
-      const consent = await Api.getPrivacyConsent();
-      const consentInput = document.getElementById("privacy-marketing-consent");
-      if (consentInput) consentInput.checked = !!consent.marketing;
-    } catch (e) {
-      // sessão pode ter acabado de carregar — ignora silenciosamente
-    }
   }
 
   // ---------- Configurações ----------

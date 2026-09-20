@@ -5,31 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spacecworp Despesas Pessoais — Controle financeiro total para você</title>
   <meta name="description" content="Spacecworp Despesas Pessoais: gestão de despesas pessoais, orçamento, relatórios, alertas e pagamento via Pix real com leitura automática de comprovante." />
-  <meta name="google-adsense-account" content="ca-pub-7218010744811775" />
-
   <!-- Segurança (ver tela "Segurança" no painel, pós-login): restringe de quais
        domínios o navegador pode carregar script/estilo/fonte/imagem. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.doubleclick.net https://www.gstatic.com https://cdnjs.cloudflare.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://*.google.com https://*.google-analytics.com https://*.doubleclick.net https://pagead2.googlesyndication.com https://*.googlesyndication.com; frame-src https://www.googletagmanager.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://pagead2.googlesyndication.com https://*.googlesyndication.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <link rel="icon" type="image/png" href="assets/img/icon.png" />
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10926256695"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('consent', 'default', {
-      ad_storage: 'denied',
-      analytics_storage: 'denied',
-      ad_user_data: 'denied',
-      ad_personalization: 'denied',
-    });
-    gtag('js', new Date());
-    gtag('config', 'AW-10926256695');
-  </script>
 
   <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:400,500,600,700,800" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
 
   <link rel="stylesheet" href="css/landing.css" />
 </head>
@@ -90,6 +75,10 @@
       </nav>
 
       <div class="lp-nav-cta">
+        <button type="button" class="btn btn-light btn-sm position-relative" data-bs-toggle="modal" data-bs-target="#lp-etl-modal">
+          <i class="fa fa-bell"></i> ETL
+          <span id="lp-etl-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+        </button>
         <a href="login.html" class="lp-login-link"><i class="fa fa-sign-in"></i> Entrar</a>
         <a href="login.html" class="lp-btn lp-btn-primary">Criar conta grátis</a>
       </div>
@@ -156,40 +145,6 @@
       <div class="lp-stat">
         <div class="lp-stat-num">3 passos</div>
         <p>para você começar a usar</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Ads -->
-  <section class="lp-section lp-section-ad">
-    <div class="lp-section-inner">
-      <span class="lp-kicker">Patrocinado</span>
-      <h2 class="lp-h2 lp-h2-ad">Ofertas e parceiros relevantes para sua rotina financeira</h2>
-      <div class="lp-ad-consent" role="group" aria-label="Consentimento de anúncios">
-        <p>Usamos Google AdSense para exibir ofertas patrocinadas. Só carregamos anúncios após seu consentimento.</p>
-        <div class="lp-ad-consent-actions">
-          <button type="button" class="lp-btn lp-btn-primary" id="lp-ads-consent-accept">Permitir anúncios</button>
-          <button type="button" class="lp-btn lp-btn-ghost" id="lp-ads-consent-deny">Manter bloqueado</button>
-        </div>
-        <p id="lp-ads-consent-status" class="lp-ad-consent-status"></p>
-      </div>
-      <div class="lp-ad-grid">
-        <div class="lp-ad-slot-wrap">
-          <ins class="adsbygoogle lp-ad-slot"
-               style="display:block"
-               data-ad-slot="6300978111"
-               data-ad-format="auto"
-               data-full-width-responsive="true"></ins>
-          <p class="lp-ad-placeholder">Ative anúncios para carregar este espaço patrocinado.</p>
-        </div>
-        <div class="lp-ad-slot-wrap">
-          <ins class="adsbygoogle lp-ad-slot"
-               style="display:block"
-               data-ad-slot="6300978111"
-               data-ad-format="auto"
-               data-full-width-responsive="true"></ins>
-          <p class="lp-ad-placeholder">Ative anúncios para carregar este espaço patrocinado.</p>
-        </div>
       </div>
     </div>
   </section>
@@ -589,20 +544,25 @@
     </div>
   </footer>
 
-  <div id="lp-cookie-modal" class="lp-cookie-modal hidden" role="dialog" aria-modal="true" aria-labelledby="lp-cookie-modal-title">
-    <div class="lp-cookie-modal-card">
-      <h3 id="lp-cookie-modal-title">Consentimento de cookies</h3>
-      <p>
-        Usamos cookies de analytics e anúncios para medir desempenho e exibir conteúdos patrocinados.
-        Você pode aceitar ou manter esses cookies bloqueados.
-      </p>
-      <div class="lp-cookie-modal-actions">
-        <button type="button" class="lp-btn lp-btn-primary" id="lp-cookie-modal-accept">Aceitar cookies</button>
-        <button type="button" class="lp-btn lp-btn-ghost" id="lp-cookie-modal-deny">Manter bloqueado</button>
+  <div class="modal fade" id="lp-etl-modal" tabindex="-1" aria-labelledby="lp-etl-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="lp-etl-modal-title">Notificações ETL da plataforma</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-2">Resumo das últimas execuções ETL salvas no navegador (Mercado Pago/Open Finance).</p>
+          <ul class="list-group" id="lp-etl-list">
+            <li class="list-group-item">Sem dados ETL disponíveis no momento.</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/app-constants.js"></script>
   <script>
     // Tabs por persona
     (function () {
@@ -629,163 +589,95 @@
       });
     })();
 
-    // Google AdSense (com consentimento explícito)
+    // Notificações ETL (HTML5 + Bootstrap Modal)
     (function () {
-      var CONSENT_KEY = 'lp_marketing_consent_v1';
-      var CONSENT_COOKIE = 'lp_marketing_consent';
-      var COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-      var adClientMeta = document.querySelector('meta[name="google-adsense-account"]');
-      var adClient = adClientMeta && adClientMeta.content ? adClientMeta.content : '';
-      var section = document.querySelector('.lp-section-ad');
-      var statusEl = document.getElementById('lp-ads-consent-status');
-      var acceptBtn = document.getElementById('lp-ads-consent-accept');
-      var denyBtn = document.getElementById('lp-ads-consent-deny');
-      var cookieModal = document.getElementById('lp-cookie-modal');
-      var cookieModalAcceptBtn = document.getElementById('lp-cookie-modal-accept');
-      var cookieModalDenyBtn = document.getElementById('lp-cookie-modal-deny');
-      var slots = document.querySelectorAll('.lp-ad-slot');
+      var listEl = document.getElementById('lp-etl-list');
+      var badgeEl = document.getElementById('lp-etl-badge');
+      if (!listEl || !badgeEl) return;
 
-      if (!section || !statusEl || !acceptBtn || !denyBtn || !slots.length) return;
+      function readDb() {
+        var dbKey = (typeof globalThis !== 'undefined' && globalThis.__FINTECH_DB_KEY__)
+          ? String(globalThis.__FINTECH_DB_KEY__)
+          : 'fintech_saas_db_v1';
+        try {
+          var raw = localStorage.getItem(dbKey);
+          return raw ? JSON.parse(raw) : null;
+        } catch (_err) {
+          return null;
+        }
+      }
 
-      function readCookie(name) {
-        var cookie = document.cookie.split('; ').find(function (entry) {
-          return entry.indexOf(name + '=') === 0;
+      function formatDt(iso) {
+        if (!iso) return null;
+        var d = new Date(iso);
+        return isNaN(d.getTime()) ? null : d.toLocaleString('pt-BR');
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function render() {
+        var db = readDb() || {};
+        var status = db.mercado_pago_status || {};
+        var notifications = [];
+        var sourceKeys = ['last_reconcile', 'last_expenses_api', 'last_open_finance_sync', 'last_oauth_account_sync'];
+
+        function collect(scopeKey, automation) {
+          if (!automation) return;
+          sourceKeys.forEach(function (key) {
+            var payload = automation[key];
+            if (!payload || !payload.at) return;
+            notifications.push({
+              scope: scopeKey,
+              process: key,
+              at: payload.at,
+              status: payload.status || payload.result || 'executado',
+            });
+          });
+        }
+
+        if (status.automation) {
+          collect('conta', status.automation);
+        }
+
+        Object.keys(status).forEach(function (scopeKey) {
+          var entry = status[scopeKey] || {};
+          collect(scopeKey, entry.automation || entry);
         });
-        return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
-      }
 
-      function writeCookie(name, value) {
-        document.cookie = name + '=' + encodeURIComponent(value) +
-          '; Max-Age=' + COOKIE_MAX_AGE_SECONDS +
-          '; Path=/; SameSite=Lax';
-      }
-
-      function updateGtagConsent(granted) {
-        if (typeof gtag !== 'function') return;
-        gtag('consent', 'update', {
-          ad_storage: granted ? 'granted' : 'denied',
-          analytics_storage: granted ? 'granted' : 'denied',
-          ad_user_data: granted ? 'granted' : 'denied',
-          ad_personalization: granted ? 'granted' : 'denied',
+        notifications.sort(function (a, b) {
+          return String(b.at || '').localeCompare(String(a.at || ''));
         });
-      }
 
-      function setUiState(granted, customText) {
-        section.classList.toggle('lp-ads-enabled', !!granted);
-        statusEl.textContent = customText || (granted
-          ? 'Anúncios liberados. Você pode revogar essa permissão a qualquer momento na sua privacidade do painel.'
-          : 'Anúncios bloqueados até você permitir o consentimento.');
-      }
+        badgeEl.textContent = String(notifications.length);
+        badgeEl.classList.toggle('bg-danger', notifications.length > 0);
+        badgeEl.classList.toggle('bg-secondary', notifications.length === 0);
 
-      function openCookieModal() {
-        if (!cookieModal) return;
-        cookieModal.classList.remove('hidden');
-      }
-
-      function closeCookieModal() {
-        if (!cookieModal) return;
-        cookieModal.classList.add('hidden');
-      }
-
-      function renderAdSlots() {
-        slots.forEach(function (slot) {
-          if (!slot.getAttribute('data-ad-slot')) return;
-          slot.setAttribute('data-ad-client', adClient);
-          if (slot.dataset.adsRendered === '1') return;
-          slot.dataset.adsRendered = '1';
-          try {
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
-          } catch (_err) {
-            slot.dataset.adsRendered = '0';
-          }
-        });
-      }
-
-      function loadAdSenseScript() {
-        return new Promise(function (resolve, reject) {
-          var existing = document.getElementById('lp-adsense-script');
-          if (existing) {
-            if (existing.dataset.ready === '1') return resolve();
-            existing.addEventListener('load', function () { resolve(); }, { once: true });
-            existing.addEventListener('error', function () { reject(new Error('adsense_script_error')); }, { once: true });
-            return;
-          }
-          if (!adClient) return reject(new Error('adsense_client_missing'));
-          var script = document.createElement('script');
-          script.id = 'lp-adsense-script';
-          script.async = true;
-          script.crossOrigin = 'anonymous';
-          script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(adClient);
-          script.addEventListener('load', function () {
-            script.dataset.ready = '1';
-            resolve();
-          }, { once: true });
-          script.addEventListener('error', function () {
-            reject(new Error('adsense_script_error'));
-          }, { once: true });
-          document.head.appendChild(script);
-        });
-      }
-
-      function hasValidConfig() {
-        if (!/^ca-pub-\d+$/.test(adClient)) return false;
-        return Array.prototype.every.call(slots, function (slot) {
-          return /^\d+$/.test(slot.getAttribute('data-ad-slot') || '');
-        });
-      }
-
-      function persistConsent(granted) {
-        var value = granted ? 'granted' : 'denied';
-        localStorage.setItem(CONSENT_KEY, value);
-        writeCookie(CONSENT_COOKIE, value);
-        updateGtagConsent(granted);
-      }
-
-      function getStoredConsent() {
-        var cookieValue = readCookie(CONSENT_COOKIE);
-        if (cookieValue === 'granted' || cookieValue === 'denied') return cookieValue;
-        var localValue = localStorage.getItem(CONSENT_KEY);
-        if (localValue === 'granted' || localValue === 'denied') return localValue;
-        return null;
-      }
-
-      function enableAds() {
-        if (!hasValidConfig()) {
-          setUiState(false, 'Configuração de anúncios incompleta. Defina seu ca-pub e slots reais para liberar os blocos patrocinados.');
+        if (!notifications.length) {
+          listEl.innerHTML = '<li class="list-group-item">Sem notificações ETL disponíveis no navegador.</li>';
           return;
         }
-        persistConsent(true);
-        closeCookieModal();
-        setUiState(true);
-        loadAdSenseScript()
-          .then(function () {
-            renderAdSlots();
-          })
-          .catch(function () {
-            setUiState(false, 'Não foi possível carregar anúncios agora. Tente novamente em instantes.');
-          });
+
+        listEl.innerHTML = notifications.slice(0, 8).map(function (item) {
+          var when = escapeHtml(formatDt(item.at) || 'data inválida');
+          var process = escapeHtml(item.process);
+          var scope = escapeHtml(item.scope);
+          var itemStatus = escapeHtml(item.status);
+          return '<li class="list-group-item d-flex justify-content-between align-items-start">' +
+            '<div><strong>' + process + '</strong><br/><small class="text-muted">Escopo: ' + scope + ' • ' + when + '</small></div>' +
+            '<span class="badge text-bg-primary rounded-pill">' + itemStatus + '</span>' +
+            '</li>';
+        }).join('');
       }
 
-      function disableAds() {
-        persistConsent(false);
-        closeCookieModal();
-        setUiState(false);
-      }
-
-      acceptBtn.addEventListener('click', enableAds);
-      denyBtn.addEventListener('click', disableAds);
-      if (cookieModalAcceptBtn) cookieModalAcceptBtn.addEventListener('click', enableAds);
-      if (cookieModalDenyBtn) cookieModalDenyBtn.addEventListener('click', disableAds);
-
-      var storedConsent = getStoredConsent();
-      if (storedConsent === 'granted') {
-        enableAds();
-      } else if (storedConsent === 'denied') {
-        disableAds();
-      } else {
-        setUiState(false, 'Anúncios bloqueados até você escolher no modal de cookies.');
-        openCookieModal();
-      }
+      render();
+      window.addEventListener('storage', render);
     })();
 
   </script>
