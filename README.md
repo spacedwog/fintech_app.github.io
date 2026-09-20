@@ -51,6 +51,12 @@ Para validar exatamente o empacotamento usado na nuvem, execute `mvn clean packa
 
 O projeto possui suíte em `tests/`. Execute os testes já existentes conforme o fluxo adotado no repositório/equipe.
 
+## ☁️ Cloud Engine Foundation
+
+- O backend Java continua sendo o servidor principal na nuvem.
+- A base inicial do **Cloud Engine** agora inclui domínio ERP em Java, banco relacional versionado com Flyway e endpoints de descoberta em `/api/v1/cloud-engine`.
+- A migração completa de agentes Python, frontend JS e persistência legada continua planejada em fases para evitar quebra de compatibilidade.
+
 ## 🛡️ Segurança
 
 - Não comite credenciais, tokens ou chaves de produção.
@@ -72,6 +78,12 @@ Fluxo sugerido:
 1. Gere o artefato com `cd backend && mvn clean package`.
 2. Publique em uma plataforma Java o JAR executável gerado em `target/` (ignore o arquivo `.jar.original`, quando existir).
 3. Defina as variáveis de ambiente obrigatórias do backend, especialmente `PORT`, `APP_JWT_SECRET` e as credenciais externas já usadas pelo projeto.
+
+### Desktop Cloud Engine
+
+1. Gere os artefatos com `cd backend && mvn clean package`.
+2. Execute o cliente desktop com `java -jar target/cloud-engine-desktop.jar`.
+3. Opcionalmente defina `CLOUD_ENGINE_API_BASE` para apontar o jFrame para outro backend Java.
 
 ## ⭐ Mantenha-se atualizado
 
