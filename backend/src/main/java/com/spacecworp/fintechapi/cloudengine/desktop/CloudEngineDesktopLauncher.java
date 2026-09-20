@@ -72,12 +72,22 @@ public final class CloudEngineDesktopLauncher {
         }
 
         void loadShell(String baseUrl) {
-            try {
-                CloudEngineShellService.ShellResponse shell = client.fetchShell(baseUrl);
-                renderShell(shell, baseUrl);
-            } catch (Exception ex) {
-                statusArea.setText("Falha ao conectar no backend Java: " + ex.getMessage() + "\nUse CLOUD_ENGINE_API_BASE para apontar para outro servidor.");
-            }
+            statusArea.setText("Conectando ao backend Java...");
+            new SwingWorker<CloudEngineShellService.ShellResponse, Void>() {
+                @Override
+                protected CloudEngineShellService.ShellResponse doInBackground() throws Exception {
+                    return client.fetchShell(baseUrl);
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        renderShell(get(), baseUrl);
+                    } catch (Exception ex) {
+                        statusArea.setText("Falha ao conectar no backend Java: " + ex.getMessage() + "\nUse CLOUD_ENGINE_API_BASE para apontar para outro servidor.");
+                    }
+                }
+            }.execute();
         }
 
         private void renderShell(CloudEngineShellService.ShellResponse shell, String baseUrl) {

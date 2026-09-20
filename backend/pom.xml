@@ -114,34 +114,26 @@
                                 <resource>
                                     <directory>${project.basedir}/..</directory>
                                     <includes>
-                                        <include>**/*</include>
+                                        <include>index.html</include>
+                                        <include>login.html</include>
+                                        <include>dashboard.html</include>
+                                        <include>ads.txt</include>
+                                        <include>sitemap.xml</include>
                                     </includes>
                                     <excludes>
-                                        <exclude>backend/**</exclude>
-                                        <exclude>mobile/**</exclude>
-                                        <exclude>tests/**</exclude>
-                                        <exclude>.github/**</exclude>
-                                        <exclude>.git/**</exclude>
-                                        <exclude>.vscode/**</exclude>
-                                        <exclude>compliance/**</exclude>
-                                        <exclude>fibonacci_laplace_agent/**</exclude>
-                                        <exclude>orcamento_agent/**</exclude>
-                                        <exclude>ads_assets/**</exclude>
-                                        <exclude>src/**</exclude>
-                                        <exclude>scripts/**</exclude>
-                                        <exclude>COBOL Programming Course - Team Configuration/**</exclude>
-                                        <exclude>**/*.md</exclude>
-                                        <exclude>**/*.py</exclude>
-                                        <exclude>**/*.java</exclude>
-                                        <exclude>**/*.class</exclude>
-                                        <exclude>**/*.csv</exclude>
-                                        <exclude>**/*.xlsx</exclude>
-                                        <exclude>.gitignore</exclude>
-                                        <exclude>.hintrc</exclude>
-                                        <exclude>CNAME</exclude>
-                                        <exclude>db.json</exclude>
-                                        <exclude>LICENSE</exclude>
                                     </excludes>
+                                </resource>
+                                <resource>
+                                    <directory>${project.basedir}/../css</directory>
+                                    <targetPath>css</targetPath>
+                                </resource>
+                                <resource>
+                                    <directory>${project.basedir}/../js</directory>
+                                    <targetPath>js</targetPath>
+                                </resource>
+                                <resource>
+                                    <directory>${project.basedir}/../assets</directory>
+                                    <targetPath>assets</targetPath>
                                 </resource>
                             </resources>
                         </configuration>

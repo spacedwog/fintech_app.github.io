@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 public final class CloudEngineProcedures {
     private CloudEngineProcedures() {
@@ -37,7 +38,7 @@ public final class CloudEngineProcedures {
         try (PreparedStatement insert = connection.prepareStatement("""
                 insert into ce_agent_job (company_id, agent_type, payload_json, status, requested_at)
                 values (?, ?, ?, 'QUEUED', current_timestamp)
-                """, PreparedStatement.RETURN_GENERATED_KEYS)) {
+                """, Statement.RETURN_GENERATED_KEYS)) {
             insert.setLong(1, companyId);
             insert.setString(2, agentType);
             insert.setString(3, payloadJson);
@@ -46,6 +47,6 @@ public final class CloudEngineProcedures {
                 if (generatedKeys.next()) return generatedKeys.getLong(1);
             }
         }
-        return null;
+        throw new SQLException("Cloud Engine agent job ID was not generated");
     }
 }

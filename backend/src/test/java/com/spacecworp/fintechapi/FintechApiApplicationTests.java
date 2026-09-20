@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.Firestore;
 import com.spacecworp.fintechapi.auth.TenantDocument;
+import com.spacecworp.fintechapi.cloudengine.application.CloudEngineErpService;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseRuleDocument;
@@ -22,9 +23,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
+import java.time.YearMonth;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -50,6 +54,12 @@ class FintechApiApplicationTests {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    CloudEngineErpService cloudEngineErpService;
+
+    @Autowired
+    JdbcClient jdbcClient;
 
     @MockBean
     Firestore firestore;
@@ -338,6 +348,52 @@ class FintechApiApplicationTests {
         JsonNode p1 = objectMapper.readTree(payment1);
         JsonNode p2 = objectMapper.readTree(payment2);
         assertEquals(p1.path("id").asText(), p2.path("id").asText());
+    }
+
+    @Test
+    void cloudEngineErpOverviewAggregatesBudgetPaymentsAndAgents() {
+        jdbcClient.sql("delete from ce_audit_log").update();
+        jdbcClient.sql("delete from ce_payment").update();
+        jdbcClient.sql("delete from ce_expense").update();
+        jdbcClient.sql("delete from ce_budget_line").update();
+        jdbcClient.sql("delete from ce_budget_cycle").update();
+        jdbcClient.sql("delete from ce_expense_category").update();
+        jdbcClient.sql("delete from ce_cost_center").update();
+        jdbcClient.sql("delete from ce_agent_job").update();
+        jdbcClient.sql("delete from ce_user_role").update();
+        jdbcClient.sql("delete from ce_user_account").update();
+        jdbcClient.sql("delete from ce_company").update();
+
+        jdbcClient.sql("insert into ce_company (id, external_tenant_id, legal_name, trade_name) values (1, 'tenant-1', 'Empresa Teste Ltda', 'Empresa Teste')").update();
+        jdbcClient.sql("insert into ce_cost_center (id, company_id, code, name) values (10, 1, 'OPS', 'Operações')").update();
+        jdbcClient.sql("insert into ce_expense_category (id, company_id, code, name) values (20, 1, 'SOFT', 'Software')").update();
+        jdbcClient.sql("insert into ce_budget_cycle (id, company_id, reference_month, status) values (30, 1, DATE '2026-09-01', 'OPEN')").update();
+        jdbcClient.sql("insert into ce_budget_line (id, budget_cycle_id, cost_center_id, expense_category_id, planned_amount) values (40, 30, 10, 20, 1000.00)").update();
+        jdbcClient.sql("""
+                insert into ce_expense (id, company_id, budget_cycle_id, cost_center_id, expense_category_id, description, amount, occurred_on, status)
+                values (50, 1, 30, 10, 20, 'Licença SaaS', 250.00, DATE '2026-09-15', 'POSTED')
+                """).update();
+        jdbcClient.sql("""
+                insert into ce_payment (id, company_id, expense_id, payment_method, amount, status, paid_at)
+                values (60, 1, 50, 'PIX', 250.00, 'PAID', current_timestamp),
+                       (61, 1, 50, 'PIX', 100.00, 'PENDING', null)
+                """).update();
+        jdbcClient.sql("""
+                insert into ce_agent_job (id, company_id, agent_type, payload_json, status)
+                values (70, 1, 'reconciliation', '{}', 'QUEUED'),
+                       (71, 1, 'ocr', '{}', 'RUNNING'),
+                       (72, 1, 'etl', '{}', 'DONE')
+                """).update();
+
+        CloudEngineErpService.ErpOverview overview = cloudEngineErpService.loadOverview(YearMonth.of(2026, 9));
+
+        assertEquals(new BigDecimal("1000.00"), overview.plannedBudget());
+        assertEquals(new BigDecimal("250.00"), overview.executedBudget());
+        assertEquals(new BigDecimal("750.00"), overview.remainingBudget());
+        assertEquals(new BigDecimal("350.00"), overview.paymentTotal());
+        assertEquals(new BigDecimal("250.00"), overview.paymentPaid());
+        assertEquals(new BigDecimal("100.00"), overview.paymentPending());
+        assertEquals(2, overview.queuedAgents());
     }
 
     private void seedBaseData() {
