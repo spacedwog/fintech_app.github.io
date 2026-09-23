@@ -161,35 +161,35 @@ function check(name, cond) {
     };
     db.openFinanceCards = [
       {
-        id: "card-1",
+        externalCardId: "card-1",
         tenant_id: tenantId,
         brand: "master",
-        holder_name: "Cliente Perfil",
+        holderName: "Cliente Perfil",
         last4: "5678",
         status: "active",
-        credit_limit: 5000,
-        available_limit: 4100,
+        creditLimit: 5000,
+        availableLimit: 4100,
       }
     ];
     db.openFinanceCardTransactions = [
       {
-        id: "tx-1",
+        externalTransactionId: "tx-1",
         tenant_id: tenantId,
         amount: 35.9,
         direction: "debit",
         status: "posted",
         description: "UBER TRIP 001",
-        merchant_name: "Uber",
-        posted_at: "2026-09-12T10:00:00.000Z",
+        merchant: "Uber",
+        postedAt: "2026-09-12T10:00:00.000Z",
       },
       {
-        id: "tx-2",
+        externalTransactionId: "tx-2",
         tenant_id: tenantId,
         amount: 15,
         direction: "credit",
         status: "posted",
         description: "ESTORNO",
-        posted_at: "2026-09-12T11:00:00.000Z",
+        postedAt: "2026-09-12T11:00:00.000Z",
       }
     ];
     db.mercado_pago_oauth_data = {
@@ -213,9 +213,96 @@ function check(name, cond) {
   check("ERP soma o orçamento do mês", profile.erp && profile.erp.monthly_budget_total === 1500);
   check("ERP soma os gastos do mês", profile.erp && profile.erp.monthly_spent_total === 203.45);
   check("ETL expõe cartão Open Finance", profile.etl && profile.etl.open_finance && profile.etl.open_finance.cards_count === 1);
+  check("ETL normaliza cartão Open Finance em camelCase", profile.etl && profile.etl.open_finance && profile.etl.open_finance.cards[0] && profile.etl.open_finance.cards[0].holder_name === "Cliente Perfil");
+  check(
+    "ETL preserva limites do cartão Open Finance em camelCase",
+    profile.etl
+      && profile.etl.open_finance
+      && profile.etl.open_finance.cards[0]
+      && profile.etl.open_finance.cards[0].credit_limit === 5000
+      && profile.etl.open_finance.cards[0].available_limit === 4100
+  );
+  check(
+    "ETL normaliza transação Open Finance em camelCase",
+    profile.etl
+      && profile.etl.open_finance
+      && Array.isArray(profile.etl.open_finance.transactions_sample)
+      && profile.etl.open_finance.transactions_sample.some((tx) => tx.id === "tx-1" && tx.merchant_name === "Uber")
+  );
+  check(
+    "ETL preserva postedAt Open Finance em camelCase",
+    profile.etl
+      && profile.etl.open_finance
+      && Array.isArray(profile.etl.open_finance.transactions_sample)
+      && profile.etl.open_finance.transactions_sample.some((tx) => tx.id === "tx-1" && tx.posted_at === "2026-09-12T10:00:00.000Z")
+  );
   check("ETL expõe saldo OAuth", profile.etl && profile.etl.oauth && profile.etl.oauth.balance && profile.etl.oauth.balance.available_balance === 500);
   check("ETL preserva status global de reconciliação", profile.etl && profile.etl.automation && profile.etl.automation.last_reconcile && profile.etl.automation.last_reconcile.verificados === 2);
   check("Perfil IA continua disponível", profile.ai_profile && typeof profile.ai_profile.summary === "string" && profile.ai_profile.summary.length > 0);
+  check("Perfil IA incorpora sinais de ERP e ETL", profile.ai_profile && profile.ai_profile.summary.includes("ERP") && profile.ai_profile.summary.includes("ETL"));
+  check("Perfil IA expõe métricas de ERP e ETL", profile.ai_profile && profile.ai_profile.metrics && profile.ai_profile.metrics.open_finance_cards_count === 1 && profile.ai_profile.metrics.oauth_available_balance === 500);
+
+  const legacyShapeProfile = await run(
+    dev,
+    `
+    const db = await loadDb();
+    db.openFinanceCards = [
+      {
+        id: "legacy-card-1",
+        tenant_id: Auth.requireSession().tenant_id,
+        brand: "visa",
+        holder_name: "Legacy Holder",
+        last4: "1234",
+        status: "active",
+        credit_limit: 3000,
+        available_limit: 2000,
+      }
+    ];
+    db.openFinanceCardTransactions = [
+      {
+        id: "legacy-tx-1",
+        tenant_id: Auth.requireSession().tenant_id,
+        amount: 44.5,
+        direction: "debit",
+        status: "posted",
+        description: "Compra legado",
+        merchant_name: "Loja Legada",
+        posted_at: "2026-09-13T10:00:00.000Z",
+      }
+    ];
+    await saveDb(db);
+    return Api.getCustomerProfile("2026-09");
+  `
+  );
+
+  check(
+    "Perfil mantém compatibilidade com cartão Open Finance legado",
+    legacyShapeProfile
+      && legacyShapeProfile.etl
+      && legacyShapeProfile.etl.open_finance
+      && legacyShapeProfile.etl.open_finance.cards[0]
+      && legacyShapeProfile.etl.open_finance.cards[0].holder_name === "Legacy Holder"
+      && legacyShapeProfile.etl.open_finance.cards[0].credit_limit === 3000
+      && legacyShapeProfile.etl.open_finance.cards[0].available_limit === 2000
+  );
+  check(
+    "Perfil mantém compatibilidade com transação Open Finance legada",
+    legacyShapeProfile
+      && legacyShapeProfile.etl
+      && legacyShapeProfile.etl.open_finance
+      && Array.isArray(legacyShapeProfile.etl.open_finance.transactions_sample)
+      && legacyShapeProfile.etl.open_finance.transactions_sample.some(
+        (tx) => tx.id === "legacy-tx-1" && tx.merchant_name === "Loja Legada" && tx.posted_at === "2026-09-13T10:00:00.000Z"
+      )
+  );
+  check(
+    "Perfil IA continua enriquecido com formato Open Finance legado",
+    legacyShapeProfile
+      && legacyShapeProfile.ai_profile
+      && legacyShapeProfile.ai_profile.metrics
+      && legacyShapeProfile.ai_profile.metrics.open_finance_cards_count === 1
+      && legacyShapeProfile.ai_profile.summary.includes("Open Finance")
+  );
 
   const backendDev = buildDevice("perfil-cliente-backend", {
     apiBase: "https://api.example.com",
@@ -280,6 +367,7 @@ function check(name, cond) {
   check("Backend complementa o perfil com o resumo do Cloud Engine ERP", backendProfile.erp && backendProfile.erp.cloud_engine && backendProfile.erp.cloud_engine.planned_budget === 999);
   check("Backend preserva os agregados locais do ERP ao mesclar Cloud Engine", backendProfile.erp && backendProfile.erp.monthly_budget_total === 120);
   check("Backend usa o mês de referência retornado pelo Cloud Engine", backendProfile.erp && backendProfile.erp.cloud_engine && backendProfile.erp.cloud_engine.reference_month === "2026-10");
+  check("Backend injeta dados do Cloud Engine no Perfil IA", backendProfile.ai_profile && backendProfile.ai_profile.summary.includes("Cloud Engine") && backendProfile.ai_profile.metrics && backendProfile.ai_profile.metrics.cloud_engine_remaining_budget === 555);
 
   const degradedProfile = await run(
     dev,
