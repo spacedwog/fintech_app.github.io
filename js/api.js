@@ -440,7 +440,15 @@ function enrichCustomerAiProfile({ baseProfile, erp, etl, month }) {
   const openFinanceCardsCount = Number(openFinance.cards_count || 0);
   const availableLimitTotal = Number(openFinance.available_limit_total || 0);
   const postedDebitTotal = Number(openFinance.posted_debit_total || 0);
-  const oauthBalance = oauth && oauth.balance ? Number(firstDefinedValue(oauth.balance.available_balance, oauth.balance.availableBalance) || 0) : null;
+  const oauthBalanceRaw = oauth
+    ? firstDefinedValue(
+        oauth.balance && oauth.balance.available_balance,
+        oauth.balance && oauth.balance.availableBalance,
+        oauth.available_balance,
+        oauth.availableBalance
+      )
+    : null;
+  const oauthBalance = oauthBalanceRaw !== null ? Number(oauthBalanceRaw || 0) : null;
   const insights = [];
   const seenInsights = new Set();
   const pushInsight = (value) => {

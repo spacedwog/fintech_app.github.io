@@ -215,11 +215,26 @@ function check(name, cond) {
   check("ETL expõe cartão Open Finance", profile.etl && profile.etl.open_finance && profile.etl.open_finance.cards_count === 1);
   check("ETL normaliza cartão Open Finance em camelCase", profile.etl && profile.etl.open_finance && profile.etl.open_finance.cards[0] && profile.etl.open_finance.cards[0].holder_name === "Cliente Perfil");
   check(
+    "ETL preserva limites do cartão Open Finance em camelCase",
+    profile.etl
+      && profile.etl.open_finance
+      && profile.etl.open_finance.cards[0]
+      && profile.etl.open_finance.cards[0].credit_limit === 5000
+      && profile.etl.open_finance.cards[0].available_limit === 4100
+  );
+  check(
     "ETL normaliza transação Open Finance em camelCase",
     profile.etl
       && profile.etl.open_finance
       && Array.isArray(profile.etl.open_finance.transactions_sample)
       && profile.etl.open_finance.transactions_sample.some((tx) => tx.id === "tx-1" && tx.merchant_name === "Uber")
+  );
+  check(
+    "ETL preserva postedAt Open Finance em camelCase",
+    profile.etl
+      && profile.etl.open_finance
+      && Array.isArray(profile.etl.open_finance.transactions_sample)
+      && profile.etl.open_finance.transactions_sample.some((tx) => tx.id === "tx-1" && tx.posted_at === "2026-09-12T10:00:00.000Z")
   );
   check("ETL expõe saldo OAuth", profile.etl && profile.etl.oauth && profile.etl.oauth.balance && profile.etl.oauth.balance.available_balance === 500);
   check("ETL preserva status global de reconciliação", profile.etl && profile.etl.automation && profile.etl.automation.last_reconcile && profile.etl.automation.last_reconcile.verificados === 2);
@@ -267,6 +282,8 @@ function check(name, cond) {
       && legacyShapeProfile.etl.open_finance
       && legacyShapeProfile.etl.open_finance.cards[0]
       && legacyShapeProfile.etl.open_finance.cards[0].holder_name === "Legacy Holder"
+      && legacyShapeProfile.etl.open_finance.cards[0].credit_limit === 3000
+      && legacyShapeProfile.etl.open_finance.cards[0].available_limit === 2000
   );
   check(
     "Perfil mantém compatibilidade com transação Open Finance legada",
@@ -274,7 +291,9 @@ function check(name, cond) {
       && legacyShapeProfile.etl
       && legacyShapeProfile.etl.open_finance
       && Array.isArray(legacyShapeProfile.etl.open_finance.transactions_sample)
-      && legacyShapeProfile.etl.open_finance.transactions_sample.some((tx) => tx.id === "legacy-tx-1" && tx.merchant_name === "Loja Legada")
+      && legacyShapeProfile.etl.open_finance.transactions_sample.some(
+        (tx) => tx.id === "legacy-tx-1" && tx.merchant_name === "Loja Legada" && tx.posted_at === "2026-09-13T10:00:00.000Z"
+      )
   );
   check(
     "Perfil IA continua enriquecido com formato Open Finance legado",
