@@ -2174,9 +2174,11 @@ class ProfileService {
     const monthlyBudgetTotal = monthCategoryBudgets.reduce((sum, row) => sum + (Number(row.previsto) || 0), 0);
     const monthlySpentTotal = monthExpenses.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
     const monthlyPaymentsTotal = monthPayments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-    const activeCards = openFinanceCards.filter((card) => String(card.status || "").toLowerCase() === "active");
-    const debitTransactions = openFinanceTransactions.filter((tx) => String(tx.direction || "").toLowerCase() === "debit");
-    const creditTransactions = openFinanceTransactions.filter((tx) => String(tx.direction || "").toLowerCase() === "credit");
+    const normalizedOpenFinanceCards = openFinanceCards.slice();
+    const normalizedOpenFinanceTransactions = openFinanceTransactions.slice();
+    const activeCards = normalizedOpenFinanceCards.filter((card) => String(card.status || "").toLowerCase() === "active");
+    const debitTransactions = normalizedOpenFinanceTransactions.filter((tx) => String(tx.direction || "").toLowerCase() === "debit");
+    const creditTransactions = normalizedOpenFinanceTransactions.filter((tx) => String(tx.direction || "").toLowerCase() === "credit");
     const postedDebitTotal = debitTransactions
       .filter((tx) => String(tx.status || "").toLowerCase() === "posted")
       .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
@@ -2232,12 +2234,12 @@ class ProfileService {
       payments_verified_count: Number(marketplaceStatus.payments_verified_count || 0),
       automation: marketplaceStatus.automation || {},
       open_finance: {
-        cards_count: openFinanceCards.length,
+        cards_count: normalizedOpenFinanceCards.length,
         active_cards_count: activeCards.length,
-        credit_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.credit_limit) || 0), 0),
-        available_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.available_limit) || 0), 0),
-        card_brands: Array.from(new Set(openFinanceCards.map((card) => String(card.brand || "").trim()).filter(Boolean))),
-        cards: openFinanceCards.map((card) => ({
+        credit_limit_total: normalizedOpenFinanceCards.reduce((sum, card) => sum + (Number(card.credit_limit) || 0), 0),
+        available_limit_total: normalizedOpenFinanceCards.reduce((sum, card) => sum + (Number(card.available_limit) || 0), 0),
+        card_brands: Array.from(new Set(normalizedOpenFinanceCards.map((card) => String(card.brand || "").trim()).filter(Boolean))),
+        cards: normalizedOpenFinanceCards.map((card) => ({
           id: card.id || null,
           brand: card.brand || null,
           holder_name: card.holder_name || null,
@@ -2246,11 +2248,11 @@ class ProfileService {
           credit_limit: Number(card.credit_limit) || 0,
           available_limit: Number(card.available_limit) || 0,
         })),
-        transactions_count: openFinanceTransactions.length,
+        transactions_count: normalizedOpenFinanceTransactions.length,
         debit_transactions_count: debitTransactions.length,
         credit_transactions_count: creditTransactions.length,
         posted_debit_total: postedDebitTotal,
-        transactions_sample: openFinanceTransactions
+        transactions_sample: normalizedOpenFinanceTransactions
           .slice()
           .sort((a, b) => String(b.posted_at || "").localeCompare(String(a.posted_at || "")))
           .slice(0, 5)

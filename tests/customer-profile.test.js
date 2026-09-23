@@ -227,6 +227,64 @@ function check(name, cond) {
   check("Perfil IA incorpora sinais de ERP e ETL", profile.ai_profile && profile.ai_profile.summary.includes("ERP") && profile.ai_profile.summary.includes("ETL"));
   check("Perfil IA expõe métricas de ERP e ETL", profile.ai_profile && profile.ai_profile.metrics && profile.ai_profile.metrics.open_finance_cards_count === 1 && profile.ai_profile.metrics.oauth_available_balance === 500);
 
+  const legacyShapeProfile = await run(
+    dev,
+    `
+    const db = await loadDb();
+    db.openFinanceCards = [
+      {
+        id: "legacy-card-1",
+        tenant_id: Auth.requireSession().tenant_id,
+        brand: "visa",
+        holder_name: "Legacy Holder",
+        last4: "1234",
+        status: "active",
+        credit_limit: 3000,
+        available_limit: 2000,
+      }
+    ];
+    db.openFinanceCardTransactions = [
+      {
+        id: "legacy-tx-1",
+        tenant_id: Auth.requireSession().tenant_id,
+        amount: 44.5,
+        direction: "debit",
+        status: "posted",
+        description: "Compra legado",
+        merchant_name: "Loja Legada",
+        posted_at: "2026-09-13T10:00:00.000Z",
+      }
+    ];
+    await saveDb(db);
+    return Api.getCustomerProfile("2026-09");
+  `
+  );
+
+  check(
+    "Perfil mantém compatibilidade com cartão Open Finance legado",
+    legacyShapeProfile
+      && legacyShapeProfile.etl
+      && legacyShapeProfile.etl.open_finance
+      && legacyShapeProfile.etl.open_finance.cards[0]
+      && legacyShapeProfile.etl.open_finance.cards[0].holder_name === "Legacy Holder"
+  );
+  check(
+    "Perfil mantém compatibilidade com transação Open Finance legada",
+    legacyShapeProfile
+      && legacyShapeProfile.etl
+      && legacyShapeProfile.etl.open_finance
+      && Array.isArray(legacyShapeProfile.etl.open_finance.transactions_sample)
+      && legacyShapeProfile.etl.open_finance.transactions_sample.some((tx) => tx.id === "legacy-tx-1" && tx.merchant_name === "Loja Legada")
+  );
+  check(
+    "Perfil IA continua enriquecido com formato Open Finance legado",
+    legacyShapeProfile
+      && legacyShapeProfile.ai_profile
+      && legacyShapeProfile.ai_profile.metrics
+      && legacyShapeProfile.ai_profile.metrics.open_finance_cards_count === 1
+      && legacyShapeProfile.ai_profile.summary.includes("Open Finance")
+  );
+
   const backendDev = buildDevice("perfil-cliente-backend", {
     apiBase: "https://api.example.com",
     fetch: async (url) => {
