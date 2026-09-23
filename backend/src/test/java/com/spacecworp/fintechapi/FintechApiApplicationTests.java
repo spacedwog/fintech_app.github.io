@@ -3,6 +3,7 @@ package com.spacecworp.fintechapi;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.Firestore;
+import com.spacecworp.fintechapi.auth.TenantDocument;
 import com.spacecworp.fintechapi.cloudengine.application.CloudEngineErpService;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
@@ -102,8 +104,9 @@ class FintechApiApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.email").value("maria@example.com"));
         assertEquals(2, store.get(FirestoreCollections.TENANTS).size());
-        assertEquals(2, store.get(FirestoreCollections.USERS).size());
+        assertEquals(3, store.get(FirestoreCollections.USERS).size());
         assertEquals(2, store.get(FirestoreCollections.PLANS).size());
+        assertEquals(6, store.get(FirestoreCollections.CATEGORIES).size());
     }
 
     @Test
