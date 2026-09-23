@@ -2678,7 +2678,7 @@ class BackendApiFacade {
       throw networkErr;
     }
     if (!response.ok) {
-      if ([404, 502, 503, 504].includes(response.status)) {
+      if ([404, 405, 502, 503, 504].includes(response.status)) {
         this._unavailable = true;
       }
       let msg = `Erro HTTP ${response.status}`;
@@ -3178,6 +3178,7 @@ const backendBase = resolveBackendApiBase();
 function shouldFallbackToLocalApi(error) {
   return !!error && (
     error.code === "BACKEND_UNAVAILABLE"
+    || error.status === 405
     || error.status === 404
     || error.status === 502
     || error.status === 503
