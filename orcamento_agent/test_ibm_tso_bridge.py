@@ -144,7 +144,22 @@ def test_build_session_bearer_mode():
         os.environ.pop("IBM_TSO_TEST_TOKEN", None)
 
 
+def test_build_session_bearer_missing_env():
+    os.environ.pop("IBM_TSO_MISSING_TOKEN", None)
+    try:
+        ibm_tso_bridge._build_session(
+            {
+                "auth_mode": "bearer",
+                "token_env": "IBM_TSO_MISSING_TOKEN",
+            }
+        )
+        assert False, "Era esperado ValueError para token bearer ausente."
+    except ValueError as exc:
+        assert "token bearer ausente" in str(exc).lower()
+
+
 if __name__ == "__main__":
     test_run_active_mode()
     test_build_session_bearer_mode()
+    test_build_session_bearer_missing_env()
     print("\nTESTE PASSOU ✅")

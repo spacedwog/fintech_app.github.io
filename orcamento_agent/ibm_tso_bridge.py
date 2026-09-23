@@ -30,6 +30,21 @@ def _safe_join_url(base_url: str, path: str) -> str:
     return base_url.rstrip("/") + "/" + path.lstrip("/")
 
 
+def _as_bool(value: Any, default: bool = True) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    text = str(value).strip().lower()
+    if text in {"true", "1", "yes", "on"}:
+        return True
+    if text in {"false", "0", "no", "off"}:
+        return False
+    return default
+
+
 def _load_json(path: str | None) -> Any:
     if not path:
         return None
@@ -284,7 +299,7 @@ def run(args):
         source_system = str(flow.get("source_system") or "IBM_TSO").strip()
 
         session, timeout = _build_session(connection)
-        verify_tls = bool(connection.get("verify_tls", True))
+        verify_tls = _as_bool(connection.get("verify_tls", True), default=True)
 
         start_response = session.post(
             _safe_join_url(base_url, start_path),
@@ -330,7 +345,7 @@ def run(args):
         summary["events_count"] = len(events)
         summary["message"] = "Integração IBM TSO concluída com sucesso."
         return "ok", summary["message"], summary, events
-    except (requests.RequestException, ValueError, OSError, json.JSONDecodeError) as exc:
+    except (requests.RequestException, ValueError, OSError, json.JSONDecodeError, RuntimeError) as exc:
         summary["errors"] += 1
         summary["events_count"] = len(events)
         summary["message"] = f"Falha na integração IBM TSO: {exc}"
