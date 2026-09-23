@@ -395,6 +395,159 @@ function previousMonth(month) {
   return `${String(year).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
 }
 
+function firstDefinedValue(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return null;
+}
+
+function normalizeOpenFinanceCard(card) {
+  return {
+    id: firstDefinedValue(card && card.id, card && card.externalCardId),
+    brand: firstDefinedValue(card && card.brand, null),
+    holder_name: firstDefinedValue(card && card.holder_name, card && card.holderName),
+    last4: firstDefinedValue(card && card.last4, null),
+    status: firstDefinedValue(card && card.status, null),
+    credit_limit: Number(firstDefinedValue(card && card.credit_limit, card && card.creditLimit) || 0),
+    available_limit: Number(firstDefinedValue(card && card.available_limit, card && card.availableLimit) || 0),
+  };
+}
+
+function normalizeOpenFinanceTransaction(tx) {
+  return {
+    id: firstDefinedValue(tx && tx.id, tx && tx.externalTransactionId),
+    amount: Number(firstDefinedValue(tx && tx.amount, 0) || 0),
+    direction: firstDefinedValue(tx && tx.direction, null),
+    status: firstDefinedValue(tx && tx.status, null),
+    description: firstDefinedValue(tx && tx.description, null),
+    merchant_name: firstDefinedValue(tx && tx.merchant_name, tx && tx.merchant),
+    posted_at: firstDefinedValue(tx && tx.posted_at, tx && tx.postedAt),
+  };
+}
+
+function enrichCustomerAiProfile({ baseProfile, erp, etl, month }) {
+  const profile = baseProfile && typeof baseProfile === "object" ? baseProfile : {};
+  const erpData = erp && typeof erp === "object" ? erp : {};
+  const etlData = etl && typeof etl === "object" ? etl : {};
+  const openFinance = etlData.open_finance && typeof etlData.open_finance === "object" ? etlData.open_finance : {};
+  const oauth = etlData.oauth && typeof etlData.oauth === "object" ? etlData.oauth : null;
+  const budgetTotal = Number(erpData.monthly_budget_total || 0);
+  const spentTotal = Number(erpData.monthly_spent_total || 0);
+  const remainingTotal = Number(erpData.monthly_remaining_total || (budgetTotal - spentTotal) || 0);
+  const paymentsTotal = Number(erpData.monthly_payments_total || 0);
+  const budgetUsage = budgetTotal > 0 ? (spentTotal / budgetTotal) : null;
+  const openFinanceCardsCount = Number(openFinance.cards_count || 0);
+  const availableLimitTotal = Number(openFinance.available_limit_total || 0);
+  const postedDebitTotal = Number(openFinance.posted_debit_total || 0);
+  const oauthBalance = oauth && oauth.balance ? Number(firstDefinedValue(oauth.balance.available_balance, oauth.balance.availableBalance) || 0) : null;
+  const insights = [];
+  const seenInsights = new Set();
+  const pushInsight = (value) => {
+    const text = String(value || "").trim();
+    if (!text || seenInsights.has(text)) return;
+    seenInsights.add(text);
+    insights.push(text);
+  };
+
+  (Array.isArray(profile.insights) ? profile.insights : []).forEach(pushInsight);
+
+  if (budgetTotal > 0) {
+    pushInsight(`ERP: orçamento de R$ ${budgetTotal.toFixed(2)} com ${((budgetUsage || 0) * 100).toFixed(1)}% consumido`);
+  } else if (Number(erpData.expenses_count || 0) > 0) {
+    pushInsight(`ERP: ${Number(erpData.expenses_count || 0)} despesa(s) lançadas no mês`);
+  } else {
+    pushInsight("ERP: sem movimentação relevante no mês");
+  }
+
+  if (paymentsTotal > 0) {
+    pushInsight(`Pagamentos ERP no mês: R$ ${paymentsTotal.toFixed(2)}`);
+  }
+
+  if (etlData.connected) {
+    pushInsight(
+      `ETL: ${Number(etlData.expenses_count || 0)} despesa(s) sincronizada(s) e ${Number(etlData.payments_verified_count || 0)} pagamento(s) verificado(s)`
+    );
+  } else if (etlData.automation_configured) {
+    pushInsight("ETL: automações configuradas, aguardando novas sincronizações");
+  } else {
+    pushInsight("ETL: integrações ainda sem sincronização ativa");
+  }
+
+  if (openFinanceCardsCount > 0) {
+    pushInsight(`Open Finance: ${openFinanceCardsCount} cartão(ões) e R$ ${availableLimitTotal.toFixed(2)} de limite disponível`);
+  }
+
+  if (postedDebitTotal > 0) {
+    pushInsight(`Open Finance: R$ ${postedDebitTotal.toFixed(2)} em débitos lançados`);
+  }
+
+  if (oauthBalance !== null) {
+    pushInsight(`OAuth: saldo disponível de R$ ${oauthBalance.toFixed(2)}`);
+  }
+
+  if (erpData.cloud_engine && Number(erpData.cloud_engine.remaining_budget || 0) > 0) {
+    pushInsight(`Cloud Engine ERP: saldo projetado de R$ ${Number(erpData.cloud_engine.remaining_budget || 0).toFixed(2)}`);
+  }
+
+  let segment = String(profile.segment || "").trim() || "Em formação";
+  if (budgetUsage !== null && budgetUsage > 1) segment = "Risco financeiro ampliado";
+  else if (budgetUsage !== null && budgetUsage >= 0.85) segment = "Atenção financeira integrada";
+  else if (etlData.connected && openFinanceCardsCount > 0 && oauthBalance !== null) segment = "Perfil 360° conectado";
+  else if (etlData.connected) segment = "Cliente monitorado por ETL";
+  else if (budgetTotal > 0 || Number(erpData.expenses_count || 0) > 0) segment = "Operação guiada pelo ERP";
+
+  const summaryParts = [];
+  if (budgetTotal > 0) {
+    summaryParts.push(`ERP ${((budgetUsage || 0) * 100).toFixed(1)}% do orçamento consumido`);
+  } else {
+    summaryParts.push(`ERP ${Number(erpData.expenses_count || 0)} despesa(s) no mês`);
+  }
+  summaryParts.push(
+    etlData.connected
+      ? `ETL ativo com ${Number(etlData.expenses_count || 0)} despesa(s) sincronizada(s)`
+      : "ETL sem sincronização ativa"
+  );
+  if (openFinanceCardsCount > 0) {
+    summaryParts.push(`Open Finance com ${openFinanceCardsCount} cartão(ões)`);
+  }
+  if (oauthBalance !== null) {
+    summaryParts.push(`saldo OAuth R$ ${oauthBalance.toFixed(2)}`);
+  }
+  if (erpData.cloud_engine && Number(erpData.cloud_engine.remaining_budget || 0) > 0) {
+    summaryParts.push(`Cloud Engine saldo R$ ${Number(erpData.cloud_engine.remaining_budget || 0).toFixed(2)}`);
+  }
+
+  return {
+    ...profile,
+    month: month || profile.month || null,
+    segment,
+    summary: `${segment} · ${summaryParts.join(" · ")}`,
+    insights,
+    metrics: {
+      ...(profile.metrics || {}),
+      reference_month: month || profile.month || null,
+      budget_usage_ratio: budgetUsage,
+      monthly_remaining_total: remainingTotal,
+      etl_connected: !!etlData.connected,
+      etl_last_run_at: etlData.last_run_at || null,
+      open_finance_cards_count: openFinanceCardsCount,
+      open_finance_posted_debit_total: postedDebitTotal,
+      oauth_available_balance: oauthBalance,
+      cloud_engine_remaining_budget:
+        erpData.cloud_engine && erpData.cloud_engine.remaining_budget !== undefined
+          ? Number(erpData.cloud_engine.remaining_budget || 0)
+          : null,
+    },
+    data_sources: {
+      erp: budgetTotal > 0 || Number(erpData.expenses_count || 0) > 0 || Number(erpData.payments_count || 0) > 0,
+      etl: !!etlData.connected || !!etlData.automation_configured || openFinanceCardsCount > 0 || oauthBalance !== null,
+      marketplace: !!profile.summary,
+      cloud_engine: !!erpData.cloud_engine,
+    },
+  };
+}
+
 function safeAuditMetadata(payload) {
   if (!payload || typeof payload !== "object") return null;
   const out = {};
@@ -2010,8 +2163,12 @@ class ProfileService {
     const monthPayments = tenantPayments.filter((p) => String(p.date || p.created_at || "").slice(0, 7) === targetMonth);
     const tenantAuditEvents = (db.auditEvents || []).filter((e) => e.tenant_id === session.tenant_id);
     const monthAuditEvents = tenantAuditEvents.filter((e) => String(e.created_at || "").slice(0, 7) === targetMonth);
-    const openFinanceCards = (db.openFinanceCards || []).filter((card) => card.tenant_id === session.tenant_id);
-    const openFinanceTransactions = (db.openFinanceCardTransactions || []).filter((tx) => tx.tenant_id === session.tenant_id);
+    const openFinanceCards = (db.openFinanceCards || [])
+      .filter((card) => card.tenant_id === session.tenant_id)
+      .map((card) => normalizeOpenFinanceCard(card));
+    const openFinanceTransactions = (db.openFinanceCardTransactions || [])
+      .filter((tx) => tx.tenant_id === session.tenant_id)
+      .map((tx) => normalizeOpenFinanceTransaction(tx));
     const oauthData = ((db.mercado_pago_oauth_data || {})[session.tenant_id]) || null;
 
     const monthlyBudgetTotal = monthCategoryBudgets.reduce((sum, row) => sum + (Number(row.previsto) || 0), 0);
@@ -2048,6 +2205,74 @@ class ProfileService {
       this.api.getMarketplaceCustomerProfile(targetMonth).catch(() => null),
     ]);
 
+    const erpProfile = {
+      reference_month: targetMonth,
+      categories_count: tenantCategories.length,
+      category_budgets_count: monthCategoryBudgets.length,
+      budget_groups_count: tenantBudgetGroups.length,
+      expense_rules_count: tenantExpenseRules.length,
+      expenses_count: monthExpenses.length,
+      payments_count: monthPayments.length,
+      audit_events_count: monthAuditEvents.length,
+      monthly_budget_total: monthlyBudgetTotal,
+      monthly_spent_total: monthlySpentTotal,
+      monthly_remaining_total: monthlyBudgetTotal - monthlySpentTotal,
+      monthly_payments_total: monthlyPaymentsTotal,
+      month_has_budget: monthCategoryBudgets.length > 0,
+      last_financial_event_at: lastFinancialEventAt,
+      cloud_engine: null,
+    };
+    const etlProfile = {
+      connected: !!marketplaceStatus.connected,
+      automation_configured: !!marketplaceStatus.automation_configured,
+      last_run_at: marketplaceStatus.last_run_at || null,
+      last_sync_date: marketplaceStatus.last_sync_date || null,
+      expenses_count: Number(marketplaceStatus.expenses_count || 0),
+      expenses_total: Number(marketplaceStatus.expenses_total || 0),
+      payments_verified_count: Number(marketplaceStatus.payments_verified_count || 0),
+      automation: marketplaceStatus.automation || {},
+      open_finance: {
+        cards_count: openFinanceCards.length,
+        active_cards_count: activeCards.length,
+        credit_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.credit_limit) || 0), 0),
+        available_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.available_limit) || 0), 0),
+        card_brands: Array.from(new Set(openFinanceCards.map((card) => String(card.brand || "").trim()).filter(Boolean))),
+        cards: openFinanceCards.map((card) => ({
+          id: card.id || null,
+          brand: card.brand || null,
+          holder_name: card.holder_name || null,
+          last4: card.last4 || null,
+          status: card.status || null,
+          credit_limit: Number(card.credit_limit) || 0,
+          available_limit: Number(card.available_limit) || 0,
+        })),
+        transactions_count: openFinanceTransactions.length,
+        debit_transactions_count: debitTransactions.length,
+        credit_transactions_count: creditTransactions.length,
+        posted_debit_total: postedDebitTotal,
+        transactions_sample: openFinanceTransactions
+          .slice()
+          .sort((a, b) => String(b.posted_at || "").localeCompare(String(a.posted_at || "")))
+          .slice(0, 5)
+          .map((tx) => ({
+            id: tx.id || null,
+            amount: Number(tx.amount) || 0,
+            direction: tx.direction || null,
+            status: tx.status || null,
+            description: tx.description || null,
+            merchant_name: tx.merchant_name || null,
+            posted_at: tx.posted_at || null,
+          })),
+      },
+      oauth: oauthData
+        ? {
+            ...oauthData,
+            charges_sample_count: Array.isArray(oauthData.charges_sample) ? oauthData.charges_sample.length : 0,
+            movements_sample_count: Array.isArray(oauthData.movements_sample) ? oauthData.movements_sample.length : 0,
+          }
+        : null,
+    };
+
     return {
       month: targetMonth,
       identity: {
@@ -2061,74 +2286,9 @@ class ProfileService {
         plan: tenant ? tenant.plan : null,
         plan_label: planDetails ? planDetails.label : null,
       },
-      ai_profile: marketplaceProfile,
-      erp: {
-        reference_month: targetMonth,
-        categories_count: tenantCategories.length,
-        category_budgets_count: monthCategoryBudgets.length,
-        budget_groups_count: tenantBudgetGroups.length,
-        expense_rules_count: tenantExpenseRules.length,
-        expenses_count: monthExpenses.length,
-        payments_count: monthPayments.length,
-        audit_events_count: monthAuditEvents.length,
-        monthly_budget_total: monthlyBudgetTotal,
-        monthly_spent_total: monthlySpentTotal,
-        monthly_remaining_total: monthlyBudgetTotal - monthlySpentTotal,
-        monthly_payments_total: monthlyPaymentsTotal,
-        month_has_budget: monthCategoryBudgets.length > 0,
-        last_financial_event_at: lastFinancialEventAt,
-        cloud_engine: null,
-      },
-      etl: {
-        connected: !!marketplaceStatus.connected,
-        automation_configured: !!marketplaceStatus.automation_configured,
-        last_run_at: marketplaceStatus.last_run_at || null,
-        last_sync_date: marketplaceStatus.last_sync_date || null,
-        expenses_count: Number(marketplaceStatus.expenses_count || 0),
-        expenses_total: Number(marketplaceStatus.expenses_total || 0),
-        payments_verified_count: Number(marketplaceStatus.payments_verified_count || 0),
-        automation: marketplaceStatus.automation || {},
-        open_finance: {
-          cards_count: openFinanceCards.length,
-          active_cards_count: activeCards.length,
-          credit_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.credit_limit) || 0), 0),
-          available_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.available_limit) || 0), 0),
-          card_brands: Array.from(new Set(openFinanceCards.map((card) => String(card.brand || "").trim()).filter(Boolean))),
-          cards: openFinanceCards.map((card) => ({
-            id: card.id || null,
-            brand: card.brand || null,
-            holder_name: card.holder_name || null,
-            last4: card.last4 || null,
-            status: card.status || null,
-            credit_limit: Number(card.credit_limit) || 0,
-            available_limit: Number(card.available_limit) || 0,
-          })),
-          transactions_count: openFinanceTransactions.length,
-          debit_transactions_count: debitTransactions.length,
-          credit_transactions_count: creditTransactions.length,
-          posted_debit_total: postedDebitTotal,
-          transactions_sample: openFinanceTransactions
-            .slice()
-            .sort((a, b) => String(b.posted_at || "").localeCompare(String(a.posted_at || "")))
-            .slice(0, 5)
-            .map((tx) => ({
-              id: tx.id || null,
-              amount: Number(tx.amount) || 0,
-              direction: tx.direction || null,
-              status: tx.status || null,
-              description: tx.description || null,
-              merchant_name: tx.merchant_name || null,
-              posted_at: tx.posted_at || null,
-            })),
-        },
-        oauth: oauthData
-          ? {
-              ...oauthData,
-              charges_sample_count: Array.isArray(oauthData.charges_sample) ? oauthData.charges_sample.length : 0,
-              movements_sample_count: Array.isArray(oauthData.movements_sample) ? oauthData.movements_sample.length : 0,
-            }
-          : null,
-      },
+      ai_profile: enrichCustomerAiProfile({ baseProfile: marketplaceProfile, erp: erpProfile, etl: etlProfile, month: targetMonth }),
+      erp: erpProfile,
+      etl: etlProfile,
     };
   }
 
@@ -3109,7 +3269,7 @@ class BackendApiFacade {
       this._request(`/api/v1/cloud-engine/erp-overview${params}`).catch(() => null),
     ]);
     if (!erpOverview) return profile;
-    return {
+    const mergedProfile = {
       ...profile,
       erp: {
         ...(profile.erp || {}),
@@ -3124,6 +3284,15 @@ class BackendApiFacade {
           queued_agents: Number(erpOverview.queuedAgents || 0),
         },
       },
+    };
+    return {
+      ...mergedProfile,
+      ai_profile: enrichCustomerAiProfile({
+        baseProfile: mergedProfile.ai_profile,
+        erp: mergedProfile.erp || {},
+        etl: mergedProfile.etl || {},
+        month: mergedProfile.month || null,
+      }),
     };
   }
   getPrivacyConsent() {
