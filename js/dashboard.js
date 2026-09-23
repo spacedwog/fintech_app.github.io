@@ -489,7 +489,6 @@ class DashboardController {
     this.budgetEditingLayoutId = null;
     this.budgetLastResult = null; // último resultado lido (js/budget-ai.js), para o botão "Usar este orçamento no app"
     this.googleChatLoading = false;
-    this.etlModalBound = false;
 
     this.manualTxnModal = new ManualTransactionModal();
     this.pixModal = new PixPaymentModal(PIX_MERCHANT, this.manualTxnModal);
@@ -545,7 +544,6 @@ class DashboardController {
       });
     }
     this._setupBudgetLayoutModal();
-    this._setupEtlNotifications();
     this._renderShell();
     this._bindNav();
     this._bindGlobalForms();
@@ -564,25 +562,6 @@ class DashboardController {
     // do navegador — o polling é o jeito de o painel perceber a mudança.
     this.mpStatus.render();
     setInterval(() => this.mpStatus.render(), 5000);
-    this._refreshEtlNotifications().catch(() => {});
-  }
-
-  _setupEtlNotifications() {
-    if (this.etlModalBound) return;
-    this.etlModalBound = true;
-
-    const btn = document.getElementById("etl-notifications-btn");
-    const modalEl = document.getElementById("etl-notifications-modal");
-    if (btn) {
-      btn.addEventListener("click", () => {
-        this._refreshEtlNotifications().catch(() => {});
-      });
-    }
-    if (modalEl) {
-      modalEl.addEventListener("show.bs.modal", () => {
-        this._refreshEtlNotifications().catch(() => {});
-      });
-    }
   }
 
   _formatEtlDate(iso) {
@@ -600,80 +579,151 @@ class DashboardController {
       .replace(/'/g, "&#39;");
   }
 
-  async _refreshEtlNotifications() {
-    const listEl = document.getElementById("etl-notifications-list");
-    const badgeEl = document.getElementById("etl-notifications-badge");
-    const btn = document.getElementById("etl-notifications-btn");
-    if (!listEl || !badgeEl || typeof Api === "undefined") return;
+  _humanizeCustomerProfileKey(key) {
+    const labels = {
+      ai_profile: "Perfil IA",
+      tenant_id: "Tenant",
+      tenant_name: "Conta",
+      tax_document: "CPF/CNPJ",
+      plan_label: "Plano",
+      reference_month: "Mês de referência",
+      category_budgets_count: "Orçamentos por categoria",
+      budget_groups_count: "Grupos de orçamento",
+      expense_rules_count: "Regras automáticas",
+      expenses_count: "Despesas",
+      payments_count: "Pagamentos",
+      audit_events_count: "Eventos de auditoria",
+      monthly_budget_total: "Orçamento do mês",
+      monthly_spent_total: "Gasto do mês",
+      monthly_remaining_total: "Saldo do mês",
+      monthly_payments_total: "Pagamentos do mês",
+      month_has_budget: "Possui orçamento no mês",
+      last_financial_event_at: "Último evento financeiro",
+      last_run_at: "Última execução",
+      last_sync_date: "Última sincronização",
+      payments_verified_count: "Pagamentos verificados",
+      automation_configured: "Automação configurada",
+      cards_count: "Cartões Open Finance",
+      active_cards_count: "Cartões ativos",
+      credit_limit_total: "Limite total",
+      available_limit_total: "Limite disponível",
+      card_brands: "Bandeiras",
+      transactions_count: "Transações",
+      debit_transactions_count: "Débitos",
+      credit_transactions_count: "Créditos",
+      posted_debit_total: "Débitos lançados",
+      charges_sample_count: "Cobranças amostradas",
+      movements_sample_count: "Movimentações amostradas",
+      planned_budget: "Planejado",
+      executed_budget: "Executado",
+      remaining_budget: "Saldo ERP",
+      payment_total: "Pagamentos ERP",
+      payment_paid: "Pagamentos quitados",
+      payment_pending: "Pagamentos pendentes",
+      queued_agents: "Agentes na fila",
+    };
+    if (labels[key]) return labels[key];
+    return String(key || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  _formatCustomerProfileScalar(key, value) {
+    if (value == null || value === "") return "—";
+    if (typeof value === "boolean") return value ? "Sim" : "Não";
+    if (typeof value === "number") {
+      if (/(amount|total|budget|spent|paid|pending|balance|limit)/i.test(String(key || ""))) {
+        return `R$ ${value.toFixed(2)}`;
+      }
+      return Number.isInteger(value)
+        ? value.toLocaleString("pt-BR")
+        : value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    if (typeof value === "string") {
+      if (/(^at$|_at$|date|month)/i.test(String(key || ""))) {
+        const formatted = this._formatEtlDate(value);
+        if (formatted) return formatted;
+      }
+      return value;
+    }
+    return String(value);
+  }
+
+  _renderCustomerProfileValue(key, value) {
+    if (value == null || value === "" || (Array.isArray(value) && !value.length)) {
+      return '<p class="m-0 small-muted">Sem dados.</p>';
+    }
+    if (Array.isArray(value)) {
+      return `
+        <ul class="customer-profile-list">
+          ${value.map((item) => `<li>${this._renderCustomerProfileValue(key, item)}</li>`).join("")}
+        </ul>
+      `;
+    }
+    if (typeof value === "object") {
+      const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined);
+      if (!entries.length) return '<p class="m-0 small-muted">Sem dados.</p>';
+      return `
+        <div class="customer-profile-grid">
+          ${entries.map(([entryKey, entryValue]) => `
+            <div class="${typeof entryValue === "object" && entryValue !== null ? "customer-profile-cell-full" : ""}">
+              <span class="small-muted">${this._escapeHtml(this._humanizeCustomerProfileKey(entryKey))}</span>
+              ${typeof entryValue === "object" && entryValue !== null
+                ? this._renderCustomerProfileValue(entryKey, entryValue)
+                : `<p class="m-0 fw-600">${this._escapeHtml(this._formatCustomerProfileScalar(entryKey, entryValue))}</p>`}
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+    return `<p class="m-0 fw-600">${this._escapeHtml(this._formatCustomerProfileScalar(key, value))}</p>`;
+  }
+
+  _renderCustomerProfileSection(title, payload) {
+    return `
+      <section class="customer-profile-block">
+        <h4 class="customer-profile-title">${this._escapeHtml(title)}</h4>
+        ${this._renderCustomerProfileValue(title, payload)}
+      </section>
+    `;
+  }
+
+  async _loadCustomerProfileCard() {
+    const errorBox = document.getElementById("settings-customer-profile-error");
+    const summaryBox = document.getElementById("settings-customer-profile-summary");
+    const sectionsBox = document.getElementById("settings-customer-profile-sections");
+    if (!errorBox || !summaryBox || !sectionsBox) return;
+
+    errorBox.classList.add("hidden");
+    summaryBox.textContent = "Carregando perfil do cliente…";
+    sectionsBox.innerHTML = "";
 
     try {
-      const status = await Api.getMercadoPagoStatus();
-      const automation = status.automation || {};
-      const notifications = [];
-      const sources = [
-        { key: "last_reconcile", title: "Conciliação Mercado Pago" },
-        { key: "last_expenses_api", title: "Importação de despesas" },
-        { key: "last_open_finance_sync", title: "Sincronização Open Finance" },
-        { key: "last_oauth_account_sync", title: "Sincronização OAuth Account" },
-      ];
-
-      sources.forEach((source) => {
-        const payload = automation[source.key];
-        if (!payload || !payload.at) return;
-        const count = payload.importadas ?? payload.confirmados ?? payload.total ?? payload.quantidade ?? null;
-        notifications.push({
-          title: source.title,
-          at: payload.at,
-          detail: count == null ? "Processo ETL executado." : `Registros processados: ${count}.`,
-          level: "primary",
-        });
-      });
-
-      const rejected = ((automation.last_expenses_api || {}).verificacoes_rejeitadas || []).filter(Boolean);
-      rejected.forEach((item) => {
-        notifications.push({
-          title: "Rejeição na validação ETL",
-          at: item.at || status.last_run_at || null,
-          detail: String(item.reason || "Motivo não informado."),
-          level: "warning",
-        });
-      });
-
-      notifications.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
-      badgeEl.textContent = String(notifications.length);
-      badgeEl.classList.toggle("bg-danger", notifications.length > 0);
-      badgeEl.classList.toggle("bg-secondary", notifications.length === 0);
-      if (btn) {
-        btn.title = notifications.length
-          ? `${notifications.length} notificação(ões) ETL disponível(is).`
-          : "Sem notificações ETL no momento.";
-      }
-
-      if (!notifications.length) {
-        listEl.innerHTML = '<li class="list-group-item">Sem notificações ETL para esta conta no momento.</li>';
-        return;
-      }
-
-      listEl.innerHTML = notifications.slice(0, 10).map((item) => {
-        const when = this._escapeHtml(this._formatEtlDate(item.at) || "horário não informado");
-        const title = this._escapeHtml(item.title);
-        const detail = this._escapeHtml(item.detail);
-        return `
-          <li class="list-group-item d-flex justify-content-between align-items-start">
-            <div class="me-3">
-              <strong>${title}</strong>
-              <div class="small text-muted">${when}</div>
-              <div class="small">${detail}</div>
-            </div>
-            <span class="badge text-bg-${item.level} rounded-pill">ETL</span>
-          </li>
-        `;
-      }).join("");
-    } catch (_err) {
-      badgeEl.textContent = "0";
-      badgeEl.classList.remove("bg-danger");
-      badgeEl.classList.add("bg-secondary");
-      listEl.innerHTML = '<li class="list-group-item">Não foi possível carregar notificações ETL agora.</li>';
+      const profile = await Api.getCustomerProfile();
+      const identity = profile.identity || {};
+      const aiProfile = profile.ai_profile || {};
+      const etl = profile.etl || {};
+      const month = this._escapeHtml(profile.month || "mês atual");
+      const aiSummary = aiProfile.summary || "Perfil consolidado sem resumo adicional.";
+      const lastRun = etl.last_run_at ? this._formatEtlDate(etl.last_run_at) : null;
+      summaryBox.innerHTML = `
+        <strong>${this._escapeHtml(identity.name || "Cliente")}</strong>
+        · ${this._escapeHtml(aiSummary)}
+        · Referência ${month}
+        ${lastRun ? `· ETL ${this._escapeHtml(lastRun)}` : ""}
+      `;
+      sectionsBox.innerHTML = [
+        this._renderCustomerProfileSection("Identificação", identity),
+        this._renderCustomerProfileSection("Perfil IA", aiProfile),
+        this._renderCustomerProfileSection("ERP", profile.erp || {}),
+        this._renderCustomerProfileSection("ETL", etl),
+      ].join("");
+    } catch (err) {
+      summaryBox.textContent = "Não foi possível carregar o perfil do cliente.";
+      errorBox.textContent = err.message;
+      errorBox.classList.remove("hidden");
+      sectionsBox.innerHTML = "";
     }
   }
 
@@ -4005,6 +4055,13 @@ class DashboardController {
     if (!this.settingsBound) {
       this.settingsBound = true;
 
+      const refreshBtn = document.getElementById("settings-customer-profile-refresh-btn");
+      if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+          this._loadCustomerProfileCard().catch(() => {});
+        });
+      }
+
       const profile = await Api.getCompanyProfile();
       document.getElementById("settings-company-box").innerHTML = `
         <div><span class="small-muted">Operador legal</span><p class="m-0 fw-600">${profile.razao_social}</p></div>
@@ -4026,6 +4083,7 @@ class DashboardController {
     document.getElementById("settings-profile-email").value = this.currentUser.email || "";
     const docInput = document.getElementById("settings-profile-document");
     if (docInput) docInput.value = this.currentUser.tax_document || "";
+    await this._loadCustomerProfileCard();
   }
 
   async _handleProfileFormSubmit(e) {
@@ -4043,6 +4101,7 @@ class DashboardController {
       this.currentUser.tax_document = updated.tax_document;
       const userNameEl = document.getElementById("user-name");
       if (userNameEl) userNameEl.textContent = updated.name;
+      await this._loadCustomerProfileCard();
       successBox.textContent = "Perfil atualizado!";
       successBox.classList.remove("hidden");
     } catch (err) {

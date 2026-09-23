@@ -1,0 +1,229 @@
+// ===============================
+// tests/customer-profile.test.js
+//
+// Teste de integração (Node, sem dependências) do perfil consolidado do
+// cliente em js/api.js:
+// - agrega métricas do ERP local (orçamento, despesas, pagamentos, auditoria)
+// - expõe dados ETL de Mercado Pago/Open Finance/OAuth no mesmo payload
+//
+// Como rodar:
+//   node tests/customer-profile.test.js
+// ===============================
+
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+
+const REPO = path.join(__dirname, "..");
+const read = (p) => fs.readFileSync(path.join(REPO, p), "utf8");
+
+function makeLocalStorage() {
+  const store = new Map();
+  return {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+  };
+}
+
+const placeholderFirebaseConfigSrc = read("js/firebase-config.js")
+  .replace(/apiKey:\s*"[^"]+"/, 'apiKey: "SUA_API_KEY"')
+  .replace(/projectId:\s*"[^"]+"/, 'projectId: "SEU_PROJETO"');
+
+const appBundleSrc = [placeholderFirebaseConfigSrc, read("js/plans.js"), read("js/db.js"), read("js/crypto-utils.js"), read("js/oauth.js"), read("js/api.js")].join(
+  "\n;\n"
+);
+
+function buildDevice(label) {
+  const localStorage = makeLocalStorage();
+  const sandbox = {
+    console,
+    crypto: globalThis.crypto,
+    TextEncoder,
+    btoa: globalThis.btoa,
+    atob: globalThis.atob,
+    localStorage,
+    window: { addEventListener() {} },
+    setTimeout,
+    clearTimeout,
+    Promise,
+    fetch: undefined,
+    firebase: undefined,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(appBundleSrc, sandbox, { filename: `${label}.js` });
+  return { label, ctx: sandbox };
+}
+
+function run(device, code) {
+  return vm.runInContext(`(async () => { ${code} })()`, device.ctx, { filename: `${device.label}-step.js` });
+}
+
+const results = [];
+function check(name, cond) {
+  results.push({ name, ok: !!cond });
+  console.log((cond ? "OK  " : "FAIL") + " - " + name);
+}
+
+(async () => {
+  const dev = buildDevice("perfil-cliente");
+
+  const profile = await run(
+    dev,
+    `
+    const signup = await Api.signup({
+      company_name: "Conta Perfil",
+      admin_name: "Cliente Perfil",
+      email: "cliente.perfil@example.com",
+      password: "senha-forte-123",
+    });
+    Auth.setToken(signup.token);
+
+    const session = Auth.requireSession();
+    const db = await loadDb();
+    const tenantId = session.tenant_id;
+    const userId = session.user_id;
+    const [mercado, moradia] = db.categories;
+
+    db.tenants[0].plan = "premium";
+    db.categoryBudgets.push(
+      { id: "cb-1", tenant_id: tenantId, category_id: mercado.id, month: "2026-09", previsto: 1000 },
+      { id: "cb-2", tenant_id: tenantId, category_id: moradia.id, month: "2026-09", previsto: 500 }
+    );
+    db.budgetGroups = [{ id: "bg-1", tenant_id: tenantId, name: "Essenciais", budget_category_id: mercado.id, expense_category_id: moradia.id, created_at: "2026-09-01T09:00:00.000Z" }];
+    db.expenseRules = [{ id: "rule-1", tenant_id: tenantId, category_id: mercado.id, keyword: "uber", keyword_normalized: "uber", match_type: "contains", created_at: "2026-09-02T10:00:00.000Z" }];
+    db.expenses.push(
+      {
+        id: "exp-1",
+        tenant_id: tenantId,
+        user_id: userId,
+        category_id: mercado.id,
+        amount: 123.45,
+        date: "2026-09-10",
+        description: "Uber Mercado Pago",
+        generated_by_mercado_pago: true,
+        mercadoPagoPaymentId: "mp-1",
+      },
+      {
+        id: "exp-2",
+        tenant_id: tenantId,
+        user_id: userId,
+        category_id: moradia.id,
+        amount: 80,
+        date: "2026-09-11",
+        description: "Conta de luz",
+      }
+    );
+    db.payments.push(
+      {
+        id: "pay-1",
+        tenant_id: tenantId,
+        user_id: userId,
+        type: "pix",
+        amount: 200,
+        date: "2026-09-12",
+        verifiedByMercadoPago: true,
+      }
+    );
+    db.auditEvents = [
+      { id: "ae-1", tenant_id: tenantId, user_id: userId, action: "payment.created", entity: "payment", message: "Pagamento", metadata: {}, created_at: "2026-09-12T13:00:00.000Z" }
+    ];
+    db.mercado_pago_status = {
+      global: {
+        last_reconcile: { verificados: 2, ambiguos: 1, sem_correspondencia: 0, at: "2026-09-12T14:00:00.000Z" }
+      }
+    };
+    db.mercado_pago_status[tenantId] = {
+      last_expenses_api: {
+        criadas: 1,
+        categorias_novas: 0,
+        ignoradas_verificacao: 1,
+        verificacoes_rejeitadas: [{ reason: "Transação rejeitada", at: "2026-09-12T12:00:00.000Z" }],
+        at: "2026-09-12T12:30:00.000Z"
+      },
+      last_open_finance_sync: {
+        cards_created: 1,
+        transactions_created: 2,
+        expenses_created: 1,
+        categories_created: 1,
+        removed_sensitive_fields: ["cvv", "security_code"],
+        at: "2026-09-12T15:00:00.000Z"
+      },
+      last_oauth_account_sync: {
+        payments_synced_created: 2,
+        payments_count: 2,
+        charges_count: 1,
+        movements_count: 1,
+        balance_found: true,
+        at: "2026-09-12T16:00:00.000Z"
+      }
+    };
+    db.openFinanceCards = [
+      {
+        id: "card-1",
+        tenant_id: tenantId,
+        brand: "master",
+        holder_name: "Cliente Perfil",
+        last4: "5678",
+        status: "active",
+        credit_limit: 5000,
+        available_limit: 4100,
+      }
+    ];
+    db.openFinanceCardTransactions = [
+      {
+        id: "tx-1",
+        tenant_id: tenantId,
+        amount: 35.9,
+        direction: "debit",
+        status: "posted",
+        description: "UBER TRIP 001",
+        merchant_name: "Uber",
+        posted_at: "2026-09-12T10:00:00.000Z",
+      },
+      {
+        id: "tx-2",
+        tenant_id: tenantId,
+        amount: 15,
+        direction: "credit",
+        status: "posted",
+        description: "ESTORNO",
+        posted_at: "2026-09-12T11:00:00.000Z",
+      }
+    ];
+    db.mercado_pago_oauth_data = {
+      [tenantId]: {
+        at: "2026-09-12T16:00:00.000Z",
+        payments_count: 2,
+        charges_count: 1,
+        movements_count: 1,
+        balance: { available_balance: 500, currency_id: "BRL" },
+        charges_sample: [{ id: "ch-1", amount: 100 }],
+        movements_sample: [{ id: "mv-1", amount: 12.4 }],
+      }
+    };
+
+    await saveDb(db);
+    return Api.getCustomerProfile("2026-09");
+  `
+  );
+
+  check("Perfil retorna identificação do usuário", profile.identity && profile.identity.email === "cliente.perfil@example.com");
+  check("ERP soma o orçamento do mês", profile.erp && profile.erp.monthly_budget_total === 1500);
+  check("ERP soma os gastos do mês", profile.erp && profile.erp.monthly_spent_total === 203.45);
+  check("ETL expõe cartão Open Finance", profile.etl && profile.etl.open_finance && profile.etl.open_finance.cards_count === 1);
+  check("ETL expõe saldo OAuth", profile.etl && profile.etl.oauth && profile.etl.oauth.balance && profile.etl.oauth.balance.available_balance === 500);
+  check("ETL preserva status global de reconciliação", profile.etl && profile.etl.automation && profile.etl.automation.last_reconcile && profile.etl.automation.last_reconcile.verificados === 2);
+  check("Perfil IA continua disponível", profile.ai_profile && typeof profile.ai_profile.summary === "string" && profile.ai_profile.summary.length > 0);
+
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length) {
+    console.error("\\nFalharam " + failed.length + " verificação(ões).");
+    process.exit(1);
+  }
+
+  console.log("\\nTodas as verificações passaram.");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

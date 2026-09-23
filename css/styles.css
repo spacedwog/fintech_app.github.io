@@ -846,6 +846,43 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 
 .company-profile-grid .company-profile-full { grid-column: 1 / -1; }
 
+.customer-profile-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.customer-profile-block {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: #fbf8fe;
+}
+
+.customer-profile-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.customer-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px 16px;
+  font-size: 13px;
+}
+
+.customer-profile-cell-full {
+  grid-column: 1 / -1;
+}
+
+.customer-profile-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.customer-profile-list li + li {
+  margin-top: 8px;
+}
+
 /* ---------- Certificação: barra de prontidão (autoavaliação) ---------- */
 .readiness-bar {
   width: 100%;

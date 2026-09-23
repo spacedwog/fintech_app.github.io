@@ -1916,6 +1916,10 @@ class PaymentService {
 // institucionais — usado pelas telas "Configurações" e "Privacidade" ----------
 
 class ProfileService {
+  constructor(api) {
+    this.api = api;
+  }
+
   // ---- Configurações: perfil da conta ----
 
   // "document" (CPF ou CNPJ) é opcional, mas é exigido pela Receita/prefeitura
@@ -1985,6 +1989,137 @@ class ProfileService {
   // conta), extraídos do CNPJ/CMC/Alvará (ver COMPANY_PROFILE acima).
   async getCompanyProfile() {
     return COMPANY_PROFILE;
+  }
+
+  async getCustomerProfile(month) {
+    const session = Auth.requireSession();
+    const targetMonth = monthRegexOk(month) ? month : nowIso().slice(0, 7);
+    const db = await loadDb();
+    const tenant = TenantRepository.find(db, session.tenant_id);
+    const user = db.users.find((u) => u.id === session.user_id);
+    if (!user) throw new Error("Usuário não encontrado.");
+
+    const tenantCategories = (db.categories || []).filter((c) => c.tenant_id === session.tenant_id);
+    const tenantCategoryBudgets = (db.categoryBudgets || []).filter((b) => b.tenant_id === session.tenant_id);
+    const monthCategoryBudgets = tenantCategoryBudgets.filter((b) => b.month === targetMonth);
+    const tenantBudgetGroups = (db.budgetGroups || []).filter((g) => g.tenant_id === session.tenant_id);
+    const tenantExpenseRules = (db.expenseRules || []).filter((r) => r.tenant_id === session.tenant_id);
+    const tenantExpenses = (db.expenses || []).filter((e) => e.tenant_id === session.tenant_id);
+    const monthExpenses = tenantExpenses.filter((e) => String(e.date || "").slice(0, 7) === targetMonth);
+    const tenantPayments = (db.payments || []).filter((p) => p.tenant_id === session.tenant_id);
+    const monthPayments = tenantPayments.filter((p) => String(p.date || p.created_at || "").slice(0, 7) === targetMonth);
+    const tenantAuditEvents = (db.auditEvents || []).filter((e) => e.tenant_id === session.tenant_id);
+    const openFinanceCards = (db.openFinanceCards || []).filter((card) => card.tenant_id === session.tenant_id);
+    const openFinanceTransactions = (db.openFinanceCardTransactions || []).filter((tx) => tx.tenant_id === session.tenant_id);
+    const oauthData = ((db.mercado_pago_oauth_data || {})[session.tenant_id]) || null;
+
+    const monthlyBudgetTotal = monthCategoryBudgets.reduce((sum, row) => sum + (Number(row.previsto) || 0), 0);
+    const monthlySpentTotal = monthExpenses.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const monthlyPaymentsTotal = monthPayments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const activeCards = openFinanceCards.filter((card) => String(card.status || "").toLowerCase() === "active");
+    const debitTransactions = openFinanceTransactions.filter((tx) => String(tx.direction || "").toLowerCase() === "debit");
+    const creditTransactions = openFinanceTransactions.filter((tx) => String(tx.direction || "").toLowerCase() === "credit");
+    const postedDebitTotal = debitTransactions
+      .filter((tx) => String(tx.status || "").toLowerCase() === "posted")
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    const planDetails = tenant ? TenantRepository.planDetails(tenant) : null;
+    const lastFinancialEventAt =
+      [
+        ...monthExpenses.map((row) => row.date),
+        ...monthPayments.map((row) => row.date || row.created_at),
+        ...tenantAuditEvents.map((row) => row.created_at),
+      ]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+
+    const [marketplaceStatus, marketplaceProfile] = await Promise.all([
+      this.api.getMercadoPagoStatus(),
+      this.api.getMarketplaceCustomerProfile(targetMonth).catch(() => null),
+    ]);
+
+    return {
+      month: targetMonth,
+      identity: {
+        id: user.id,
+        tenant_id: user.tenant_id,
+        tenant_name: tenant ? tenant.name : "Conta",
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tax_document: user.tax_document || null,
+        plan: tenant ? tenant.plan : null,
+        plan_label: planDetails ? planDetails.label : null,
+      },
+      ai_profile: marketplaceProfile,
+      erp: {
+        reference_month: targetMonth,
+        categories_count: tenantCategories.length,
+        category_budgets_count: monthCategoryBudgets.length,
+        budget_groups_count: tenantBudgetGroups.length,
+        expense_rules_count: tenantExpenseRules.length,
+        expenses_count: monthExpenses.length,
+        payments_count: monthPayments.length,
+        audit_events_count: tenantAuditEvents.length,
+        monthly_budget_total: monthlyBudgetTotal,
+        monthly_spent_total: monthlySpentTotal,
+        monthly_remaining_total: monthlyBudgetTotal - monthlySpentTotal,
+        monthly_payments_total: monthlyPaymentsTotal,
+        month_has_budget: monthCategoryBudgets.length > 0,
+        last_financial_event_at: lastFinancialEventAt,
+        cloud_engine: null,
+      },
+      etl: {
+        connected: !!marketplaceStatus.connected,
+        automation_configured: !!marketplaceStatus.automation_configured,
+        last_run_at: marketplaceStatus.last_run_at || null,
+        last_sync_date: marketplaceStatus.last_sync_date || null,
+        expenses_count: Number(marketplaceStatus.expenses_count || 0),
+        expenses_total: Number(marketplaceStatus.expenses_total || 0),
+        payments_verified_count: Number(marketplaceStatus.payments_verified_count || 0),
+        automation: marketplaceStatus.automation || {},
+        open_finance: {
+          cards_count: openFinanceCards.length,
+          active_cards_count: activeCards.length,
+          credit_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.credit_limit) || 0), 0),
+          available_limit_total: openFinanceCards.reduce((sum, card) => sum + (Number(card.available_limit) || 0), 0),
+          card_brands: Array.from(new Set(openFinanceCards.map((card) => String(card.brand || "").trim()).filter(Boolean))),
+          cards: openFinanceCards.map((card) => ({
+            id: card.id || null,
+            brand: card.brand || null,
+            holder_name: card.holder_name || null,
+            last4: card.last4 || null,
+            status: card.status || null,
+            credit_limit: Number(card.credit_limit) || 0,
+            available_limit: Number(card.available_limit) || 0,
+          })),
+          transactions_count: openFinanceTransactions.length,
+          debit_transactions_count: debitTransactions.length,
+          credit_transactions_count: creditTransactions.length,
+          posted_debit_total: postedDebitTotal,
+          transactions_sample: openFinanceTransactions
+            .slice()
+            .sort((a, b) => String(b.posted_at || "").localeCompare(String(a.posted_at || "")))
+            .slice(0, 5)
+            .map((tx) => ({
+              id: tx.id || null,
+              amount: Number(tx.amount) || 0,
+              direction: tx.direction || null,
+              status: tx.status || null,
+              description: tx.description || null,
+              merchant_name: tx.merchant_name || null,
+              posted_at: tx.posted_at || null,
+            })),
+        },
+        oauth: oauthData
+          ? {
+              ...oauthData,
+              charges_sample_count: Array.isArray(oauthData.charges_sample) ? oauthData.charges_sample.length : 0,
+              movements_sample_count: Array.isArray(oauthData.movements_sample) ? oauthData.movements_sample.length : 0,
+            }
+          : null,
+      },
+    };
   }
 
   // ---- Privacidade (LGPD, Lei 13.709/2018) ----
@@ -2092,7 +2227,7 @@ class ApiFacade {
     this.reportService = new ReportService();
     this.budgetLayoutService = new BudgetLayoutService();
     this.paymentService = new PaymentService();
-    this.profileService = new ProfileService();
+    this.profileService = new ProfileService(this);
   }
 
   // ---------- Auth ----------
@@ -2257,6 +2392,9 @@ class ApiFacade {
   }
   getCompanyProfile() {
     return this.profileService.getCompanyProfile();
+  }
+  getCustomerProfile(month) {
+    return this.profileService.getCustomerProfile(month);
   }
 
   // ---------- Privacidade (LGPD) ----------
@@ -2917,11 +3055,45 @@ class BackendApiFacade {
   deleteBudgetLayout(id) {
     return this._request(`/api/v1/budget-layouts/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
-  getCompanyProfile() {
-    return this._request("/api/v1/company-profile");
+  async getCompanyProfile() {
+    const payload = await this._request("/api/v1/company-profile").catch(() => null);
+    if (
+      payload
+      && payload.razao_social
+      && payload.endereco
+      && payload.alvara
+      && Array.isArray(payload.atividades)
+    ) {
+      return payload;
+    }
+    return this.fallback.getCompanyProfile();
   }
-  getMarketplaceCustomerProfile() {
-    return this._request("/api/v1/company-profile");
+  getMarketplaceCustomerProfile(month) {
+    return this.fallback.getMarketplaceCustomerProfile(month);
+  }
+  async getCustomerProfile(month) {
+    const params = month ? `?referenceMonth=${encodeURIComponent(month)}` : "";
+    const [profile, erpOverview] = await Promise.all([
+      this.fallback.getCustomerProfile(month),
+      this._request(`/api/v1/cloud-engine/erp-overview${params}`).catch(() => null),
+    ]);
+    if (!erpOverview) return profile;
+    return {
+      ...profile,
+      erp: {
+        ...(profile.erp || {}),
+        cloud_engine: {
+          reference_month: erpOverview.referenceMonth || profile.month || null,
+          planned_budget: Number(erpOverview.plannedBudget || 0),
+          executed_budget: Number(erpOverview.executedBudget || 0),
+          remaining_budget: Number(erpOverview.remainingBudget || 0),
+          payment_total: Number(erpOverview.paymentTotal || 0),
+          payment_paid: Number(erpOverview.paymentPaid || 0),
+          payment_pending: Number(erpOverview.paymentPending || 0),
+          queued_agents: Number(erpOverview.queuedAgents || 0),
+        },
+      },
+    };
   }
   getPrivacyConsent() {
     return this._request("/api/v1/privacy-consent");
