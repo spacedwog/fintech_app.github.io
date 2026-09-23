@@ -704,7 +704,8 @@ class DashboardController {
       const identity = profile.identity || {};
       const aiProfile = profile.ai_profile || {};
       const etl = profile.etl || {};
-      const month = this._escapeHtml(profile.month || "mês atual");
+      const erp = profile.erp || {};
+      const month = this._escapeHtml((erp.cloud_engine && erp.cloud_engine.reference_month) || erp.reference_month || profile.month || "mês atual");
       const aiSummary = aiProfile.summary || "Perfil consolidado sem resumo adicional.";
       const lastRun = etl.last_run_at ? this._formatEtlDate(etl.last_run_at) : null;
       summaryBox.innerHTML = `
@@ -716,7 +717,7 @@ class DashboardController {
       sectionsBox.innerHTML = [
         this._renderCustomerProfileSection("Identificação", identity),
         this._renderCustomerProfileSection("Perfil IA", aiProfile),
-        this._renderCustomerProfileSection("ERP", profile.erp || {}),
+        this._renderCustomerProfileSection("ERP", erp),
         this._renderCustomerProfileSection("ETL", etl),
       ].join("");
     } catch (err) {

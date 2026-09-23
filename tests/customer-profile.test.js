@@ -34,7 +34,7 @@ const appBundleSrc = [placeholderFirebaseConfigSrc, read("js/plans.js"), read("j
   "\n;\n"
 );
 
-function buildDevice(label) {
+function buildDevice(label, options = {}) {
   const localStorage = makeLocalStorage();
   const sandbox = {
     console,
@@ -47,8 +47,9 @@ function buildDevice(label) {
     setTimeout,
     clearTimeout,
     Promise,
-    fetch: undefined,
+    fetch: options.fetch,
     firebase: undefined,
+    __FINTECH_API_BASE__: options.apiBase || "",
   };
   vm.createContext(sandbox);
   vm.runInContext(appBundleSrc, sandbox, { filename: `${label}.js` });
@@ -215,6 +216,70 @@ function check(name, cond) {
   check("ETL expõe saldo OAuth", profile.etl && profile.etl.oauth && profile.etl.oauth.balance && profile.etl.oauth.balance.available_balance === 500);
   check("ETL preserva status global de reconciliação", profile.etl && profile.etl.automation && profile.etl.automation.last_reconcile && profile.etl.automation.last_reconcile.verificados === 2);
   check("Perfil IA continua disponível", profile.ai_profile && typeof profile.ai_profile.summary === "string" && profile.ai_profile.summary.length > 0);
+
+  const backendDev = buildDevice("perfil-cliente-backend", {
+    apiBase: "https://api.example.com",
+    fetch: async (url) => {
+      if (String(url).includes("/api/v1/cloud-engine/erp-overview")) {
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              referenceMonth: "2026-10",
+              plannedBudget: 999,
+              executedBudget: 444,
+              remainingBudget: 555,
+              paymentTotal: 333,
+              paymentPaid: 111,
+              paymentPending: 222,
+              queuedAgents: 3,
+            };
+          },
+        };
+      }
+      return {
+        ok: false,
+        status: 404,
+        async json() {
+          return { message: "not found" };
+        },
+      };
+    },
+  });
+
+  const backendProfile = await run(
+    backendDev,
+    `
+    Auth.setToken(JSON.stringify({
+      legacy: true,
+      user_id: "u1",
+      tenant_id: "t1",
+      name: "Cliente Backend",
+      email: "backend@example.com",
+      role: "admin",
+      access_token: "fake",
+      refresh_token: "fake",
+      token_type: "Bearer",
+      expires_in: 3600
+    }));
+
+    const db = await loadDb();
+    db.tenants = [{ id: "t1", name: "Conta Backend", plan: "free" }];
+    db.users = [{ id: "u1", tenant_id: "t1", name: "Cliente Backend", email: "backend@example.com", role: "admin", tax_document: null }];
+    db.categories = [{ id: "c1", tenant_id: "t1", name: "Mercado" }];
+    db.categoryBudgets = [{ id: "cb1", tenant_id: "t1", category_id: "c1", month: "2026-09", previsto: 120 }];
+    db.expenses = [{ id: "e1", tenant_id: "t1", user_id: "u1", category_id: "c1", amount: 20, date: "2026-09-03" }];
+    db.payments = [];
+    db.auditEvents = [];
+    await saveDb(db);
+    return Api.getCustomerProfile("2026-09");
+  `
+  );
+
+  check("Backend complementa o perfil com o resumo do Cloud Engine ERP", backendProfile.erp && backendProfile.erp.cloud_engine && backendProfile.erp.cloud_engine.planned_budget === 999);
+  check("Backend preserva os agregados locais do ERP ao mesclar Cloud Engine", backendProfile.erp && backendProfile.erp.monthly_budget_total === 120);
+  check("Backend usa o mês de referência retornado pelo Cloud Engine", backendProfile.erp && backendProfile.erp.cloud_engine && backendProfile.erp.cloud_engine.reference_month === "2026-10");
 
   const failed = results.filter((r) => !r.ok);
   if (failed.length) {
