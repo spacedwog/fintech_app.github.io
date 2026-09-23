@@ -3178,6 +3178,7 @@ const backendBase = resolveBackendApiBase();
 function shouldFallbackToLocalApi(error) {
   return !!error && (
     error.code === "BACKEND_UNAVAILABLE"
+    || error.status === 405
     || error.status === 404
     || error.status === 502
     || error.status === 503

@@ -61,6 +61,36 @@ function buildDevice(label) {
   return { label, ctx: sandbox, localStorage };
 }
 
+function buildDeviceWithStatus(label, status, message) {
+  const localStorage = makeLocalStorage();
+  const sandbox = {
+    console,
+    crypto: globalThis.crypto,
+    TextEncoder,
+    btoa: globalThis.btoa,
+    atob: globalThis.atob,
+    localStorage,
+    window: {
+      addEventListener() {},
+      location: { protocol: "https:", origin: "https://app.example.com" },
+    },
+    setTimeout,
+    clearTimeout,
+    Promise,
+    fetch: async () => ({
+      ok: false,
+      status,
+      async json() {
+        return { message };
+      },
+    }),
+    firebase: undefined,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(appBundleSrc, sandbox, { filename: `${label}.js` });
+  return { label, ctx: sandbox, localStorage };
+}
+
 function run(device, code) {
   return vm.runInContext(`(async () => { ${code} })()`, device.ctx, { filename: `${device.label}-step.js` });
 }
@@ -121,6 +151,30 @@ function check(name, cond) {
   check("fallback para a API local funciona quando o backend responde 503", !!signup.token && signup.categories > 0);
   check("dados continuam persistidos no localStorage", Array.isArray(db.expenses) && db.expenses.length === 1);
   check("status muda para modo local após detectar backend indisponível", signup.status.state === "local");
+
+  const dev405 = buildDeviceWithStatus("dispositivo-405", 405, "Erro HTTP 405");
+  const signup405 = await run(
+    dev405,
+    `
+      const signup = await Api.signup({
+        company_name: "Empresa Pages",
+        admin_name: "Admin Pages",
+        email: "pages@example.com",
+        password: "senha-forte-123",
+      });
+      Auth.setToken(signup.token);
+      return {
+        token: signup.token,
+        status: Api.getStorageStatus(),
+        dbRaw: localStorage.getItem("fintech_saas_db_v1"),
+      };
+    `
+  );
+
+  const db405 = JSON.parse(signup405.dbRaw);
+  check("fallback para a API local funciona quando o backend responde 405", !!signup405.token);
+  check("modo local é ativado após resposta 405 do backend estático", signup405.status.state === "local");
+  check("cadastro continua persistido localmente após 405", Array.isArray(db405.users) && db405.users.length === 1);
 
   console.log("\n=== RESUMO ===");
   const failed = results.filter((r) => !r.ok);
