@@ -4,7 +4,6 @@ import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.DocumentGateway;
-import com.spacecworp.fintechapi.notifications.RegistrationEmailQueue;
 import com.spacecworp.fintechapi.plans.PlanController;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
 import com.spacecworp.fintechapi.security.AuthUser;
@@ -23,20 +22,17 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final PlanController planController;
-    private final RegistrationEmailQueue registrationEmailQueue;
 
     public AuthService(
             DocumentGateway firestore,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            PlanController planController,
-            RegistrationEmailQueue registrationEmailQueue
+            PlanController planController
     ) {
         this.firestore = firestore;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.planController = planController;
-        this.registrationEmailQueue = registrationEmailQueue;
     }
 
     public AuthDtos.AuthResponse signup(AuthDtos.SignupRequest req) {
@@ -70,8 +66,6 @@ public class AuthService {
             String categoryId = firestore.nextId(FirestoreCollections.CATEGORIES);
             firestore.save(FirestoreCollections.CATEGORIES, categoryId, new CategoryDocument(categoryId, tenantId, categoryName));
         }
-
-        registrationEmailQueue.enqueue(user, tenant);
         return toAuthResponse(user);
     }
 

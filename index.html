@@ -75,10 +75,6 @@
       </nav>
 
       <div class="lp-nav-cta">
-        <button type="button" class="btn btn-light btn-sm position-relative" data-bs-toggle="modal" data-bs-target="#lp-etl-modal">
-          <i class="fa fa-bell"></i> ETL
-          <span id="lp-etl-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-        </button>
         <a href="login.html" class="lp-login-link"><i class="fa fa-sign-in"></i> Entrar</a>
         <a href="login.html" class="lp-btn lp-btn-primary">Criar conta grátis</a>
       </div>
@@ -544,25 +540,7 @@
     </div>
   </footer>
 
-  <div class="modal fade" id="lp-etl-modal" tabindex="-1" aria-labelledby="lp-etl-modal-title" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 class="modal-title fs-5" id="lp-etl-modal-title">Notificações ETL da plataforma</h2>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-        </div>
-        <div class="modal-body">
-          <p class="text-muted mb-2">Resumo das últimas execuções ETL salvas no navegador (Mercado Pago/Open Finance).</p>
-          <ul class="list-group" id="lp-etl-list">
-            <li class="list-group-item">Sem dados ETL disponíveis no momento.</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="js/app-constants.js"></script>
   <script>
     // Tabs por persona
     (function () {
@@ -587,97 +565,6 @@
       toggle.addEventListener('click', function () {
         mobile.classList.toggle('open');
       });
-    })();
-
-    // Notificações ETL (HTML5 + Bootstrap Modal)
-    (function () {
-      var listEl = document.getElementById('lp-etl-list');
-      var badgeEl = document.getElementById('lp-etl-badge');
-      if (!listEl || !badgeEl) return;
-
-      function readDb() {
-        var dbKey = (typeof globalThis !== 'undefined' && globalThis.__FINTECH_DB_KEY__)
-          ? String(globalThis.__FINTECH_DB_KEY__)
-          : 'fintech_saas_db_v1';
-        try {
-          var raw = localStorage.getItem(dbKey);
-          return raw ? JSON.parse(raw) : null;
-        } catch (_err) {
-          return null;
-        }
-      }
-
-      function formatDt(iso) {
-        if (!iso) return null;
-        var d = new Date(iso);
-        return isNaN(d.getTime()) ? null : d.toLocaleString('pt-BR');
-      }
-
-      function escapeHtml(value) {
-        return String(value == null ? '' : value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
-
-      function render() {
-        var db = readDb() || {};
-        var status = db.mercado_pago_status || {};
-        var notifications = [];
-        var sourceKeys = ['last_reconcile', 'last_expenses_api', 'last_open_finance_sync', 'last_oauth_account_sync'];
-
-        function collect(scopeKey, automation) {
-          if (!automation) return;
-          sourceKeys.forEach(function (key) {
-            var payload = automation[key];
-            if (!payload || !payload.at) return;
-            notifications.push({
-              scope: scopeKey,
-              process: key,
-              at: payload.at,
-              status: payload.status || payload.result || 'executado',
-            });
-          });
-        }
-
-        if (status.automation) {
-          collect('conta', status.automation);
-        }
-
-        Object.keys(status).forEach(function (scopeKey) {
-          var entry = status[scopeKey] || {};
-          collect(scopeKey, entry.automation || entry);
-        });
-
-        notifications.sort(function (a, b) {
-          return String(b.at || '').localeCompare(String(a.at || ''));
-        });
-
-        badgeEl.textContent = String(notifications.length);
-        badgeEl.classList.toggle('bg-danger', notifications.length > 0);
-        badgeEl.classList.toggle('bg-secondary', notifications.length === 0);
-
-        if (!notifications.length) {
-          listEl.innerHTML = '<li class="list-group-item">Sem notificações ETL disponíveis no navegador.</li>';
-          return;
-        }
-
-        listEl.innerHTML = notifications.slice(0, 8).map(function (item) {
-          var when = escapeHtml(formatDt(item.at) || 'data inválida');
-          var process = escapeHtml(item.process);
-          var scope = escapeHtml(item.scope);
-          var itemStatus = escapeHtml(item.status);
-          return '<li class="list-group-item d-flex justify-content-between align-items-start">' +
-            '<div><strong>' + process + '</strong><br/><small class="text-muted">Escopo: ' + scope + ' • ' + when + '</small></div>' +
-            '<span class="badge text-bg-primary rounded-pill">' + itemStatus + '</span>' +
-            '</li>';
-        }).join('');
-      }
-
-      render();
-      window.addEventListener('storage', render);
     })();
 
   </script>
