@@ -2009,6 +2009,7 @@ class ProfileService {
     const tenantPayments = (db.payments || []).filter((p) => p.tenant_id === session.tenant_id);
     const monthPayments = tenantPayments.filter((p) => String(p.date || p.created_at || "").slice(0, 7) === targetMonth);
     const tenantAuditEvents = (db.auditEvents || []).filter((e) => e.tenant_id === session.tenant_id);
+    const monthAuditEvents = tenantAuditEvents.filter((e) => String(e.created_at || "").slice(0, 7) === targetMonth);
     const openFinanceCards = (db.openFinanceCards || []).filter((card) => card.tenant_id === session.tenant_id);
     const openFinanceTransactions = (db.openFinanceCardTransactions || []).filter((tx) => tx.tenant_id === session.tenant_id);
     const oauthData = ((db.mercado_pago_oauth_data || {})[session.tenant_id]) || null;
@@ -2027,7 +2028,7 @@ class ProfileService {
       [
         ...monthExpenses.map((row) => row.date),
         ...monthPayments.map((row) => row.date || row.created_at),
-        ...tenantAuditEvents.map((row) => row.created_at),
+        ...monthAuditEvents.map((row) => row.created_at),
       ]
         .filter(Boolean)
         .sort()

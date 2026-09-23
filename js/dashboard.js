@@ -633,7 +633,27 @@ class DashboardController {
     if (value == null || value === "") return "—";
     if (typeof value === "boolean") return value ? "Sim" : "Não";
     if (typeof value === "number") {
-      if (/(amount|total|budget|spent|paid|pending|balance|limit)/i.test(String(key || ""))) {
+      const monetaryKeys = new Set([
+        "amount",
+        "expenses_total",
+        "monthly_budget_total",
+        "monthly_spent_total",
+        "monthly_remaining_total",
+        "monthly_payments_total",
+        "credit_limit_total",
+        "available_limit_total",
+        "posted_debit_total",
+        "planned_budget",
+        "executed_budget",
+        "remaining_budget",
+        "payment_total",
+        "payment_paid",
+        "payment_pending",
+        "credit_limit",
+        "available_limit",
+        "available_balance",
+      ]);
+      if (monetaryKeys.has(String(key || ""))) {
         return `R$ ${value.toFixed(2)}`;
       }
       return Number.isInteger(value)
