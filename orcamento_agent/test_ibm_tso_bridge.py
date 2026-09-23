@@ -52,6 +52,14 @@ class FakeSession:
         return None
 
 
+class FakeSessionMissingServlet(FakeSession):
+    def __init__(self):
+        super().__init__()
+        self._responses = [
+            FakeResponse({"status": "started-without-key"}),
+        ]
+
+
 def test_run_active_mode():
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
@@ -124,6 +132,50 @@ def test_run_active_mode():
         assert len(written_events) == 2
 
 
+def test_run_error_when_start_has_no_servlet_key():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_path = tmp_path / "ibm_tso_bridge_config.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "connection": {
+                        "base_url": "https://mainframe.example.com:443",
+                        "auth_mode": "basic",
+                        "user": "tester",
+                        "password": "safe-password",
+                    },
+                    "tso": {
+                        "start_path": "/zosmf/tsoApp/tso",
+                        "command_path": "/zosmf/tsoApp/tso/{servlet_key}",
+                    },
+                    "flow": {
+                        "commands": ["LIST EVENTO 1"],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        args = argparse.Namespace(
+            config=str(config_path),
+            output_events_json=None,
+            dry_run=True,
+        )
+
+        fake_session = FakeSessionMissingServlet()
+        with patch.object(ibm_tso_bridge, "_build_session", return_value=(fake_session, 15)):
+            status, message, summary, events = ibm_tso_bridge.run(args)
+
+        assert status == "error"
+        assert "servlet key" in message.lower()
+        assert summary["start_ok"] is False
+        assert summary["commands_count"] == 0
+        assert summary["events_count"] == 0
+        assert summary["logoff_ok"] is False
+        assert events == []
+        assert len(fake_session.posts) == 1
+
+
 def test_build_session_bearer_mode():
     with patch.dict(os.environ, {"IBM_TSO_TEST_TOKEN": "abc123-token"}, clear=False):
         session, timeout = ibm_tso_bridge._build_session(
@@ -161,6 +213,7 @@ def test_build_session_bearer_missing_env():
 
 if __name__ == "__main__":
     test_run_active_mode()
+    test_run_error_when_start_has_no_servlet_key()
     test_build_session_bearer_mode()
     test_build_session_bearer_missing_env()
     print("\nTESTE PASSOU ✅")

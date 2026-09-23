@@ -200,8 +200,19 @@ def _resolve_secret_value(connection: dict[str, Any], plain_key: str, env_key: s
 
 def _build_session(connection: dict[str, Any]) -> tuple[requests.Session, int]:
     session = requests.Session()
-    retries = int(connection.get("retries", DEFAULT_RETRIES))
-    backoff = float(connection.get("retry_backoff_seconds", DEFAULT_RETRY_BACKOFF_SECONDS))
+    try:
+        retries = int(connection.get("retries", DEFAULT_RETRIES))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Configuração inválida em connection.retries.") from exc
+    if retries < 0:
+        raise ValueError("Configuração inválida em connection.retries: use valor >= 0.")
+
+    try:
+        backoff = float(connection.get("retry_backoff_seconds", DEFAULT_RETRY_BACKOFF_SECONDS))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Configuração inválida em connection.retry_backoff_seconds.") from exc
+    if backoff < 0:
+        raise ValueError("Configuração inválida em connection.retry_backoff_seconds: use valor >= 0.")
     retry = Retry(
         total=retries,
         connect=retries,
@@ -359,12 +370,13 @@ def run(args):
                         "command_url": "",
                         "command": "",
                     }
-                    session.post(
+                    logoff_response = session.post(
                         _safe_join_url(base_url, logoff_path.format(servlet_key=servlet_key)),
                         json=_deep_format(logoff_payload, logoff_replacements),
                         timeout=timeout,
                         verify=verify_tls,
                     )
+                    logoff_response.raise_for_status()
                     summary["logoff_ok"] = True
             except Exception:
                 summary["logoff_ok"] = False
