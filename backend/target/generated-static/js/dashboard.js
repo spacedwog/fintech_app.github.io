@@ -10,26 +10,27 @@
 // caso o atributo onclick só enxerga o escopo global do navegador.
 // ===============================
 
-// Chave Pix real da SPACECWORP (a mesma usada no site principal).
+// Chave Pix real da operação Spacecworp Despesas Pessoais.
 const PIX_MERCHANT = { key: "62904267000160", name: "SPACECWORP", city: "OSASCO" };
 
-// ---------- SyncStatusIndicator: bolinha de status Firebase x localStorage ----------
+// ---------- SyncStatusIndicator: status de persistência ----------
 
 class SyncStatusIndicator {
   render() {
     const box = document.getElementById("sync-status");
     const label = document.getElementById("sync-status-label");
-    if (!box || !label || typeof getSyncStatus !== "function") return;
+    if (!box || !label) return;
 
-    const status = getSyncStatus();
+    const status =
+      typeof Api !== "undefined" && typeof Api.getStorageStatus === "function"
+        ? Api.getStorageStatus()
+        : (typeof getSyncStatus === "function" ? getSyncStatus() : { state: "local", label: "Modo local" });
     box.className = `sync-status ${status.state}`;
     box.title = status.label;
 
     const shortLabels = {
-      local: "Modo local (sem Firebase)",
-      error: "Firebase com erro — modo local",
-      pending: "Sincronizando…",
-      synced: "Sincronizado",
+      local: "Modo local",
+      server: "Servidor Java",
     };
     label.textContent = shortLabels[status.state] || status.label;
   }
@@ -361,7 +362,7 @@ class PixPaymentModal {
       this._setConfirmState(true, "Confirmar pagamento");
     } else {
       const reasons = [];
-      if (!result.merchantMatches) reasons.push("não encontramos o recebedor (SPACECWORP) no comprovante");
+      if (!result.merchantMatches) reasons.push("não encontramos o recebedor da Spacecworp Despesas Pessoais (SPACECWORP) no comprovante");
       if (!result.amountMatches) reasons.push(`o valor não bate com R$ ${this.currentAmount.toFixed(2)}`);
       this.receiptStatus.textContent =
         `⚠️ Não deu para validar automaticamente (${reasons.join(" e ")}). Confira o comprovante ou envie mesmo assim para revisão manual.`;
@@ -549,7 +550,7 @@ class DashboardController {
     this._bindGlobalForms();
     this.showView("budget-flow");
 
-    // Indicador de status de sincronização com o Firebase (ver
+    // Indicador do modo de persistência atual (servidor Java ou local, ver
     // getSyncStatus() em js/db.js): atualiza já ao carregar e depois
     // periodicamente, além de reagir a ficar online/offline na hora.
     this.syncStatus.render();
@@ -562,6 +563,193 @@ class DashboardController {
     // do navegador — o polling é o jeito de o painel perceber a mudança.
     this.mpStatus.render();
     setInterval(() => this.mpStatus.render(), 5000);
+  }
+
+  _formatEtlDate(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleString("pt-BR");
+  }
+
+  _escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  _humanizeCustomerProfileKey(key) {
+    const labels = {
+      ai_profile: "Perfil IA",
+      tenant_id: "Tenant",
+      tenant_name: "Conta",
+      tax_document: "CPF/CNPJ",
+      plan_label: "Plano",
+      reference_month: "Mês de referência",
+      category_budgets_count: "Orçamentos por categoria",
+      budget_groups_count: "Grupos de orçamento",
+      expense_rules_count: "Regras automáticas",
+      expenses_count: "Despesas",
+      payments_count: "Pagamentos",
+      audit_events_count: "Eventos de auditoria",
+      monthly_budget_total: "Orçamento do mês",
+      monthly_spent_total: "Gasto do mês",
+      monthly_remaining_total: "Saldo do mês",
+      monthly_payments_total: "Pagamentos do mês",
+      month_has_budget: "Possui orçamento no mês",
+      last_financial_event_at: "Último evento financeiro",
+      last_run_at: "Última execução",
+      last_sync_date: "Última sincronização",
+      payments_verified_count: "Pagamentos verificados",
+      automation_configured: "Automação configurada",
+      cards_count: "Cartões Open Finance",
+      active_cards_count: "Cartões ativos",
+      credit_limit_total: "Limite total",
+      available_limit_total: "Limite disponível",
+      card_brands: "Bandeiras",
+      transactions_count: "Transações",
+      debit_transactions_count: "Débitos",
+      credit_transactions_count: "Créditos",
+      posted_debit_total: "Débitos lançados",
+      charges_sample_count: "Cobranças amostradas",
+      movements_sample_count: "Movimentações amostradas",
+      planned_budget: "Planejado",
+      executed_budget: "Executado",
+      remaining_budget: "Saldo ERP",
+      payment_total: "Pagamentos ERP",
+      payment_paid: "Pagamentos quitados",
+      payment_pending: "Pagamentos pendentes",
+      queued_agents: "Agentes na fila",
+    };
+    if (labels[key]) return labels[key];
+    return String(key || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  _formatCustomerProfileScalar(key, value) {
+    if (value == null || value === "") return "—";
+    if (typeof value === "boolean") return value ? "Sim" : "Não";
+    if (typeof value === "number") {
+      const monetaryKeys = new Set([
+        "amount",
+        "expenses_total",
+        "monthly_budget_total",
+        "monthly_spent_total",
+        "monthly_remaining_total",
+        "monthly_payments_total",
+        "credit_limit_total",
+        "available_limit_total",
+        "posted_debit_total",
+        "planned_budget",
+        "executed_budget",
+        "remaining_budget",
+        "payment_total",
+        "payment_paid",
+        "payment_pending",
+        "credit_limit",
+        "available_limit",
+        "available_balance",
+      ]);
+      if (monetaryKeys.has(String(key || ""))) {
+        return `R$ ${value.toFixed(2)}`;
+      }
+      return Number.isInteger(value)
+        ? value.toLocaleString("pt-BR")
+        : value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    if (typeof value === "string") {
+      if (/(^at$|_at$|date|month)/i.test(String(key || ""))) {
+        const formatted = this._formatEtlDate(value);
+        if (formatted) return formatted;
+      }
+      return value;
+    }
+    return String(value);
+  }
+
+  _renderCustomerProfileValue(key, value) {
+    if (value == null || value === "" || (Array.isArray(value) && !value.length)) {
+      return '<p class="m-0 small-muted">Sem dados.</p>';
+    }
+    if (Array.isArray(value)) {
+      return `
+        <ul class="customer-profile-list">
+          ${value.map((item) => `<li>${this._renderCustomerProfileValue(key, item)}</li>`).join("")}
+        </ul>
+      `;
+    }
+    if (typeof value === "object") {
+      const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined);
+      if (!entries.length) return '<p class="m-0 small-muted">Sem dados.</p>';
+      return `
+        <dl class="customer-profile-grid">
+          ${entries.map(([entryKey, entryValue]) => `
+            <div class="${typeof entryValue === "object" && entryValue !== null ? "customer-profile-cell-full" : ""}">
+              <dt class="small-muted customer-profile-term">${this._escapeHtml(this._humanizeCustomerProfileKey(entryKey))}</dt>
+              <dd class="customer-profile-description">
+                ${typeof entryValue === "object" && entryValue !== null
+                  ? this._renderCustomerProfileValue(entryKey, entryValue)
+                  : `<p class="m-0 fw-600">${this._escapeHtml(this._formatCustomerProfileScalar(entryKey, entryValue))}</p>`}
+              </dd>
+            </div>
+          `).join("")}
+        </dl>
+      `;
+    }
+    return `<p class="m-0 fw-600">${this._escapeHtml(this._formatCustomerProfileScalar(key, value))}</p>`;
+  }
+
+  _renderCustomerProfileSection(title, payload) {
+    return `
+      <section class="customer-profile-block">
+        <h4 class="customer-profile-title">${this._escapeHtml(title)}</h4>
+        ${this._renderCustomerProfileValue(title, payload)}
+      </section>
+    `;
+  }
+
+  async _loadCustomerProfileCard() {
+    const errorBox = document.getElementById("settings-customer-profile-error");
+    const summaryBox = document.getElementById("settings-customer-profile-summary");
+    const sectionsBox = document.getElementById("settings-customer-profile-sections");
+    if (!errorBox || !summaryBox || !sectionsBox) return;
+
+    errorBox.classList.add("hidden");
+    summaryBox.textContent = "Carregando perfil do cliente…";
+    sectionsBox.innerHTML = "";
+
+    try {
+      const profile = await Api.getCustomerProfile();
+      const identity = profile.identity || {};
+      const aiProfile = profile.ai_profile || {};
+      const etl = profile.etl || {};
+      const erp = profile.erp || {};
+      const month = this._escapeHtml((erp.cloud_engine && erp.cloud_engine.reference_month) || erp.reference_month || profile.month || "mês atual");
+      const aiSummary = aiProfile.summary || "Perfil consolidado sem resumo adicional.";
+      const lastRun = etl.last_run_at ? this._formatEtlDate(etl.last_run_at) : null;
+      summaryBox.innerHTML = `
+        <strong>${this._escapeHtml(identity.name || "Cliente")}</strong>
+        · ${this._escapeHtml(aiSummary)}
+        · Referência ${month}
+        ${lastRun ? `· ETL ${this._escapeHtml(lastRun)}` : ""}
+      `;
+      sectionsBox.innerHTML = [
+        this._renderCustomerProfileSection("Identificação", identity),
+        this._renderCustomerProfileSection("Perfil IA", aiProfile),
+        this._renderCustomerProfileSection("ERP", erp),
+        this._renderCustomerProfileSection("ETL", etl),
+      ].join("");
+    } catch (err) {
+      console.error("Falha ao carregar o perfil consolidado do cliente.", err);
+      summaryBox.textContent = "Não foi possível carregar o perfil do cliente.";
+      errorBox.textContent = "Tente novamente em instantes.";
+      errorBox.classList.remove("hidden");
+      sectionsBox.innerHTML = "";
+    }
   }
 
   _renderShell() {
@@ -619,7 +807,9 @@ class DashboardController {
 
   _setActiveNav(viewName) {
     document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
-      const matchesView = btn.dataset.view === viewName;
+      const matchesView =
+        btn.dataset.view === viewName ||
+        (viewName === "security-privacy" && btn.dataset.view === "security");
       if (!matchesView) {
         btn.classList.remove("active");
         return;
@@ -1959,7 +2149,7 @@ class DashboardController {
       }</p>` +
       `<ul class="small-muted mt-0 mb-0">` +
       `<li>Valor lido: ${result.detectedAmount == null ? "-" : `R$ ${Number(result.detectedAmount).toFixed(2)}`}</li>` +
-      `<li>Recebedor SPACECWORP identificado: ${result.merchantMatches ? "sim" : "não"}</li>` +
+      `<li>Recebedor da Spacecworp Despesas Pessoais (SPACECWORP) identificado: ${result.merchantMatches ? "sim" : "não"}</li>` +
       `<li>Tipo detectado: ${this._escapeHtml(detectedType)}</li>` +
       `<li>Confiança do agente IA: ${confidencePercent}%</li>` +
       `<li>Número de transação sugerido: ${this._escapeHtml(draft.transactionNumber || "não detectado")}</li>` +
@@ -2243,6 +2433,144 @@ class DashboardController {
       .replace(/"/g, "&quot;");
   }
 
+  _formatCurrencyBr(value) {
+    return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+
+  _previousMonth(ym) {
+    const [year, month] = String(ym || "").split("-").map(Number);
+    if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+    const d = new Date(year, month - 2, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  _statusHigherBetter(value, greenMin, yellowMin) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return "gray";
+    const n = Number(value);
+    if (n >= greenMin) return "green";
+    if (n >= yellowMin) return "yellow";
+    return "red";
+  }
+
+  _statusLowerBetter(value, greenMax, yellowMax) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return "gray";
+    const n = Number(value);
+    if (n <= greenMax) return "green";
+    if (n <= yellowMax) return "yellow";
+    return "red";
+  }
+
+  _statusLabel(status) {
+    if (status === "green") return "Verde";
+    if (status === "yellow") return "Amarelo";
+    if (status === "red") return "Vermelho";
+    return "Sem dados";
+  }
+
+  _renderOperationalDashboard({ targetMonth, users, expenses, payments, mercadoPagoStatus }) {
+    const summaryBox = document.getElementById("operational-summary-box");
+    const tbody = document.getElementById("operational-kpis-tbody");
+    if (!summaryBox || !tbody) return;
+
+    const isMonth = (iso) => String(iso || "").slice(0, 7) === targetMonth;
+    const monthPayments = payments.filter((p) => isMonth(p.date));
+    const monthExpenses = expenses.filter((e) => isMonth(e.date));
+    const monthUsers = users.filter((u) => isMonth(u.created_at));
+    const revenue = monthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const ticket = monthPayments.length ? revenue / monthPayments.length : null;
+    const mpApproved = monthPayments.filter((p) => p.verifiedByMercadoPago).length;
+    const approvalRate = monthPayments.length ? (mpApproved / monthPayments.length) * 100 : null;
+
+    const premiumPayers = new Set(
+      monthPayments
+        .filter((p) => String(p.plan || "").toLowerCase() === "premium" || String(p.type || "").toLowerCase() === "plano")
+        .map((p) => p.user_id)
+        .filter(Boolean)
+    );
+    const conversion = users.length ? (premiumPayers.size / users.length) * 100 : null;
+    const mrr = monthPayments
+      .filter((p) => String(p.type || "").toLowerCase() === "plano")
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    const prevMonth = this._previousMonth(targetMonth);
+    const prevPayers = new Set(
+      payments
+        .filter((p) => String(p.type || "").toLowerCase() === "plano" && String(p.date || "").slice(0, 7) === prevMonth)
+        .map((p) => p.user_id)
+        .filter(Boolean)
+    );
+    const currentPayers = new Set(
+      monthPayments
+        .filter((p) => String(p.type || "").toLowerCase() === "plano")
+        .map((p) => p.user_id)
+        .filter(Boolean)
+    );
+    const churn = prevPayers.size
+      ? ((Array.from(prevPayers).filter((id) => !currentPayers.has(id)).length / prevPayers.size) * 100)
+      : null;
+
+    const activatedUsers = monthUsers.filter((u) => expenses.some((e) => e.user_id === u.id)).length;
+    const activation = monthUsers.length ? (activatedUsers / monthUsers.length) * 100 : null;
+
+    const landingConversion = null;
+    const cac = null;
+    const cadastroCount = monthUsers.length;
+
+    const kpis = [
+      { block: "Mercado", name: "Receita mensal", goal: "R$ 120.000", valueText: this._formatCurrencyBr(revenue), status: this._statusHigherBetter(revenue, 120000, 102000), critical: true },
+      { block: "Mercado", name: "Ticket médio", goal: "R$ 180", valueText: ticket === null ? "Sem dados" : this._formatCurrencyBr(ticket), status: this._statusHigherBetter(ticket, 180, 150), critical: false },
+      {
+        block: "Mercado",
+        name: "Aprovação de pagamentos (MP)",
+        goal: "95%",
+        valueText: approvalRate === null ? "Sem dados" : `${approvalRate.toFixed(1)}% (${mpApproved}/${monthPayments.length})`,
+        status: this._statusHigherBetter(approvalRate, 95, 90),
+        critical: true,
+      },
+      { block: "Vendas", name: "Conversão Free → Premium", goal: "12%", valueText: conversion === null ? "Sem dados" : `${conversion.toFixed(1)}%`, status: this._statusHigherBetter(conversion, 12, 8), critical: true },
+      { block: "Vendas", name: "MRR", goal: "R$ 45.000", valueText: this._formatCurrencyBr(mrr), status: this._statusHigherBetter(mrr, 45000, 38250), critical: true },
+      { block: "Vendas", name: "Churn mensal", goal: "≤ 4%", valueText: churn === null ? "Sem dados" : `${churn.toFixed(1)}%`, status: this._statusLowerBetter(churn, 4, 6), critical: true },
+      { block: "Captação", name: "Novos cadastros/mês", goal: "1.000", valueText: String(cadastroCount), status: this._statusHigherBetter(cadastroCount, 1000, 800), critical: false },
+      { block: "Captação", name: "Conversão Landing → Signup", goal: "9%", valueText: landingConversion === null ? "Sem dados" : `${landingConversion.toFixed(1)}%`, status: this._statusHigherBetter(landingConversion, 9, 6), critical: false },
+      { block: "Captação", name: "Ativação (signup → 1ª despesa)", goal: "70%", valueText: activation === null ? "Sem dados" : `${activation.toFixed(1)}%`, status: this._statusHigherBetter(activation, 70, 55), critical: false },
+      { block: "Captação", name: "CAC", goal: "≤ R$ 55", valueText: cac === null ? "Sem dados" : this._formatCurrencyBr(cac), status: this._statusLowerBetter(cac, 55, 70), critical: false },
+    ];
+
+    const scored = kpis.filter((k) => k.status !== "gray");
+    const greens = scored.filter((k) => k.status === "green").length;
+    const greenRatio = scored.length ? greens / scored.length : 0;
+    const criticalReds = kpis.filter((k) => k.critical && k.status === "red").length;
+    let executiveStatus = "yellow";
+    let executiveText = "Sem dados suficientes para classificar toda a operação.";
+    if (scored.length) {
+      if (greenRatio < 0.5 || criticalReds > 2) {
+        executiveStatus = "red";
+      } else if (greenRatio >= 0.8 && criticalReds === 0) {
+        executiveStatus = "green";
+      } else {
+        executiveStatus = "yellow";
+      }
+      executiveText =
+        `Mês ${targetMonth}: ${greens}/${scored.length} KPI(s) em verde (${Math.round(greenRatio * 100)}%). ` +
+        `${criticalReds} KPI(s) críticos em vermelho. ` +
+        `${mercadoPagoStatus && mercadoPagoStatus.connected ? "Integração MP ativa." : "Integração MP sem dados no período."}`;
+    }
+
+    summaryBox.className =
+      executiveStatus === "green" ? "alert-ok mb-14" : executiveStatus === "red" ? "alert-warn mb-14" : "alert-warn mb-14";
+    summaryBox.textContent = `${this._statusLabel(executiveStatus)} — ${executiveText}`;
+
+    tbody.innerHTML = kpis
+      .map(
+        (kpi) =>
+          `<tr><td>${this._escapeHtml(kpi.block)}</td><td>${this._escapeHtml(kpi.name)}</td><td>${this._escapeHtml(kpi.goal)}</td>` +
+          `<td>${this._escapeHtml(kpi.valueText)}</td><td><span class="kpi-status kpi-status-${kpi.status}">${this._escapeHtml(
+            this._statusLabel(kpi.status)
+          )}</span></td></tr>`
+      )
+      .join("");
+  }
+
   _renderTransactionOriginReport(reportData) {
     const summaryEl = document.getElementById("transaction-origin-summary");
     const breakdownTbody = document.getElementById("transaction-origin-breakdown-tbody");
@@ -2254,144 +2582,6 @@ class DashboardController {
       breakdownTbody.innerHTML = "";
       detailsTbody.innerHTML = "";
       return;
-    }
-
-    _formatCurrencyBr(value) {
-      return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    }
-
-    _previousMonth(ym) {
-      const [year, month] = String(ym || "").split("-").map(Number);
-      if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
-      const d = new Date(year, month - 2, 1);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    }
-
-    _statusHigherBetter(value, greenMin, yellowMin) {
-      if (value === null || value === undefined || Number.isNaN(Number(value))) return "gray";
-      const n = Number(value);
-      if (n >= greenMin) return "green";
-      if (n >= yellowMin) return "yellow";
-      return "red";
-    }
-
-    _statusLowerBetter(value, greenMax, yellowMax) {
-      if (value === null || value === undefined || Number.isNaN(Number(value))) return "gray";
-      const n = Number(value);
-      if (n <= greenMax) return "green";
-      if (n <= yellowMax) return "yellow";
-      return "red";
-    }
-
-    _statusLabel(status) {
-      if (status === "green") return "Verde";
-      if (status === "yellow") return "Amarelo";
-      if (status === "red") return "Vermelho";
-      return "Sem dados";
-    }
-
-    _renderOperationalDashboard({ targetMonth, users, expenses, payments, mercadoPagoStatus }) {
-      const summaryBox = document.getElementById("operational-summary-box");
-      const tbody = document.getElementById("operational-kpis-tbody");
-      if (!summaryBox || !tbody) return;
-
-      const isMonth = (iso) => String(iso || "").slice(0, 7) === targetMonth;
-      const monthPayments = payments.filter((p) => isMonth(p.date));
-      const monthExpenses = expenses.filter((e) => isMonth(e.date));
-      const monthUsers = users.filter((u) => isMonth(u.created_at));
-      const revenue = monthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const ticket = monthPayments.length ? revenue / monthPayments.length : null;
-      const mpApproved = monthPayments.filter((p) => p.verifiedByMercadoPago).length;
-      const approvalRate = monthPayments.length ? (mpApproved / monthPayments.length) * 100 : null;
-
-      const premiumPayers = new Set(
-        monthPayments
-          .filter((p) => String(p.plan || "").toLowerCase() === "premium" || String(p.type || "").toLowerCase() === "plano")
-          .map((p) => p.user_id)
-          .filter(Boolean)
-      );
-      const conversion = users.length ? (premiumPayers.size / users.length) * 100 : null;
-      const mrr = monthPayments
-        .filter((p) => String(p.type || "").toLowerCase() === "plano")
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
-      const prevMonth = this._previousMonth(targetMonth);
-      const prevPayers = new Set(
-        payments
-          .filter((p) => String(p.type || "").toLowerCase() === "plano" && String(p.date || "").slice(0, 7) === prevMonth)
-          .map((p) => p.user_id)
-          .filter(Boolean)
-      );
-      const currentPayers = new Set(
-        monthPayments
-          .filter((p) => String(p.type || "").toLowerCase() === "plano")
-          .map((p) => p.user_id)
-          .filter(Boolean)
-      );
-      const churn = prevPayers.size
-        ? ((Array.from(prevPayers).filter((id) => !currentPayers.has(id)).length / prevPayers.size) * 100)
-        : null;
-
-      const activatedUsers = monthUsers.filter((u) => expenses.some((e) => e.user_id === u.id)).length;
-      const activation = monthUsers.length ? (activatedUsers / monthUsers.length) * 100 : null;
-
-      const landingConversion = null;
-      const cac = null;
-      const cadastroCount = monthUsers.length;
-
-      const kpis = [
-        { block: "Mercado", name: "Receita mensal", goal: "R$ 120.000", valueText: this._formatCurrencyBr(revenue), status: this._statusHigherBetter(revenue, 120000, 102000), critical: true },
-        { block: "Mercado", name: "Ticket médio", goal: "R$ 180", valueText: ticket === null ? "Sem dados" : this._formatCurrencyBr(ticket), status: this._statusHigherBetter(ticket, 180, 150), critical: false },
-        {
-          block: "Mercado",
-          name: "Aprovação de pagamentos (MP)",
-          goal: "95%",
-          valueText: approvalRate === null ? "Sem dados" : `${approvalRate.toFixed(1)}% (${mpApproved}/${monthPayments.length})`,
-          status: this._statusHigherBetter(approvalRate, 95, 90),
-          critical: true,
-        },
-        { block: "Vendas", name: "Conversão Free → Premium", goal: "12%", valueText: conversion === null ? "Sem dados" : `${conversion.toFixed(1)}%`, status: this._statusHigherBetter(conversion, 12, 8), critical: true },
-        { block: "Vendas", name: "MRR", goal: "R$ 45.000", valueText: this._formatCurrencyBr(mrr), status: this._statusHigherBetter(mrr, 45000, 38250), critical: true },
-        { block: "Vendas", name: "Churn mensal", goal: "≤ 4%", valueText: churn === null ? "Sem dados" : `${churn.toFixed(1)}%`, status: this._statusLowerBetter(churn, 4, 6), critical: true },
-        { block: "Captação", name: "Novos cadastros/mês", goal: "1.000", valueText: String(cadastroCount), status: this._statusHigherBetter(cadastroCount, 1000, 800), critical: false },
-        { block: "Captação", name: "Conversão Landing → Signup", goal: "9%", valueText: landingConversion === null ? "Sem dados" : `${landingConversion.toFixed(1)}%`, status: this._statusHigherBetter(landingConversion, 9, 6), critical: false },
-        { block: "Captação", name: "Ativação (signup → 1ª despesa)", goal: "70%", valueText: activation === null ? "Sem dados" : `${activation.toFixed(1)}%`, status: this._statusHigherBetter(activation, 70, 55), critical: false },
-        { block: "Captação", name: "CAC", goal: "≤ R$ 55", valueText: cac === null ? "Sem dados" : this._formatCurrencyBr(cac), status: this._statusLowerBetter(cac, 55, 70), critical: false },
-      ];
-
-      const scored = kpis.filter((k) => k.status !== "gray");
-      const greens = scored.filter((k) => k.status === "green").length;
-      const greenRatio = scored.length ? greens / scored.length : 0;
-      const criticalReds = kpis.filter((k) => k.critical && k.status === "red").length;
-      let executiveStatus = "yellow";
-      let executiveText = "Sem dados suficientes para classificar toda a operação.";
-      if (scored.length) {
-        if (greenRatio < 0.5 || criticalReds > 2) {
-          executiveStatus = "red";
-        } else if (greenRatio >= 0.8 && criticalReds === 0) {
-          executiveStatus = "green";
-        } else {
-          executiveStatus = "yellow";
-        }
-        executiveText =
-          `Mês ${targetMonth}: ${greens}/${scored.length} KPI(s) em verde (${Math.round(greenRatio * 100)}%). ` +
-          `${criticalReds} KPI(s) críticos em vermelho. ` +
-          `${mercadoPagoStatus && mercadoPagoStatus.connected ? "Integração MP ativa." : "Integração MP sem dados no período."}`;
-      }
-
-      summaryBox.className =
-        executiveStatus === "green" ? "alert-ok mb-14" : executiveStatus === "red" ? "alert-warn mb-14" : "alert-warn mb-14";
-      summaryBox.textContent = `${this._statusLabel(executiveStatus)} — ${executiveText}`;
-
-      tbody.innerHTML = kpis
-        .map(
-          (kpi) =>
-            `<tr><td>${this._escapeHtml(kpi.block)}</td><td>${this._escapeHtml(kpi.name)}</td><td>${this._escapeHtml(kpi.goal)}</td>` +
-            `<td>${this._escapeHtml(kpi.valueText)}</td><td><span class="kpi-status kpi-status-${kpi.status}">${this._escapeHtml(
-              this._statusLabel(kpi.status)
-            )}</span></td></tr>`
-        )
-        .join("");
     }
 
     const summary = reportData.summary;
@@ -3565,7 +3755,7 @@ class DashboardController {
     const plan = plans[planKey];
     this.pixModal.open({
       amount: plan.price_month,
-      description: `Assinatura ${plan.label} — Fintech Spacecworp`,
+      description: `Assinatura ${plan.label} — Spacecworp Despesas Pessoais`,
       txidPrefix: "PLANO",
       expectedType: planKey === "premium" ? "plano_premium" : "plano_free",
       onConfirm: async (txid, analysis) => {
@@ -3590,10 +3780,9 @@ class DashboardController {
   // ---------- Pagamento via Pix (histórico) ----------
   //
   // Histórico de pagamentos persistido via Api.listPayments/Api.addPayment,
-  // que gravam no "banco" (Firestore + fallback em localStorage — ver
+  // que gravam no "banco" (backend Java ou fallback em localStorage — ver
   // js/db.js e js/api.js), em vez de uma chave solta separada no
-  // localStorage. Assim o histórico também sincroniza entre dispositivos
-  // quando o Firebase está configurado.
+  // localStorage.
 
   async _recordPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber }) {
     await Api.addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber });
@@ -3703,10 +3892,9 @@ class DashboardController {
       { title: "OAuth 2.0 próprio (Authorization Code + PKCE)", detail: "Login emite tokens JWT (HS256) assinados: access_token de 1h e refresh_token de 30 dias, com rotação e revogação (js/oauth.js)." },
       { title: "Verificação criptográfica da sessão", detail: "Assinatura do token é reconferida (crypto.subtle.verify, comparação em tempo constante) e a expiração é checada a cada carregamento do painel." },
       { title: "Bloqueio após tentativas de login erradas", detail: "5 senhas erradas seguidas para o mesmo e-mail travam novas tentativas por 60s — mitigação de força bruta (W3Schools Cyber Security > Passwords)." },
-      { title: "HTTPS obrigatório", detail: "Hospedado no GitHub Pages: todo tráfego (login, dados) é cifrado em trânsito (TLS)." },
+      { title: "HTTPS obrigatório", detail: "Todo tráfego com o backend Java deve ser cifrado em trânsito (TLS)." },
       { title: "Content-Security-Policy", detail: "Meta tag CSP restringe de quais domínios o navegador pode carregar script/estilo/imagem/conexão (ver <head> deste documento)." },
       { title: "Isolamento por conta (tenant_id)", detail: "Toda consulta ao banco filtra pelo tenant_id da sessão — um usuário nunca lê dados de outra conta (js/api.js)." },
-      { title: "Consentimento de cookies (Google Consent Mode)", detail: "Cookies de analytics/anúncios começam bloqueados (\"denied\") até o usuário autorizar na tela Privacidade." },
     ];
   }
 
@@ -3714,16 +3902,16 @@ class DashboardController {
     return [
       { letter: "C", title: "Confidencialidade", detail: "Senha em hash (nunca reversível), tokens assinados, CSP e HTTPS impedem que dados sejam lidos por quem não deveria." },
       { letter: "I", title: "Integridade", detail: "Assinatura HMAC garante que ninguém alterou as claims de um token; merge de 3 vias (js/db.js) evita corromper dados entre dispositivos." },
-      { letter: "A", title: "Disponibilidade", detail: "Fallback automático para localStorage quando o Firestore está fora do ar — o app continua funcionando offline." },
+      { letter: "A", title: "Disponibilidade", detail: "Fallback automático para localStorage quando o backend não está acessível — o app continua funcionando no navegador." },
     ];
   }
 
   static get SECURITY_THREATS() {
     return [
-      { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser o Fintech Spacecworp para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
+      { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser a Spacecworp Despesas Pessoais para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
       { name: "Força bruta de senha", what: "Tentar adivinhar sua senha por tentativa e erro.", mitigation: "Bloqueio temporário após 5 tentativas + hash PBKDF2 (100.000 iterações) dificultam ataque offline." },
-      { name: "Ataques a aplicações web (XSS/injeção)", what: "Injetar código ou comandos maliciosos através de campos de formulário.", mitigation: "Sem SQL (Firestore/localStorage), escaping ao exibir dados do usuário, e Content-Security-Policy." },
-      { name: "Man-in-the-middle", what: "Interceptar dados trafegando entre você e o servidor.", mitigation: "HTTPS/TLS obrigatório em toda comunicação com Firebase e com a página." },
+      { name: "Ataques a aplicações web (XSS/injeção)", what: "Injetar código ou comandos maliciosos através de campos de formulário.", mitigation: "Queries parametrizadas no backend Java, escaping ao exibir dados do usuário, e Content-Security-Policy." },
+      { name: "Man-in-the-middle", what: "Interceptar dados trafegando entre você e o servidor.", mitigation: "HTTPS/TLS obrigatório em toda comunicação com o backend Java e com a página." },
       { name: "Roubo/vazamento de token de sessão", what: "Uso indevido de uma sessão logada roubada.", mitigation: "Tokens de curta duração (1h), revogação no logout e rotação do refresh_token." },
       { name: "Vazamento de dados / Dark Web", what: "Credenciais vazadas sendo revendidas ou reutilizadas em outros sites.", mitigation: "Coletamos o mínimo necessário e nunca guardamos a senha em formato reversível." },
     ];
@@ -3733,12 +3921,12 @@ class DashboardController {
     return [
       { code: "ISO/IEC 27001", name: "Gestão de Segurança da Informação", relevance: "Referência para os controles de segurança (senha, tokens, sessão) desta tela." },
       { code: "ISO/IEC 27002", name: "Código de práticas de segurança da informação", relevance: "Orienta os controles técnicos específicos adotados (política de senha, criptografia)." },
-      { code: "ISO/IEC 27017", name: "Segurança da informação em nuvem", relevance: "Dados hospedados no Firebase/Firestore (nuvem)." },
-      { code: "ISO/IEC 27018", name: "Proteção de dados pessoais (PII) em nuvem pública", relevance: "Base para como tratamos dados pessoais armazenados na nuvem." },
+      { code: "ISO/IEC 27017", name: "Segurança da informação em nuvem", relevance: "Referência para a operação do backend Java em infraestrutura de nuvem." },
+      { code: "ISO/IEC 27018", name: "Proteção de dados pessoais (PII) em nuvem pública", relevance: "Base para como tratamos dados pessoais armazenados pelo backend." },
       { code: "ISO/IEC 27701", name: "Gestão de privacidade da informação", relevance: "Estrutura usada na tela Privacidade (extensão de privacidade da 27001)." },
       { code: "ISO/IEC 29100", name: "Framework de privacidade", relevance: "Princípios de privacidade (minimização, finalidade, consentimento) da tela Privacidade." },
       { code: "ISO/IEC 25010", name: "Qualidade de software (SQuaRE)", relevance: "Características de qualidade (segurança, confiabilidade, usabilidade) que guiam o desenvolvimento." },
-      { code: "ISO 31000", name: "Gestão de riscos", relevance: "Avaliação de riscos como dependência de um único provedor de nuvem e ausência de backend próprio." },
+      { code: "ISO 31000", name: "Gestão de riscos", relevance: "Avaliação de riscos da dependência do backend e dos mecanismos locais de contingência." },
       { code: "ISO 9001", name: "Gestão da qualidade", relevance: "Boas práticas de qualidade aplicadas ao desenvolvimento do produto." },
       { code: "ISO 20022", name: "Mensageria financeira", relevance: "Padrão usado no sistema financeiro brasileiro (Bacen/Pix) — o app processa pagamentos Pix." },
       { code: "ISO 8000", name: "Qualidade de dados", relevance: "Consistência dos dados financeiros (despesas, orçamento) armazenados." },
@@ -3817,7 +4005,6 @@ class DashboardController {
       { data: "Despesas, categorias e orçamentos", finalidade: "Fornecer o serviço de controle financeiro.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Comprovante de Pix (imagem ou PDF, lido localmente no navegador)", finalidade: "Confirmar pagamentos.", base: "Execução de contrato (art. 7º, V)" },
       { data: "Número da transação informado manualmente (quando a leitura automática do comprovante falha)", finalidade: "Permitir a confirmação do pagamento sem depender da IA de OCR.", base: "Execução de contrato (art. 7º, V)" },
-      { data: "Cookies do Google Ads / Tag Manager", finalidade: "Medir audiência e conversões de anúncios.", base: "Consentimento (art. 7º, I) — desativado por padrão" },
     ];
   }
 
@@ -3828,8 +4015,7 @@ class DashboardController {
       "Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em excesso.",
       "Portabilidade dos dados a outro fornecedor, mediante requisição (botão \"Baixar meus dados\" abaixo).",
       "Eliminação dos dados tratados com consentimento (botão \"Excluir minha conta\" abaixo).",
-      "Revogação do consentimento de cookies de analytics/anúncios, a qualquer momento.",
-      "Informação sobre com quem seus dados são compartilhados — apenas Firebase/Google (infraestrutura) e, se você consentir, Google Ads/Tag Manager.",
+      "Informação sobre com quem seus dados são compartilhados — apenas provedores de infraestrutura necessários para operação do serviço.",
     ];
   }
 
@@ -3850,28 +4036,6 @@ class DashboardController {
       document.getElementById("privacy-rights-list").innerHTML = DashboardController.PRIVACY_RIGHTS.map(
         (r) => `<li>${r}</li>`
       ).join("");
-
-      const consentInput = document.getElementById("privacy-marketing-consent");
-      const consentStatus = document.getElementById("privacy-consent-status");
-      if (consentInput) {
-        consentInput.addEventListener("change", async () => {
-          const granted = consentInput.checked;
-          await Api.setPrivacyConsent({ marketing: granted });
-          if (typeof gtag === "function") {
-            gtag("consent", "update", {
-              ad_storage: granted ? "granted" : "denied",
-              analytics_storage: granted ? "granted" : "denied",
-              ad_user_data: granted ? "granted" : "denied",
-              ad_personalization: granted ? "granted" : "denied",
-            });
-          }
-          if (consentStatus) {
-            consentStatus.textContent = granted
-              ? "Cookies de analytics/anúncios autorizados."
-              : "Cookies de analytics/anúncios bloqueados.";
-          }
-        });
-      }
 
       const exportBtn = document.getElementById("privacy-export-btn");
       if (exportBtn) {
@@ -3909,13 +4073,6 @@ class DashboardController {
       }
     }
 
-    try {
-      const consent = await Api.getPrivacyConsent();
-      const consentInput = document.getElementById("privacy-marketing-consent");
-      if (consentInput) consentInput.checked = !!consent.marketing;
-    } catch (e) {
-      // sessão pode ter acabado de carregar — ignora silenciosamente
-    }
   }
 
   // ---------- Configurações ----------
@@ -3923,6 +4080,13 @@ class DashboardController {
   async _loadSettingsView() {
     if (!this.settingsBound) {
       this.settingsBound = true;
+
+      const refreshBtn = document.getElementById("settings-customer-profile-refresh-btn");
+      if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+          this._loadCustomerProfileCard().catch(() => {});
+        });
+      }
 
       const profile = await Api.getCompanyProfile();
       document.getElementById("settings-company-box").innerHTML = `
@@ -3945,6 +4109,7 @@ class DashboardController {
     document.getElementById("settings-profile-email").value = this.currentUser.email || "";
     const docInput = document.getElementById("settings-profile-document");
     if (docInput) docInput.value = this.currentUser.tax_document || "";
+    await this._loadCustomerProfileCard();
   }
 
   async _handleProfileFormSubmit(e) {
@@ -3962,6 +4127,7 @@ class DashboardController {
       this.currentUser.tax_document = updated.tax_document;
       const userNameEl = document.getElementById("user-name");
       if (userNameEl) userNameEl.textContent = updated.name;
+      await this._loadCustomerProfileCard();
       successBox.textContent = "Perfil atualizado!";
       successBox.classList.remove("hidden");
     } catch (err) {
