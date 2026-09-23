@@ -2070,7 +2070,7 @@ class ProfileService {
         expense_rules_count: tenantExpenseRules.length,
         expenses_count: monthExpenses.length,
         payments_count: monthPayments.length,
-        audit_events_count: tenantAuditEvents.length,
+        audit_events_count: monthAuditEvents.length,
         monthly_budget_total: monthlyBudgetTotal,
         monthly_spent_total: monthlySpentTotal,
         monthly_remaining_total: monthlyBudgetTotal - monthlySpentTotal,

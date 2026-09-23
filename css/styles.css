@@ -874,6 +874,14 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
   grid-column: 1 / -1;
 }
 
+.customer-profile-term {
+  margin: 0 0 4px;
+}
+
+.customer-profile-description {
+  margin: 0;
+}
+
 .customer-profile-list {
   margin: 8px 0 0;
   padding-left: 18px;

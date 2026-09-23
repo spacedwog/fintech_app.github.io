@@ -685,16 +685,18 @@ class DashboardController {
       const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined);
       if (!entries.length) return '<p class="m-0 small-muted">Sem dados.</p>';
       return `
-        <div class="customer-profile-grid">
+        <dl class="customer-profile-grid">
           ${entries.map(([entryKey, entryValue]) => `
             <div class="${typeof entryValue === "object" && entryValue !== null ? "customer-profile-cell-full" : ""}">
-              <span class="small-muted">${this._escapeHtml(this._humanizeCustomerProfileKey(entryKey))}</span>
-              ${typeof entryValue === "object" && entryValue !== null
-                ? this._renderCustomerProfileValue(entryKey, entryValue)
-                : `<p class="m-0 fw-600">${this._escapeHtml(this._formatCustomerProfileScalar(entryKey, entryValue))}</p>`}
+              <dt class="small-muted customer-profile-term">${this._escapeHtml(this._humanizeCustomerProfileKey(entryKey))}</dt>
+              <dd class="customer-profile-description">
+                ${typeof entryValue === "object" && entryValue !== null
+                  ? this._renderCustomerProfileValue(entryKey, entryValue)
+                  : `<p class="m-0 fw-600">${this._escapeHtml(this._formatCustomerProfileScalar(entryKey, entryValue))}</p>`}
+              </dd>
             </div>
           `).join("")}
-        </div>
+        </dl>
       `;
     }
     return `<p class="m-0 fw-600">${this._escapeHtml(this._formatCustomerProfileScalar(key, value))}</p>`;
