@@ -7,7 +7,7 @@
 
   <!-- Segurança (ver tela "Segurança" no painel): restringe de quais domínios o
        navegador pode carregar script/estilo/fonte/imagem/conexão. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://*.google.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://www.w3schools.com https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <link rel="icon" type="image/png" href="assets/img/icon.png" />
 
@@ -150,10 +150,6 @@
     </div>
   </div>
 
-  <!-- Firebase (Firestore) — banco de dados primário, com localStorage como fallback. -->
-  <!-- Ver README.md > "Conectando ao Firebase" para o passo a passo de configuração. -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/plans.js"></script>
   <script src="js/app-constants.js"></script>

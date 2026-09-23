@@ -38,8 +38,8 @@ Para validar exatamente o empacotamento usado na nuvem, execute `mvn clean packa
 ### Configuração de dados
 
 - Na primeira execução, o app pode inicializar dados padrão a partir de `db.json`.
-- Com Firebase configurado, os dados são sincronizados no Firestore.
-- Sem Firebase, o sistema usa fallback automático em `localStorage`.
+- No servidor Java, os dados da aplicação são persistidos no banco configurado pelo Spring (`spring.datasource.*`).
+- Sem backend, o front-end usa fallback automático em `localStorage`.
 
 ## 📦 Componentes do projeto
 
