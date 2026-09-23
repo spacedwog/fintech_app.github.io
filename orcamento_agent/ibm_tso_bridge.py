@@ -345,7 +345,7 @@ def run(args):
         summary["events_count"] = len(events)
         summary["message"] = "Integração IBM TSO concluída com sucesso."
         return "ok", summary["message"], summary, events
-    except (requests.RequestException, ValueError, OSError, json.JSONDecodeError, RuntimeError) as exc:
+    except (requests.RequestException, ValueError, OSError, RuntimeError) as exc:
         summary["errors"] += 1
         summary["events_count"] = len(events)
         summary["message"] = f"Falha na integração IBM TSO: {exc}"
