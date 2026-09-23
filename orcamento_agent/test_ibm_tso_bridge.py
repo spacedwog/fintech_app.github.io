@@ -125,23 +125,22 @@ def test_run_active_mode():
 
 
 def test_build_session_bearer_mode():
-    os.environ["IBM_TSO_TEST_TOKEN"] = "abc123-token"
-    session, timeout = ibm_tso_bridge._build_session(
-        {
-            "auth_mode": "bearer",
-            "token_env": "IBM_TSO_TEST_TOKEN",
-            "timeout_seconds": 11,
-            "retries": 1,
-            "retry_backoff_seconds": 0.1,
-        }
-    )
-    try:
-        assert session.headers["Authorization"].lower().startswith("bearer ")
-        assert session.headers["Authorization"].endswith("abc123-token")
-        assert timeout == 11
-    finally:
-        session.close()
-        os.environ.pop("IBM_TSO_TEST_TOKEN", None)
+    with patch.dict(os.environ, {"IBM_TSO_TEST_TOKEN": "abc123-token"}, clear=False):
+        session, timeout = ibm_tso_bridge._build_session(
+            {
+                "auth_mode": "bearer",
+                "token_env": "IBM_TSO_TEST_TOKEN",
+                "timeout_seconds": 11,
+                "retries": 1,
+                "retry_backoff_seconds": 0.1,
+            }
+        )
+        try:
+            assert session.headers["Authorization"].lower().startswith("bearer ")
+            assert session.headers["Authorization"].endswith("abc123-token")
+            assert timeout == 11
+        finally:
+            session.close()
 
 
 def test_build_session_bearer_missing_env():

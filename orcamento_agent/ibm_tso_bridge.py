@@ -354,9 +354,14 @@ def run(args):
         if session and servlet_key:
             try:
                 if base_url and logoff_path:
+                    logoff_replacements = {
+                        "servlet_key": servlet_key,
+                        "command_url": "",
+                        "command": "",
+                    }
                     session.post(
                         _safe_join_url(base_url, logoff_path.format(servlet_key=servlet_key)),
-                        json=logoff_payload,
+                        json=_deep_format(logoff_payload, logoff_replacements),
                         timeout=timeout,
                         verify=verify_tls,
                     )
