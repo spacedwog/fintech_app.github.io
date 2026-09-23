@@ -29,8 +29,8 @@ mesmo cuidado de segurança (nenhum segredo sai da máquina local):
    por eventos (`payment_id`/`txid`/`amount`) com idempotência por `event_id`.
 7. **`cobol_settlement_export.cbl`** — script COBOL que transforma liquidações
    legadas (CSV) em eventos JSON compatíveis com o `cobol_bridge.py`.
-8. **`ibm_tso_bridge.py`** — conector IBM Mainframe descontinuado; mantido apenas
-   para compatibilidade de CLI e retorna status de desativação.
+8. **`ibm_tso_bridge.py`** — conector IBM Mainframe ativo via z/OSMF TSO para
+   executar comandos remotos e transformar a saída em eventos financeiros JSON.
 9. **`transaction_classifier_agent.py`** — classifica transações por categoria com
    um agente heurístico (palavras-chave + direção + faixa de valor), devolvendo
    também confiança e evidências da decisão.
@@ -120,8 +120,9 @@ serviço do Firebase (dá acesso de leitura/escrita total ao banco do app). Por 
   pagamentos simulados (não chama a API real). Rode `python3 test_mp_list_activities.py`
   depois de qualquer alteração no script.
 - `cobol_bridge.py` — reconciliação financeira COBOL ativa por eventos JSON.
-- `ibm_tso_bridge.py` — integração IBM Mainframe/TSO descontinuada (compatibilidade de CLI).
-- `test_ibm_tso_bridge.py` — valida o modo desativado do `ibm_tso_bridge.py`.
+- `ibm_tso_bridge.py` — integração IBM Mainframe/TSO ativa via z/OSMF, com login,
+  execução de comandos e logoff automático.
+- `test_ibm_tso_bridge.py` — valida o fluxo ativo do `ibm_tso_bridge.py` com mocks de rede.
 - `test_cobol_bridge.py` — valida reconciliação ativa e persistência no `db.json`.
 - `transaction_classifier_agent.py` — agente de classificação de transações
   (entrada em JSON, saída em JSON com categoria + confiança + evidências), além
@@ -197,7 +198,23 @@ cd orcamento_agent
 python3 test_cobol_bridge.py
 ```
 
-> `ibm_tso_bridge.py` segue descontinuado para execução remota TSO/Mainframe.
+> `ibm_tso_bridge.py` suporta execução remota TSO/Mainframe quando configurado com
+> `ibm_tso_bridge_config.json` e segredo em variável de ambiente.
+
+### Integração IBM TSO (z/OSMF)
+Use o `ibm_tso_bridge.py` para executar comandos TSO e gerar eventos JSON
+compatíveis com `cobol_bridge.py`.
+
+```bash
+cd orcamento_agent
+cp ibm_tso_bridge_config.example.json ibm_tso_bridge_config.json
+export IBM_TSO_PASSWORD='SUA_SENHA'
+python3 ibm_tso_bridge.py --config ibm_tso_bridge_config.json --output-events-json cobol_events.json
+python3 cobol_bridge.py --events-json cobol_events.json --db-json ../db.json
+```
+
+Formato mínimo recomendado por evento:
+`event_id`, `tenant_id`, `payment_id` (ou `txid`/`amount`), `status_quitacao`.
 
 ### Script COBOL (geração de eventos)
 Para fechar o fluxo legado ponta a ponta, o script `cobol_settlement_export.cbl`
