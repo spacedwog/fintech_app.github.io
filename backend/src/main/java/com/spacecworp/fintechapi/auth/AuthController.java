@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.security.JwtService;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -22,17 +23,17 @@ public class AuthController {
 
     @PostMapping("/signup")
     public AuthDtos.AuthResponse signup(@Valid @RequestBody AuthDtos.SignupRequest request) {
-        return authService.signup(request);
+        return authService.signup(request, buildOauthIssuer());
     }
 
     @PostMapping("/login")
     public AuthDtos.AuthResponse login(@Valid @RequestBody AuthDtos.LoginRequest request) {
-        return authService.login(request);
+        return authService.login(request, buildOauthIssuer());
     }
 
     @PostMapping("/refresh")
     public AuthDtos.AuthResponse refresh(@Valid @RequestBody AuthDtos.RefreshRequest request) {
-        return authService.refresh(request);
+        return authService.refresh(request, buildOauthIssuer());
     }
 
     @PostMapping("/logout")
@@ -56,5 +57,11 @@ public class AuthController {
     public AuthDtos.MeResponse me() {
         AuthUser user = SecurityUtils.currentUser();
         return authService.me(user);
+    }
+
+    private String buildOauthIssuer() {
+        return ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/v1/spacecworp-oauth")
+                .toUriString();
     }
 }

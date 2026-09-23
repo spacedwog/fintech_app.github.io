@@ -38,8 +38,22 @@ Para validar exatamente o empacotamento usado na nuvem, execute `mvn clean packa
 ### Configuração de dados
 
 - Na primeira execução, o app pode inicializar dados padrão a partir de `db.json`.
-- Com Firebase configurado, os dados são sincronizados no Firestore.
-- Sem Firebase, o sistema usa fallback automático em `localStorage`.
+- No servidor Java, os dados da aplicação são persistidos no banco configurado pelo Spring (`spring.datasource.*`).
+- Sem backend, o front-end usa fallback automático em `localStorage`.
+
+### SpacecworpOauth
+
+- O backend Java agora expõe o **SpacecworpOauth**, unificando os conceitos internos de **SpaceOauth** + **CworpOauth** + integração **AgentIA** em um único serviço reutilizável.
+- Descoberta OpenID-like: `GET /api/v1/spacecworp-oauth/.well-known/openid-configuration`
+- Fluxos disponíveis:
+  - `POST /api/v1/spacecworp-oauth/authorize`
+  - `POST /api/v1/spacecworp-oauth/token`
+  - `POST /api/v1/spacecworp-oauth/introspect`
+  - `POST /api/v1/spacecworp-oauth/revoke`
+  - `GET /api/v1/spacecworp-oauth/userinfo`
+- Administradores podem cadastrar aplicações de terceiros em `POST /api/v1/spacecworp-oauth/clients`.
+- O serviço publica a marca **SPACECWORP** e o CNPJ `62.904.267/0001-60` nos metadados/tokens para integração institucional entre aplicações.
+- O cliente padrão `spacecworpoauth-agent-ia` foi incluído para cenários de automação/AgentIA com escopo `marketplace:ai_agent`.
 
 ## 📦 Componentes do projeto
 

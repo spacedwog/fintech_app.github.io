@@ -2,7 +2,6 @@ package com.spacecworp.fintechapi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.cloud.firestore.Firestore;
 import com.spacecworp.fintechapi.auth.TenantDocument;
 import com.spacecworp.fintechapi.cloudengine.application.CloudEngineErpService;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
@@ -11,6 +10,7 @@ import com.spacecworp.fintechapi.expenses.ExpenseRuleDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.governance.AuditEventDocument;
+import com.spacecworp.fintechapi.oauth.SpacecworpOauthCollections;
 import com.spacecworp.fintechapi.payments.PaymentDocument;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
 import com.spacecworp.fintechapi.users.UserDocument;
@@ -59,9 +59,6 @@ class FintechApiApplicationTests {
     JdbcClient jdbcClient;
 
     @MockBean
-    Firestore firestore;
-
-    @MockBean
     DocumentGateway firestoreGateway;
 
     private final Map<String, Map<String, Object>> store = new HashMap<>();
@@ -78,6 +75,9 @@ class FintechApiApplicationTests {
         store.put(FirestoreCollections.PAYMENTS, new LinkedHashMap<>());
         store.put(FirestoreCollections.EXPENSE_RULES, new LinkedHashMap<>());
         store.put(FirestoreCollections.AUDIT_EVENTS, new LinkedHashMap<>());
+        store.put(SpacecworpOauthCollections.CLIENTS, new LinkedHashMap<>());
+        store.put(SpacecworpOauthCollections.AUTHORIZATION_CODES, new LinkedHashMap<>());
+        store.put(SpacecworpOauthCollections.REFRESH_TOKENS, new LinkedHashMap<>());
 
         seedBaseData();
         stubGateway();
@@ -378,6 +378,107 @@ class FintechApiApplicationTests {
                 .andExpect(jsonPath("$.executedBudget").value(250.00))
                 .andExpect(jsonPath("$.paymentTotal").value(350.00))
                 .andExpect(jsonPath("$.queuedAgents").value(2));
+    }
+
+    @Test
+    void spacecworpOauthDiscoveryClientRegistrationAndAuthorizationCodeFlowWorks() throws Exception {
+        mockMvc.perform(get("/api/v1/spacecworp-oauth/.well-known/openid-configuration"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.service_name").value("SpacecworpOauth"))
+                .andExpect(jsonPath("$.aliases[0]").value("SpaceOauth"))
+                .andExpect(jsonPath("$.company_tax_id").value("62.904.267/0001-60"));
+
+        String adminToken = loginAndGetToken("admin@example.com", "admin123");
+
+        String clientResponse = mockMvc.perform(post("/api/v1/spacecworp-oauth/clients")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"ERP Externo",
+                                  "client_id":"erp-externo",
+                                  "client_type":"public",
+                                  "redirect_uris":["https://erp.example.com/oauth/callback"],
+                                  "allowed_scopes":["profile:read","reports:read","marketplace:ai_agent"],
+                                  "ai_agent_enabled":true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.client_id").value("erp-externo"))
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("erp-externo", objectMapper.readTree(clientResponse).path("client_id").asText());
+
+        String authorizeResponse = mockMvc.perform(post("/api/v1/spacecworp-oauth/authorize")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "client_id":"erp-externo",
+                                  "redirect_uri":"https://erp.example.com/oauth/callback",
+                                  "response_type":"code",
+                                  "state":"abc123",
+                                  "scope":"profile:read reports:read marketplace:ai_agent",
+                                  "code_challenge":"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+                                  "code_challenge_method":"S256",
+                                  "email":"admin@example.com",
+                                  "password":"admin123",
+                                  "oauth_consent":true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.service_name").value("SpacecworpOauth"))
+                .andReturn().getResponse().getContentAsString();
+        String code = objectMapper.readTree(authorizeResponse).path("code").asText();
+
+        String tokenResponse = mockMvc.perform(post("/api/v1/spacecworp-oauth/token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "grant_type":"authorization_code",
+                                  "code":"%s",
+                                  "redirect_uri":"https://erp.example.com/oauth/callback",
+                                  "client_id":"erp-externo",
+                                  "code_verifier":"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+                                }
+                                """.formatted(code)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.service_name").value("SpacecworpOauth"))
+                .andExpect(jsonPath("$.company_tax_id").value("62.904.267/0001-60"))
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode tokenJson = objectMapper.readTree(tokenResponse);
+        String accessToken = tokenJson.path("access_token").asText();
+        String refreshToken = tokenJson.path("refresh_token").asText();
+
+        mockMvc.perform(post("/api/v1/spacecworp-oauth/introspect")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token":"%s",
+                                  "client_id":"erp-externo"
+                                }
+                                """.formatted(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.client_id").value("erp-externo"));
+
+        mockMvc.perform(get("/api/v1/spacecworp-oauth/userinfo")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("admin@example.com"))
+                .andExpect(jsonPath("$.service_name").value("SpacecworpOauth"));
+
+        mockMvc.perform(post("/api/v1/spacecworp-oauth/token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "grant_type":"refresh_token",
+                                  "refresh_token":"%s",
+                                  "client_id":"erp-externo"
+                                }
+                                """.formatted(refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").exists());
     }
 
     private void seedCloudEngineOverviewData(YearMonth month) {

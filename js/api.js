@@ -3,7 +3,7 @@
 // Camada de "API" 100% client-side (sem servidor, sem Python).
 // Mantém a mesma interface que o antigo client REST usava, mas toda
 // a lógica de negócio (antes em FastAPI) roda aqui, no navegador,
-// persistindo em localStorage/Firestore via db.js.
+// persistindo no backend Java ou em localStorage via db.js.
 //
 // AVISO: como não há servidor, o isolamento entre "contas" (tenants)
 // é apenas lógico/organizacional dentro do mesmo navegador — não é uma
@@ -1848,7 +1848,7 @@ class BudgetLayoutService {
 }
 
 // ---------- PaymentService: histórico de pagamentos via Pix ----------
-// Persistido junto com o resto do "banco" (Firestore + fallback em
+// Persistido junto com o resto do "banco" (backend Java + fallback em
 // localStorage, ver js/db.js), em vez de uma chave solta separada no
 // localStorage — assim o histórico também sincroniza entre dispositivos.
 
@@ -2240,6 +2240,14 @@ class ApiFacade {
     this.profileService = new ProfileService(this);
   }
 
+  usesBackend() {
+    return false;
+  }
+
+  getStorageStatus() {
+    return { state: "local", label: "Modo local (dados salvos neste navegador)" };
+  }
+
   // ---------- Auth ----------
   signup(payload) {
     return this.authService.signup(payload);
@@ -2425,7 +2433,7 @@ class ApiFacade {
   // Agrega, num único objeto, o que orcamento_agent/mp_expenses.py já gerou
   // (despesas reais, generated_by_mercado_pago) e o que mp_reconcile.py já
   // confirmou (pagamentos com verifiedByMercadoPago) para o usuário logado —
-  // ambos scripts rodam fora do navegador e só chegam aqui via Firestore/
+    // ambos scripts rodam fora do navegador e só chegam aqui via backend/local
   // localStorage (ver js/db.js). Não chama a API do Mercado Pago diretamente
   // (nenhum Access Token existe no front-end, de propósito).
   //
@@ -2628,6 +2636,15 @@ class BackendApiFacade {
     this._unavailable = false;
   }
 
+  usesBackend() {
+    return !this._unavailable && !!this.baseUrl;
+  }
+
+  getStorageStatus() {
+    if (!this.usesBackend()) return this.fallback.getStorageStatus();
+    return { state: "server", label: "Dados persistidos no servidor Java" };
+  }
+
   _getBearerToken() {
     const raw = Auth.getToken();
     if (!raw) return null;
@@ -2657,9 +2674,13 @@ class BackendApiFacade {
       });
     } catch (networkErr) {
       this._unavailable = true;
+      if (!networkErr.code) networkErr.code = "BACKEND_UNAVAILABLE";
       throw networkErr;
     }
     if (!response.ok) {
+      if ([404, 502, 503, 504].includes(response.status)) {
+        this._unavailable = true;
+      }
       let msg = `Erro HTTP ${response.status}`;
       try {
         const err = await response.json();
@@ -3153,4 +3174,39 @@ function resolveBackendApiBase() {
 
 const localApi = new ApiFacade();
 const backendBase = resolveBackendApiBase();
-const Api = backendBase ? new BackendApiFacade(backendBase, localApi) : localApi;
+
+function shouldFallbackToLocalApi(error) {
+  return !!error && (
+    error.code === "BACKEND_UNAVAILABLE"
+    || error.status === 404
+    || error.status === 502
+    || error.status === 503
+    || error.status === 504
+  );
+}
+
+function createResilientApi(primary, fallback) {
+  return new Proxy(primary, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value !== "function") return value;
+      const fallbackValue = fallback && typeof fallback[prop] === "function" ? fallback[prop].bind(fallback) : null;
+      return (...args) => {
+        let result;
+        try {
+          result = value.apply(target, args);
+        } catch (error) {
+          if (fallbackValue && shouldFallbackToLocalApi(error)) return fallbackValue(...args);
+          throw error;
+        }
+        if (!fallbackValue || !result || typeof result.then !== "function") return result;
+        return result.catch((error) => {
+          if (shouldFallbackToLocalApi(error)) return fallbackValue(...args);
+          throw error;
+        });
+      };
+    },
+  });
+}
+
+const Api = backendBase ? createResilientApi(new BackendApiFacade(backendBase, localApi), localApi) : localApi;

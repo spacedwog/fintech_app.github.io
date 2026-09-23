@@ -13,23 +13,24 @@
 // Chave Pix real da operação Spacecworp Despesas Pessoais.
 const PIX_MERCHANT = { key: "62904267000160", name: "SPACECWORP", city: "OSASCO" };
 
-// ---------- SyncStatusIndicator: bolinha de status Firebase x localStorage ----------
+// ---------- SyncStatusIndicator: status de persistência ----------
 
 class SyncStatusIndicator {
   render() {
     const box = document.getElementById("sync-status");
     const label = document.getElementById("sync-status-label");
-    if (!box || !label || typeof getSyncStatus !== "function") return;
+    if (!box || !label) return;
 
-    const status = getSyncStatus();
+    const status =
+      typeof Api !== "undefined" && typeof Api.getStorageStatus === "function"
+        ? Api.getStorageStatus()
+        : (typeof getSyncStatus === "function" ? getSyncStatus() : { state: "local", label: "Modo local" });
     box.className = `sync-status ${status.state}`;
     box.title = status.label;
 
     const shortLabels = {
-      local: "Modo local (sem Firebase)",
-      error: "Firebase com erro — modo local",
-      pending: "Sincronizando…",
-      synced: "Sincronizado",
+      local: "Modo local",
+      server: "Servidor Java",
     };
     label.textContent = shortLabels[status.state] || status.label;
   }
@@ -549,7 +550,7 @@ class DashboardController {
     this._bindGlobalForms();
     this.showView("budget-flow");
 
-    // Indicador de status de sincronização com o Firebase (ver
+    // Indicador do modo de persistência atual (servidor Java ou local, ver
     // getSyncStatus() em js/db.js): atualiza já ao carregar e depois
     // periodicamente, além de reagir a ficar online/offline na hora.
     this.syncStatus.render();
@@ -3779,10 +3780,9 @@ class DashboardController {
   // ---------- Pagamento via Pix (histórico) ----------
   //
   // Histórico de pagamentos persistido via Api.listPayments/Api.addPayment,
-  // que gravam no "banco" (Firestore + fallback em localStorage — ver
+  // que gravam no "banco" (backend Java ou fallback em localStorage — ver
   // js/db.js e js/api.js), em vez de uma chave solta separada no
-  // localStorage. Assim o histórico também sincroniza entre dispositivos
-  // quando o Firebase está configurado.
+  // localStorage.
 
   async _recordPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber }) {
     await Api.addPayment({ type, plan, amount, txid, verifiedByAI, aiClassification, manualTxnNumber });
@@ -3892,7 +3892,7 @@ class DashboardController {
       { title: "OAuth 2.0 próprio (Authorization Code + PKCE)", detail: "Login emite tokens JWT (HS256) assinados: access_token de 1h e refresh_token de 30 dias, com rotação e revogação (js/oauth.js)." },
       { title: "Verificação criptográfica da sessão", detail: "Assinatura do token é reconferida (crypto.subtle.verify, comparação em tempo constante) e a expiração é checada a cada carregamento do painel." },
       { title: "Bloqueio após tentativas de login erradas", detail: "5 senhas erradas seguidas para o mesmo e-mail travam novas tentativas por 60s — mitigação de força bruta (W3Schools Cyber Security > Passwords)." },
-      { title: "HTTPS obrigatório", detail: "Hospedado no GitHub Pages: todo tráfego (login, dados) é cifrado em trânsito (TLS)." },
+      { title: "HTTPS obrigatório", detail: "Todo tráfego com o backend Java deve ser cifrado em trânsito (TLS)." },
       { title: "Content-Security-Policy", detail: "Meta tag CSP restringe de quais domínios o navegador pode carregar script/estilo/imagem/conexão (ver <head> deste documento)." },
       { title: "Isolamento por conta (tenant_id)", detail: "Toda consulta ao banco filtra pelo tenant_id da sessão — um usuário nunca lê dados de outra conta (js/api.js)." },
     ];
@@ -3902,7 +3902,7 @@ class DashboardController {
     return [
       { letter: "C", title: "Confidencialidade", detail: "Senha em hash (nunca reversível), tokens assinados, CSP e HTTPS impedem que dados sejam lidos por quem não deveria." },
       { letter: "I", title: "Integridade", detail: "Assinatura HMAC garante que ninguém alterou as claims de um token; merge de 3 vias (js/db.js) evita corromper dados entre dispositivos." },
-      { letter: "A", title: "Disponibilidade", detail: "Fallback automático para localStorage quando o Firestore está fora do ar — o app continua funcionando offline." },
+      { letter: "A", title: "Disponibilidade", detail: "Fallback automático para localStorage quando o backend não está acessível — o app continua funcionando no navegador." },
     ];
   }
 
@@ -3910,8 +3910,8 @@ class DashboardController {
     return [
       { name: "Phishing / Engenharia social", what: "Mensagens fingindo ser a Spacecworp Despesas Pessoais para roubar sua senha.", mitigation: "Nunca pedimos sua senha por e-mail/WhatsApp — confira sempre a URL antes de entrar." },
       { name: "Força bruta de senha", what: "Tentar adivinhar sua senha por tentativa e erro.", mitigation: "Bloqueio temporário após 5 tentativas + hash PBKDF2 (100.000 iterações) dificultam ataque offline." },
-      { name: "Ataques a aplicações web (XSS/injeção)", what: "Injetar código ou comandos maliciosos através de campos de formulário.", mitigation: "Sem SQL (Firestore/localStorage), escaping ao exibir dados do usuário, e Content-Security-Policy." },
-      { name: "Man-in-the-middle", what: "Interceptar dados trafegando entre você e o servidor.", mitigation: "HTTPS/TLS obrigatório em toda comunicação com Firebase e com a página." },
+      { name: "Ataques a aplicações web (XSS/injeção)", what: "Injetar código ou comandos maliciosos através de campos de formulário.", mitigation: "Queries parametrizadas no backend Java, escaping ao exibir dados do usuário, e Content-Security-Policy." },
+      { name: "Man-in-the-middle", what: "Interceptar dados trafegando entre você e o servidor.", mitigation: "HTTPS/TLS obrigatório em toda comunicação com o backend Java e com a página." },
       { name: "Roubo/vazamento de token de sessão", what: "Uso indevido de uma sessão logada roubada.", mitigation: "Tokens de curta duração (1h), revogação no logout e rotação do refresh_token." },
       { name: "Vazamento de dados / Dark Web", what: "Credenciais vazadas sendo revendidas ou reutilizadas em outros sites.", mitigation: "Coletamos o mínimo necessário e nunca guardamos a senha em formato reversível." },
     ];
@@ -3921,12 +3921,12 @@ class DashboardController {
     return [
       { code: "ISO/IEC 27001", name: "Gestão de Segurança da Informação", relevance: "Referência para os controles de segurança (senha, tokens, sessão) desta tela." },
       { code: "ISO/IEC 27002", name: "Código de práticas de segurança da informação", relevance: "Orienta os controles técnicos específicos adotados (política de senha, criptografia)." },
-      { code: "ISO/IEC 27017", name: "Segurança da informação em nuvem", relevance: "Dados hospedados no Firebase/Firestore (nuvem)." },
-      { code: "ISO/IEC 27018", name: "Proteção de dados pessoais (PII) em nuvem pública", relevance: "Base para como tratamos dados pessoais armazenados na nuvem." },
+      { code: "ISO/IEC 27017", name: "Segurança da informação em nuvem", relevance: "Referência para a operação do backend Java em infraestrutura de nuvem." },
+      { code: "ISO/IEC 27018", name: "Proteção de dados pessoais (PII) em nuvem pública", relevance: "Base para como tratamos dados pessoais armazenados pelo backend." },
       { code: "ISO/IEC 27701", name: "Gestão de privacidade da informação", relevance: "Estrutura usada na tela Privacidade (extensão de privacidade da 27001)." },
       { code: "ISO/IEC 29100", name: "Framework de privacidade", relevance: "Princípios de privacidade (minimização, finalidade, consentimento) da tela Privacidade." },
       { code: "ISO/IEC 25010", name: "Qualidade de software (SQuaRE)", relevance: "Características de qualidade (segurança, confiabilidade, usabilidade) que guiam o desenvolvimento." },
-      { code: "ISO 31000", name: "Gestão de riscos", relevance: "Avaliação de riscos como dependência de um único provedor de nuvem e ausência de backend próprio." },
+      { code: "ISO 31000", name: "Gestão de riscos", relevance: "Avaliação de riscos da dependência do backend e dos mecanismos locais de contingência." },
       { code: "ISO 9001", name: "Gestão da qualidade", relevance: "Boas práticas de qualidade aplicadas ao desenvolvimento do produto." },
       { code: "ISO 20022", name: "Mensageria financeira", relevance: "Padrão usado no sistema financeiro brasileiro (Bacen/Pix) — o app processa pagamentos Pix." },
       { code: "ISO 8000", name: "Qualidade de dados", relevance: "Consistência dos dados financeiros (despesas, orçamento) armazenados." },
