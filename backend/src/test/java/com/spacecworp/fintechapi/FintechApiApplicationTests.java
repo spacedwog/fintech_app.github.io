@@ -2,7 +2,6 @@ package com.spacecworp.fintechapi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.cloud.firestore.Firestore;
 import com.spacecworp.fintechapi.auth.TenantDocument;
 import com.spacecworp.fintechapi.cloudengine.application.CloudEngineErpService;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
@@ -57,9 +56,6 @@ class FintechApiApplicationTests {
 
     @Autowired
     JdbcClient jdbcClient;
-
-    @MockBean
-    Firestore firestore;
 
     @MockBean
     DocumentGateway firestoreGateway;
