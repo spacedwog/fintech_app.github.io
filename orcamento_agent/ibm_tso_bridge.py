@@ -244,7 +244,12 @@ def _build_session(connection: dict[str, Any]) -> tuple[requests.Session, int]:
 
     session.headers["Accept"] = "application/json"
     session.headers["Content-Type"] = "application/json"
-    timeout = int(connection.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS))
+    try:
+        timeout = int(connection.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Configuração inválida em connection.timeout_seconds.") from exc
+    if timeout <= 0:
+        raise ValueError("Configuração inválida em connection.timeout_seconds: use valor > 0.")
     return session, timeout
 
 
@@ -401,7 +406,7 @@ def main(argv=None):
     status, message, summary, _events = run(args)
     print(message)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    return 0 if status == "ok" else 1
+    return 0 if status in {"ok", "disabled"} else 1
 
 
 if __name__ == "__main__":

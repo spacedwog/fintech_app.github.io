@@ -211,9 +211,28 @@ def test_build_session_bearer_missing_env():
     assert "token bearer ausente" in str(error).lower()
 
 
+def test_build_session_basic_mode():
+    session, timeout = ibm_tso_bridge._build_session(
+        {
+            "auth_mode": "basic",
+            "user": "mainframe-user",
+            "password": "mainframe-password",
+            "timeout_seconds": 9,
+            "retries": 1,
+            "retry_backoff_seconds": 0.1,
+        }
+    )
+    try:
+        assert session.auth == ("mainframe-user", "mainframe-password")
+        assert timeout == 9
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     test_run_active_mode()
     test_run_error_when_start_has_no_servlet_key()
     test_build_session_bearer_mode()
     test_build_session_bearer_missing_env()
+    test_build_session_basic_mode()
     print("\nTESTE PASSOU ✅")
