@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -123,6 +124,27 @@ def test_run_active_mode():
         assert len(written_events) == 2
 
 
+def test_build_session_bearer_mode():
+    os.environ["IBM_TSO_TEST_TOKEN"] = "abc123-token"
+    session, timeout = ibm_tso_bridge._build_session(
+        {
+            "auth_mode": "bearer",
+            "token_env": "IBM_TSO_TEST_TOKEN",
+            "timeout_seconds": 11,
+            "retries": 1,
+            "retry_backoff_seconds": 0.1,
+        }
+    )
+    try:
+        assert session.headers["Authorization"].lower().startswith("bearer ")
+        assert session.headers["Authorization"].endswith("abc123-token")
+        assert timeout == 11
+    finally:
+        session.close()
+        os.environ.pop("IBM_TSO_TEST_TOKEN", None)
+
+
 if __name__ == "__main__":
     test_run_active_mode()
+    test_build_session_bearer_mode()
     print("\nTESTE PASSOU ✅")

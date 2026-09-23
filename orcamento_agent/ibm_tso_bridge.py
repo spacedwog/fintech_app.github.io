@@ -11,6 +11,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -302,9 +303,15 @@ def run(args):
             command_text = str(command or "").strip()
             if not command_text:
                 continue
-            command_payload = _deep_format(command_payload_template, {"command": command_text})
+            replacements = {
+                "command": command_text,
+                "command_url": quote(command_text, safe=""),
+                "servlet_key": servlet_key,
+            }
+            command_payload = _deep_format(command_payload_template, replacements)
+            formatted_command_path = command_path.format(**replacements)
             command_response = session.post(
-                _safe_join_url(base_url, command_path.format(servlet_key=servlet_key)),
+                _safe_join_url(base_url, formatted_command_path),
                 json=command_payload,
                 timeout=timeout,
                 verify=verify_tls,
@@ -341,6 +348,7 @@ def run(args):
                     summary["logoff_ok"] = True
             except Exception:
                 summary["logoff_ok"] = False
+        if session:
             try:
                 session.close()
             except Exception:
