@@ -281,6 +281,22 @@ function check(name, cond) {
   check("Backend preserva os agregados locais do ERP ao mesclar Cloud Engine", backendProfile.erp && backendProfile.erp.monthly_budget_total === 120);
   check("Backend usa o mês de referência retornado pelo Cloud Engine", backendProfile.erp && backendProfile.erp.cloud_engine && backendProfile.erp.cloud_engine.reference_month === "2026-10");
 
+  const degradedProfile = await run(
+    dev,
+    `
+    const original = Api.getMercadoPagoStatus.bind(Api);
+    Api.getMercadoPagoStatus = async () => { throw new Error("offline"); };
+    try {
+      return await Api.getCustomerProfile("2026-09");
+    } finally {
+      Api.getMercadoPagoStatus = original;
+    }
+  `
+  );
+
+  check("Perfil consolidado continua carregando quando o status ETL falha", degradedProfile && degradedProfile.erp && degradedProfile.erp.monthly_budget_total === 1500);
+  check("Falha no status ETL usa valores padrão no perfil", degradedProfile && degradedProfile.etl && degradedProfile.etl.expenses_count === 0 && degradedProfile.etl.connected === false);
+
   const failed = results.filter((r) => !r.ok);
   if (failed.length) {
     console.error("\\nFalharam " + failed.length + " verificação(ões).");

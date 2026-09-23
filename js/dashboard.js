@@ -721,8 +721,9 @@ class DashboardController {
         this._renderCustomerProfileSection("ETL", etl),
       ].join("");
     } catch (err) {
+      console.error("Falha ao carregar o perfil consolidado do cliente.", err);
       summaryBox.textContent = "Não foi possível carregar o perfil do cliente.";
-      errorBox.textContent = err.message;
+      errorBox.textContent = "Tente novamente em instantes.";
       errorBox.classList.remove("hidden");
       sectionsBox.innerHTML = "";
     }

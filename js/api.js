@@ -2034,7 +2034,16 @@ class ProfileService {
         .pop() || null;
 
     const [marketplaceStatus, marketplaceProfile] = await Promise.all([
-      this.api.getMercadoPagoStatus(),
+      this.api.getMercadoPagoStatus().catch(() => ({
+        connected: false,
+        automation_configured: false,
+        last_run_at: null,
+        last_sync_date: null,
+        expenses_count: 0,
+        expenses_total: 0,
+        payments_verified_count: 0,
+        automation: {},
+      })),
       this.api.getMarketplaceCustomerProfile(targetMonth).catch(() => null),
     ]);
 
