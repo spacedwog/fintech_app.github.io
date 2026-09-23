@@ -2678,7 +2678,7 @@ class BackendApiFacade {
       throw networkErr;
     }
     if (!response.ok) {
-      if ([404, 502, 503, 504].includes(response.status)) {
+      if ([404, 405, 502, 503, 504].includes(response.status)) {
         this._unavailable = true;
       }
       let msg = `Erro HTTP ${response.status}`;
