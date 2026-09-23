@@ -3274,9 +3274,10 @@ class BackendApiFacade {
   }
   async getCustomerProfile(month) {
     const params = month ? `?referenceMonth=${encodeURIComponent(month)}` : "";
-    const [profile, erpOverview] = await Promise.all([
+    const [profile, erpOverview, marketplaceProfile] = await Promise.all([
       this.fallback.getCustomerProfile(month),
       this._request(`/api/v1/cloud-engine/erp-overview${params}`).catch(() => null),
+      this.fallback.getMarketplaceCustomerProfile(month).catch(() => null),
     ]);
     if (!erpOverview) return profile;
     const mergedProfile = {
@@ -3298,7 +3299,7 @@ class BackendApiFacade {
     return {
       ...mergedProfile,
       ai_profile: enrichCustomerAiProfile({
-        baseProfile: mergedProfile.ai_profile,
+        baseProfile: marketplaceProfile || {},
         erp: mergedProfile.erp || {},
         etl: mergedProfile.etl || {},
         month: mergedProfile.month || null,
