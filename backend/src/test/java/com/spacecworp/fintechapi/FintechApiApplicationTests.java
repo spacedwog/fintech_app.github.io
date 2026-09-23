@@ -3,7 +3,6 @@ package com.spacecworp.fintechapi;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.Firestore;
-import com.spacecworp.fintechapi.auth.TenantDocument;
 import com.spacecworp.fintechapi.cloudengine.application.CloudEngineErpService;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.expenses.ExpenseDocument;
@@ -11,7 +10,6 @@ import com.spacecworp.fintechapi.expenses.ExpenseRuleDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.DocumentGateway;
 import com.spacecworp.fintechapi.governance.AuditEventDocument;
-import com.spacecworp.fintechapi.notifications.RegistrationEmailQueue;
 import com.spacecworp.fintechapi.payments.PaymentDocument;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
 import com.spacecworp.fintechapi.users.UserDocument;
@@ -34,11 +32,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -67,9 +62,6 @@ class FintechApiApplicationTests {
     @MockBean
     DocumentGateway firestoreGateway;
 
-    @MockBean
-    RegistrationEmailQueue registrationEmailQueue;
-
     private final Map<String, Map<String, Object>> store = new HashMap<>();
     private final AtomicLong idSeq = new AtomicLong(1000);
 
@@ -94,7 +86,7 @@ class FintechApiApplicationTests {
     }
 
     @Test
-    void signupTriggersRegistrationConfirmationEmail() throws Exception {
+    void signupCreatesTenantUserAndDefaultPlan() throws Exception {
         String body = """
                 {
                   "company_name":"Empresa X",
@@ -109,7 +101,9 @@ class FintechApiApplicationTests {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.email").value("maria@example.com"));
-        verify(registrationEmailQueue, times(1)).enqueue(any(UserDocument.class), any(TenantDocument.class));
+        assertEquals(2, store.get(FirestoreCollections.TENANTS).size());
+        assertEquals(2, store.get(FirestoreCollections.USERS).size());
+        assertEquals(2, store.get(FirestoreCollections.PLANS).size());
     }
 
     @Test
