@@ -1,9 +1,13 @@
 package com.spacecworp.fintechapi.auth;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacecworp.fintechapi.common.ApiException;
 import com.spacecworp.fintechapi.expenses.CategoryDocument;
 import com.spacecworp.fintechapi.firestore.FirestoreCollections;
 import com.spacecworp.fintechapi.firestore.DocumentGateway;
+import com.spacecworp.fintechapi.oauth.SpacecworpOauthDtos;
+import com.spacecworp.fintechapi.oauth.SpacecworpOauthService;
 import com.spacecworp.fintechapi.plans.PlanController;
 import com.spacecworp.fintechapi.plans.PlanSubscriptionDocument;
 import com.spacecworp.fintechapi.security.AuthUser;
@@ -22,20 +26,26 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final PlanController planController;
+    private final SpacecworpOauthService spacecworpOauthService;
+    private final ObjectMapper objectMapper;
 
     public AuthService(
             DocumentGateway firestore,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            PlanController planController
+            PlanController planController,
+            SpacecworpOauthService spacecworpOauthService,
+            ObjectMapper objectMapper
     ) {
         this.firestore = firestore;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.planController = planController;
+        this.spacecworpOauthService = spacecworpOauthService;
+        this.objectMapper = objectMapper;
     }
 
-    public AuthDtos.AuthResponse signup(AuthDtos.SignupRequest req) {
+    public AuthDtos.AuthResponse signup(AuthDtos.SignupRequest req, String issuer) {
         if (!firestore.listByField(FirestoreCollections.USERS, "email", req.email().toLowerCase(), UserDocument.class).isEmpty()) {
             throw new ApiException(HttpStatus.CONFLICT, "E-mail já cadastrado");
         }
@@ -66,10 +76,10 @@ public class AuthService {
             String categoryId = firestore.nextId(FirestoreCollections.CATEGORIES);
             firestore.save(FirestoreCollections.CATEGORIES, categoryId, new CategoryDocument(categoryId, tenantId, categoryName));
         }
-        return toAuthResponse(user);
+        return toAuthResponse(user, issuer);
     }
 
-    public AuthDtos.AuthResponse login(AuthDtos.LoginRequest req) {
+    public AuthDtos.AuthResponse login(AuthDtos.LoginRequest req, String issuer) {
         if (Boolean.FALSE.equals(req.oauth_consent())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Consentimento OAuth é obrigatório");
         }
@@ -79,10 +89,10 @@ public class AuthService {
         if (!passwordEncoder.matches(req.password(), user.password)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas");
         }
-        return toAuthResponse(user);
+        return toAuthResponse(user, issuer);
     }
 
-    public AuthDtos.AuthResponse refresh(AuthDtos.RefreshRequest request) {
+    public AuthDtos.AuthResponse refresh(AuthDtos.RefreshRequest request, String issuer) {
         AuthUser claims;
         try {
             claims = jwtService.parse(request.access_token());
@@ -94,7 +104,7 @@ public class AuthService {
         if (!user.tenant_id.equals(claims.tenantId())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Sessão inválida");
         }
-        return toAuthResponse(user);
+        return toAuthResponse(user, issuer);
     }
 
     public AuthDtos.MeResponse me(AuthUser session) {
@@ -103,64 +113,39 @@ public class AuthService {
         TenantDocument tenant = firestore.findById(FirestoreCollections.TENANTS, session.tenantId(), TenantDocument.class)
                 .orElse(new TenantDocument(session.tenantId(), "Conta", null));
         PlanSubscriptionDocument sub = planController.currentSubscription(session.tenantId());
-        AuthDtos.UserPayload userPayload = new AuthDtos.UserPayload(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document, buildScopes(user.role));
+        AuthDtos.UserPayload userPayload = new AuthDtos.UserPayload(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document, AuthScopeCatalog.forRole(user.role));
         AuthDtos.TenantPayload tenantPayload = new AuthDtos.TenantPayload(tenant.id, tenant.name, sub.plan);
         return new AuthDtos.MeResponse(userPayload, tenantPayload);
     }
 
-    private AuthDtos.AuthResponse toAuthResponse(UserDocument user) {
-        List<String> scopes = buildScopes(user.role);
-        String accessToken = jwtService.issue(new AuthUser(user.id, user.tenant_id, user.name, user.email, user.role, scopes));
-        String scopesJson = scopes.stream().map(s -> "\"" + escape(s) + "\"").collect(java.util.stream.Collectors.joining(","));
-        String legacySessionToken = "{" +
-                "\"legacy\":true," +
-                "\"user_id\":\"" + user.id + "\"," +
-                "\"tenant_id\":\"" + user.tenant_id + "\"," +
-                "\"name\":\"" + escape(user.name) + "\"," +
-                "\"email\":\"" + user.email + "\"," +
-                "\"role\":\"" + user.role + "\"," +
-                "\"scope\":[" + scopesJson + "]," +
-                "\"access_token\":\"" + accessToken + "\"," +
-                "\"refresh_token\":\"" + accessToken + "\"," +
-                "\"token_type\":\"Bearer\"," +
-                "\"expires_in\":3600" +
-                "}";
-
+    private AuthDtos.AuthResponse toAuthResponse(UserDocument user, String issuer) {
+        List<String> scopes = AuthScopeCatalog.forRole(user.role);
+        SpacecworpOauthDtos.TokenResponse tokenSet = spacecworpOauthService.issueFirstPartyTokenSet(user, true, issuer);
+        String sessionToken = toLegacySessionJson(user, scopes, tokenSet);
         AuthDtos.UserPayload payload = new AuthDtos.UserPayload(user.id, user.tenant_id, user.name, user.email, user.role, user.tax_document, scopes);
-        return new AuthDtos.AuthResponse(legacySessionToken, payload);
+        return new AuthDtos.AuthResponse(sessionToken, payload);
     }
 
-    private String escape(String value) {
-        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
-
-    private List<String> buildScopes(String role) {
-        List<String> base = List.of(
-                "profile:read",
-                "profile:write",
-                "categories:read",
-                "categories:write",
-                "expense_rules:read",
-                "expense_rules:write",
-                "expenses:read",
-                "expenses:write",
-                "budgets:read",
-                "budgets:write",
-                "reports:read",
-                "payments:read",
-                "payments:write",
-                "plans:read",
-                "team:read",
-                "privacy:read",
-                "privacy:write",
-                "audit:read",
-                "invoices:read"
-        );
-        if ("admin".equalsIgnoreCase(role)) {
-            return java.util.stream.Stream.concat(base.stream(), java.util.stream.Stream.of("plans:write", "team:write"))
-                    .distinct()
-                    .toList();
+    private String toLegacySessionJson(UserDocument user, List<String> scopes, SpacecworpOauthDtos.TokenResponse tokenSet) {
+        try {
+            java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+            payload.put("legacy", true);
+            payload.put("user_id", user.id);
+            payload.put("tenant_id", user.tenant_id);
+            payload.put("name", user.name);
+            payload.put("email", user.email);
+            payload.put("role", user.role);
+            payload.put("scope", scopes);
+            payload.put("access_token", tokenSet.access_token());
+            payload.put("refresh_token", tokenSet.refresh_token());
+            payload.put("token_type", tokenSet.token_type());
+            payload.put("expires_in", tokenSet.expires_in());
+            payload.put("service_name", tokenSet.service_name());
+            payload.put("company_name", tokenSet.company_name());
+            payload.put("company_tax_id", tokenSet.company_tax_id());
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Falha ao montar sessão OAuth");
         }
-        return base;
     }
 }

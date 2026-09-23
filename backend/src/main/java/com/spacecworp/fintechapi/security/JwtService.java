@@ -33,29 +33,52 @@ public class JwtService {
     }
 
     public String issue(AuthUser user) {
-        Instant now = Instant.now();
-        String tokenId = java.util.UUID.randomUUID().toString();
-        return Jwts.builder()
-                .subject(user.userId())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusSeconds(ttlSeconds)))
-                .id(tokenId)
-                .claims(Map.of(
+        return issueToken(
+                user.userId(),
+                ttlSeconds,
+                Map.of(
                         "tenant_id", user.tenantId(),
                         "name", user.name(),
                         "email", user.email(),
                         "role", user.role(),
                         "scope", user.scope() == null ? List.of() : user.scope()
-                ))
-                .signWith(key)
-                .compact();
+                ),
+                null,
+                null,
+                null
+        );
+    }
+
+    public String issueToken(
+            String subject,
+            long tokenTtlSeconds,
+            Map<String, Object> claims,
+            String issuer,
+            String audience,
+            String tokenType
+    ) {
+        Instant now = Instant.now();
+        String tokenId = java.util.UUID.randomUUID().toString();
+        var builder = Jwts.builder()
+                .subject(subject)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(tokenTtlSeconds)))
+                .id(tokenId)
+                .claims(claims);
+        if (issuer != null && !issuer.isBlank()) {
+            builder.issuer(issuer);
+        }
+        if (audience != null && !audience.isBlank()) {
+            builder.audience().add(audience).and();
+        }
+        if (tokenType != null && !tokenType.isBlank()) {
+            builder.claim("token_type", tokenType);
+        }
+        return builder.signWith(key).compact();
     }
 
     public AuthUser parse(String token) {
-        if (isRevoked(token)) {
-            throw new JwtException("Token revogado");
-        }
-        Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+        Claims claims = parseClaims(token);
         @SuppressWarnings("unchecked")
         List<String> scope = claims.get("scope", List.class);
         return new AuthUser(
@@ -66,6 +89,13 @@ public class JwtService {
                 claims.get("role", String.class),
                 scope == null ? List.of() : scope
         );
+    }
+
+    public Claims parseClaims(String token) {
+        if (isRevoked(token)) {
+            throw new JwtException("Token revogado");
+        }
+        return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
     }
 
     public void revokeToken(String token) {
