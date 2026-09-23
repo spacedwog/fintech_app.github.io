@@ -305,7 +305,7 @@
             <li>Convite opcional de familiares ou pessoas próximas para colaborar na mesma conta</li>
             <li>Tela de relatório mensal com gráficos e análise por categoria</li>
             <li>Configurações de perfil, senha, preferências e organização da conta</li>
-            <li>Sincronização em nuvem (Firestore) com fallback local offline</li>
+            <li>Sincronização em nuvem pelo backend Java com fallback local offline</li>
             <li>Exportação de dados em CSV, Excel e PDF</li>
           </ul>
         </div>
@@ -424,7 +424,7 @@
         </div>
         <div class="lp-security-item">
           <i class="fa fa-cloud"></i>
-          <p>Seus dados sincronizam automaticamente com o Firebase, com uma cópia local como reserva offline.</p>
+          <p>Seus dados sincronizam automaticamente com o backend Java, com uma cópia local como reserva offline.</p>
         </div>
         <div class="lp-security-item">
           <i class="fa fa-qrcode"></i>
@@ -482,11 +482,11 @@
         </details>
         <details>
           <summary>Onde meus dados ficam salvos?</summary>
-          <p>No banco de dados na nuvem (Firebase/Firestore), com o armazenamento local do seu navegador (localStorage) como reserva automática caso o Firebase esteja indisponível ou você esteja offline. Assim que a conexão volta, tudo é sincronizado.</p>
+          <p>No backend Java em nuvem, com o armazenamento local do seu navegador (localStorage) como reserva automática caso a API REST esteja indisponível ou você esteja offline. Assim que a conexão volta, o app volta a operar pelo servidor.</p>
         </details>
         <details>
           <summary>Posso usar em mais de um dispositivo?</summary>
-          <p>Sim, quando o Firebase está configurado: os dados sincronizam entre computadores e navegadores diferentes. Sem essa configuração, o app funciona normalmente só com localStorage (dados presos ao dispositivo), como antes.</p>
+          <p>Sim, quando o backend Java está disponível: os dados sincronizam entre computadores e navegadores diferentes. Sem esse backend, o app funciona normalmente só com localStorage (dados presos ao dispositivo), como antes.</p>
         </details>
       </div>
     </div>
