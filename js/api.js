@@ -397,7 +397,7 @@ function previousMonth(month) {
 
 function firstDefinedValue(...values) {
   for (const value of values) {
-    if (value !== undefined && value !== null && value !== "") return value;
+    if (value !== undefined && value !== null) return value;
   }
   return null;
 }
