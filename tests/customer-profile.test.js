@@ -214,7 +214,13 @@ function check(name, cond) {
   check("ERP soma os gastos do mês", profile.erp && profile.erp.monthly_spent_total === 203.45);
   check("ETL expõe cartão Open Finance", profile.etl && profile.etl.open_finance && profile.etl.open_finance.cards_count === 1);
   check("ETL normaliza cartão Open Finance em camelCase", profile.etl && profile.etl.open_finance && profile.etl.open_finance.cards[0] && profile.etl.open_finance.cards[0].holder_name === "Cliente Perfil");
-  check("ETL normaliza transação Open Finance em camelCase", profile.etl && profile.etl.open_finance && profile.etl.open_finance.transactions_sample[0] && profile.etl.open_finance.transactions_sample[0].merchant_name === "Uber");
+  check(
+    "ETL normaliza transação Open Finance em camelCase",
+    profile.etl
+      && profile.etl.open_finance
+      && Array.isArray(profile.etl.open_finance.transactions_sample)
+      && profile.etl.open_finance.transactions_sample.some((tx) => tx.id === "tx-1" && tx.merchant_name === "Uber")
+  );
   check("ETL expõe saldo OAuth", profile.etl && profile.etl.oauth && profile.etl.oauth.balance && profile.etl.oauth.balance.available_balance === 500);
   check("ETL preserva status global de reconciliação", profile.etl && profile.etl.automation && profile.etl.automation.last_reconcile && profile.etl.automation.last_reconcile.verificados === 2);
   check("Perfil IA continua disponível", profile.ai_profile && typeof profile.ai_profile.summary === "string" && profile.ai_profile.summary.length > 0);
