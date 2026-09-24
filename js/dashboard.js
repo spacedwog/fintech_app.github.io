@@ -863,6 +863,7 @@ class DashboardController {
     if (viewName === "reports") this._loadReportsView();
     if (viewName === "team") this._loadTeamView();
     if (viewName === "plan") this._loadPlanView();
+    if (viewName === "products-services") this._loadProductsServicesView();
     if (viewName === "invoices") this._loadInvoicesView();
     if (viewName === "mp-transaction-check") this._loadMercadoPagoTransactionCheckView();
     if (viewName === "settings") this._loadSettingsView();
@@ -3577,6 +3578,98 @@ class DashboardController {
       .join("");
 
     await this._renderPaymentsHistory();
+  }
+
+  async _loadProductsServicesView() {
+    const summaryBox = document.getElementById("products-services-summary");
+    const billingBox = document.getElementById("products-services-billing");
+    const productsBox = document.getElementById("products-services-products");
+    const servicesBox = document.getElementById("products-services-services");
+    if (!summaryBox || !billingBox || !productsBox || !servicesBox) return;
+
+    summaryBox.textContent = "Carregando produtos e serviços…";
+    billingBox.innerHTML = "";
+    productsBox.innerHTML = "";
+    servicesBox.innerHTML = "";
+
+    const formatCurrency = (value) => `R$ ${Number(value || 0).toFixed(2)}`;
+
+    try {
+      const [companyProfile, customerProfile] = await Promise.all([
+        Api.getCompanyProfile(),
+        Api.getCustomerProfile(),
+      ]);
+      const portfolio = buildProductsAndServicesPortfolio({
+        companyProfile,
+        customerProfile,
+        planKey: this.currentTenant && this.currentTenant.plan,
+      });
+
+      summaryBox.innerHTML = `
+        <strong>${this._escapeHtml(companyProfile.produto || "Produto principal")}</strong>
+        · CNAE ${this._escapeHtml(companyProfile.cnae_principal || "6201-5/01")}
+        · Você paga atualmente <strong>${this._escapeHtml(formatCurrency(portfolio.billing.total_amount_month))}/mês</strong> para utilizar o sistema.
+      `;
+      billingBox.innerHTML = `
+        <div class="product-service-metric">
+          <span class="small-muted">Plano atual</span>
+          <p class="m-0 fw-700 fs-20">${this._escapeHtml(portfolio.plan.label)}</p>
+          <p class="small-muted mt-6 mb-0">${this._escapeHtml(formatCurrency(portfolio.billing.plan_amount_month))}/mês</p>
+        </div>
+        <div class="product-service-metric">
+          <span class="small-muted">Serviços pagos ativos</span>
+          <p class="m-0 fw-700 fs-20">${this._escapeHtml(String(portfolio.billing.paid_services_count))}</p>
+          <p class="small-muted mt-6 mb-0">${this._escapeHtml(formatCurrency(portfolio.billing.services_amount_month))}/mês</p>
+        </div>
+        <div class="product-service-metric">
+          <span class="small-muted">Serviços ativos</span>
+          <p class="m-0 fw-700 fs-20">${this._escapeHtml(String(portfolio.billing.active_services_count))}</p>
+          <p class="small-muted mt-6 mb-0">${this._escapeHtml(portfolio.billing.policy_label)}</p>
+        </div>
+      `;
+      productsBox.innerHTML = portfolio.products
+        .map((product) => `
+          <article class="product-service-item">
+            <div class="row-between">
+              <h4 class="m-0">${this._escapeHtml(product.name)}</h4>
+              <span class="badge premium">${this._escapeHtml(product.type)}</span>
+            </div>
+            <p class="small-muted mt-8 mb-0">${this._escapeHtml(product.description)}</p>
+            <p class="small-muted mt-8 mb-0"><strong>CNAE:</strong> ${this._escapeHtml(product.cnae || "—")}</p>
+            <p class="small-muted mt-8 mb-0"><strong>Entrega:</strong> ${this._escapeHtml(product.delivery_model || "—")}</p>
+            <div class="product-service-tags">
+              ${(product.modules || []).map((module) => `<span class="badge free">${this._escapeHtml(module)}</span>`).join("")}
+            </div>
+          </article>
+        `)
+        .join("");
+      servicesBox.innerHTML = portfolio.services
+        .map((service) => `
+          <article class="product-service-item ${service.active ? "active" : ""}">
+            <div class="row-between">
+              <h4 class="m-0">${this._escapeHtml(service.name)}</h4>
+              <span class="badge ${service.current_charge_month > 0 ? "premium" : "free"}">${this._escapeHtml(service.module)}</span>
+            </div>
+            <p class="small-muted mt-8 mb-0">${this._escapeHtml(service.description)}</p>
+            <p class="small-muted mt-8 mb-0"><strong>Modelo:</strong> ${this._escapeHtml(service.billing_model)}</p>
+            <p class="small-muted mt-8 mb-0"><strong>Status:</strong> ${this._escapeHtml(service.status_label)}</p>
+            <div class="row-between mt-10">
+              <span class="small-muted">Preço de tabela</span>
+              <strong>${this._escapeHtml(formatCurrency(service.price_month))}/mês</strong>
+            </div>
+            <div class="row-between mt-6">
+              <span class="small-muted">Cobrança atual</span>
+              <strong>${this._escapeHtml(formatCurrency(service.current_charge_month))}/mês</strong>
+            </div>
+          </article>
+        `)
+        .join("");
+    } catch (err) {
+      summaryBox.textContent = "Não foi possível carregar os produtos e serviços.";
+      billingBox.innerHTML = "";
+      productsBox.innerHTML = "";
+      servicesBox.innerHTML = "";
+    }
   }
 
   async _loadInvoicesView() {

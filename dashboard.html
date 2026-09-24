@@ -36,6 +36,7 @@
       <button class="nav-item" data-view="transactions">Transação</button>
       <button class="nav-item" data-view="invoices">Nota Fiscal</button>
       <button class="nav-item" data-view="plan">Plano</button>
+      <button class="nav-item" data-view="products-services">Produtos &amp; Serviços</button>
 
       <div class="sidebar-section-label">PESSOAL</div>
       <button class="nav-item" data-view="reports">Resumo</button>
@@ -705,6 +706,24 @@
             Cadastre seu CPF (ou CNPJ) em <strong>Configurações</strong> para evitar pendências de emissão.
           </p>
           <div id="payments-history"></div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-products-services">
+        <div class="top-bar"><h1>Produtos &amp; Serviços</h1></div>
+        <div id="products-services-summary" class="alert-ok">Carregando produtos e serviços…</div>
+        <div id="products-services-billing" class="product-service-billing-grid mt-10"></div>
+        <div class="grid-2 grid-cols-2 mt-10">
+          <div class="card">
+            <h3 class="mt-0">Produtos</h3>
+            <p class="small-muted mt-0">Software sob o CNAE 6201-5/01 correspondente ao sistema da conta.</p>
+            <div id="products-services-products" class="product-service-list"></div>
+          </div>
+          <div class="card">
+            <h3 class="mt-0">Serviços pagos</h3>
+            <p class="small-muted mt-0">Os serviços de OAuth, ERP, ETL e Marketplace só geram cobrança adicional quando a conta está no plano Free.</p>
+            <div id="products-services-services" class="product-service-list"></div>
+          </div>
         </div>
       </section>
 

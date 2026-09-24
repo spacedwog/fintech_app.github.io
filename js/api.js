@@ -269,6 +269,140 @@ const COMPANY_PROFILE = {
   contato_privacidade: "felipersantos1988@gmail.com",
 };
 
+const PRODUCTS_SERVICES_CATALOG = {
+  products: [
+    {
+      id: "spacecworp-despesas-pessoais",
+      name: "Spacecworp Despesas Pessoais",
+      type: "Software sob encomenda",
+      delivery_model: "Web + backend Java + Cloud Engine",
+      description: "Sistema de orçamento, despesas, pagamentos Pix, perfil do cliente e operação multiusuário.",
+      modules: ["OAuth API", "ERP", "ETL", "Marketplace"],
+    },
+  ],
+  services: [
+    {
+      id: "oauth-api",
+      name: "API OAuth Spacecworp",
+      module: "OAuth API",
+      description: "Autenticação, autorização e emissão de tokens para sessões e integrações.",
+      price_month: 9.9,
+    },
+    {
+      id: "erp-operacional",
+      name: "ERP Financeiro Operacional",
+      module: "ERP",
+      description: "Gestão de orçamento, despesas, pagamentos, alertas e trilha operacional da conta.",
+      price_month: 19.9,
+    },
+    {
+      id: "etl-financeiro",
+      name: "ETL Financeiro",
+      module: "ETL",
+      description: "Consolidação de Open Finance, automações e cargas financeiras para análise do perfil.",
+      price_month: 14.9,
+    },
+    {
+      id: "marketplace-hub",
+      name: "Marketplace Hub",
+      module: "Marketplace",
+      description: "Integração com Marketplace/Mercado Pago para sincronização, conferência e leitura do perfil IA.",
+      price_month: 12.9,
+    },
+  ],
+};
+
+function hasPositiveAmount(value) {
+  return Number(value || 0) > 0;
+}
+
+function profileTextIncludesMarketplace(value) {
+  return /marketplace/i.test(String(value || ""));
+}
+
+function roundCurrency(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function isEtlServiceActive(customerProfile) {
+  const etl = (customerProfile && customerProfile.etl) || {};
+  const openFinance = etl.open_finance || {};
+  const oauth = etl.oauth || {};
+  return !!etl.automation_configured
+    || !!etl.last_run_at
+    || hasPositiveAmount(openFinance.cards_count)
+    || hasPositiveAmount(openFinance.transactions_count)
+    || hasPositiveAmount(oauth.payments_count)
+    || hasPositiveAmount(oauth.charges_count)
+    || hasPositiveAmount(oauth.movements_count);
+}
+
+function isMarketplaceServiceActive(customerProfile) {
+  const etl = (customerProfile && customerProfile.etl) || {};
+  const aiProfile = (customerProfile && customerProfile.ai_profile) || {};
+  const dataSources = aiProfile.data_sources || {};
+  return !!etl.connected
+    || hasPositiveAmount(etl.expenses_count)
+    || hasPositiveAmount(etl.payments_verified_count)
+    || !!dataSources.marketplace
+    || profileTextIncludesMarketplace(aiProfile.segment)
+    || profileTextIncludesMarketplace(aiProfile.summary)
+    || (Array.isArray(aiProfile.insights) && aiProfile.insights.some((insight) => profileTextIncludesMarketplace(insight)));
+}
+
+function buildProductsAndServicesPortfolio({ companyProfile, customerProfile, planKey } = {}) {
+  const profile = customerProfile || {};
+  const identity = profile.identity || {};
+  const effectivePlanKey = String(planKey || identity.plan || DEFAULT_PLAN).trim().toLowerCase() || DEFAULT_PLAN;
+  const plan = getPlan(effectivePlanKey);
+  const isFreePlan = effectivePlanKey === "free";
+  const company = companyProfile || COMPANY_PROFILE;
+  const services = PRODUCTS_SERVICES_CATALOG.services.map((service) => {
+    let active = true;
+    if (service.id === "etl-financeiro") active = isEtlServiceActive(profile);
+    if (service.id === "marketplace-hub") active = isMarketplaceServiceActive(profile);
+    const currentCharge = isFreePlan && active ? Number(service.price_month || 0) : 0;
+    return {
+      ...service,
+      active,
+      billing_model: "Cobrado somente no plano Free",
+      current_charge_month: currentCharge,
+      status_label: active
+        ? (isFreePlan ? `Cobrado no Free: R$ ${Number(service.price_month || 0).toFixed(2)}/mês` : "Incluído no Premium")
+        : "Disponível sob demanda",
+    };
+  });
+  const servicesAmount = roundCurrency(services.reduce((sum, service) => sum + (Number(service.current_charge_month) || 0), 0));
+  const planAmount = roundCurrency(plan.price_month || 0);
+  return {
+    reference_month: profile.month || null,
+    plan: {
+      key: effectivePlanKey,
+      label: plan.label,
+      price_month: planAmount,
+    },
+    billing: {
+      currency: "BRL",
+      plan_amount_month: planAmount,
+      services_amount_month: servicesAmount,
+      total_amount_month: roundCurrency(planAmount + servicesAmount),
+      paid_services_count: services.filter((service) => service.current_charge_month > 0).length,
+      active_services_count: services.filter((service) => service.active).length,
+      policy_label: isFreePlan
+        ? "Os serviços adicionais são cobrados somente enquanto a conta estiver no plano Free."
+        : "No Premium, os serviços adicionais ficam incluídos sem cobrança extra.",
+    },
+    products: PRODUCTS_SERVICES_CATALOG.products.map((product) => ({
+      ...product,
+      cnae: company.cnae_principal,
+      operator_name: company.nome_fantasia || null,
+      operator_document: company.cnpj || null,
+      name: company.produto || product.name,
+    })),
+    services,
+  };
+}
+
 // ---------- TenantRepository: leitura/serialização de tenants ----------
 
 class TenantRepository {
