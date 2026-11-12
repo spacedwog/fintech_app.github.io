@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Conheça as competências em Customer Success, Design Orientado a Objetos, DevOps, Agile, Operações e normalização de banco de dados." />
+  <meta name="description" content="Conheça as competências da Spacecworp e fale com nossa equipe." />
   <title>Competências e contato — Spacecworp</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:400,500,600,700" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
@@ -77,11 +77,9 @@
           });
           var result = await response.json().catch(function () { return {}; });
           if (!response.ok) throw new Error(result.message || 'Não foi possível enviar agora.');
-          status.textContent = result.message || 'Contato recebido.';
-          form.reset();
+          window.location.assign('contato-enviado.html');
         } catch (error) {
           status.textContent = error.message || 'Serviço indisponível. Tente novamente mais tarde.';
-        } finally {
           button.disabled = false;
         }
       });

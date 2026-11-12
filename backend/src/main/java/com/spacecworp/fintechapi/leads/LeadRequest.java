@@ -10,6 +10,6 @@ public record LeadRequest(
         @NotBlank @Email @Size(max = 254) String email,
         @Size(max = 30) String phone,
         @Size(max = 1000) String message,
-        @AssertTrue Boolean consent,
+        @AssertTrue boolean consent,
         @Size(max = 200) String website
 ) {}
