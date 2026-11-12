@@ -16,17 +16,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/leads")
 public class LeadController {
     private static final Logger log = LoggerFactory.getLogger(LeadController.class);
-    private final GmailApiEmailService emailService;
+    private final LeadRepository leadRepository;
     private final LeadRateLimiter rateLimiter;
 
-    public LeadController(GmailApiEmailService emailService, LeadRateLimiter rateLimiter) {
-        this.emailService = emailService;
+    public LeadController(LeadRepository leadRepository, LeadRateLimiter rateLimiter) {
+        this.leadRepository = leadRepository;
         this.rateLimiter = rateLimiter;
     }
 
     @PostMapping
     public ResponseEntity<Map<String, String>> capture(@Valid @RequestBody LeadRequest lead, HttpServletRequest request) {
-        // Honeypot: silently accept automated form submissions without sending email.
+        // Honeypot: silently accept automated form submissions without storing contact data.
         if (lead.website() != null && !lead.website().isBlank()) {
             return ResponseEntity.accepted().body(Map.of("message", "Contato recebido."));
         }
@@ -34,17 +34,14 @@ public class LeadController {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("message", "Muitas tentativas. Tente novamente mais tarde."));
         }
-        if (!emailService.isConfigured()) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("message", "O formulário está temporariamente indisponível."));
-        }
         try {
-            emailService.sendLeadEmails(lead);
-            return ResponseEntity.accepted().body(Map.of("message", "Contato recebido. Enviamos uma confirmação por e-mail."));
+            leadRepository.save(lead);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of("message", "Contato registrado. Nossa equipe retornará em breve."));
         } catch (RuntimeException exception) {
-            log.warn("Falha ao enviar e-mail de lead via Gmail API", exception);
+            log.warn("Falha ao registrar solicitação de contato");
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("message", "Não foi possível enviar agora. Tente novamente mais tarde."));
+                    .body(Map.of("message", "Não foi possível registrar agora. Tente novamente mais tarde."));
         }
     }
 }

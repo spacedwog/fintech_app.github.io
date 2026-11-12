@@ -38,7 +38,7 @@
     </section>
     <section class="form-card" aria-labelledby="contact-title">
       <h2 class="section-title" id="contact-title">Quer saber mais? Fale com a gente</h2>
-      <p>Preencha o formulário. Enviaremos uma confirmação e nossa equipe receberá seu pedido de contato. O envio depende da disponibilidade do serviço.</p>
+      <p>Preencha o formulário. Seus dados serão registrados de forma segura para que nossa equipe possa responder ao seu pedido. O sistema não envia e-mail automaticamente.</p>
       <form id="lead-form">
         <div class="form-grid">
           <div><label for="lead-name">Nome *</label><input id="lead-name" name="name" autocomplete="name" maxlength="100" required /></div>
@@ -47,7 +47,7 @@
         <label for="lead-phone">Telefone (opcional)</label><input id="lead-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" />
         <label for="lead-message">Como podemos ajudar?</label><textarea id="lead-message" name="message" maxlength="1000"></textarea>
         <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
-        <label class="consent"><input id="lead-consent" type="checkbox" required /><span>Autorizo o uso destes dados para responder ao meu contato. Li a política de privacidade. *</span></label>
+        <label class="consent"><input id="lead-consent" type="checkbox" required /><span>Autorizo o registro e uso destes dados para responder ao meu contato, conforme a política de privacidade. *</span></label>
         <button id="lead-submit" type="submit">Enviar contato</button>
         <p id="form-status" role="status" aria-live="polite"></p>
       </form>
@@ -76,7 +76,7 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
           });
           var result = await response.json().catch(function () { return {}; });
-          if (!response.ok) throw new Error(result.message || 'Não foi possível enviar agora.');
+          if (!response.ok) throw new Error(result.message || 'Não foi possível registrar agora.');
           window.location.assign('contato-enviado.html');
         } catch (error) {
           status.textContent = error.message || 'Serviço indisponível. Tente novamente mais tarde.';
