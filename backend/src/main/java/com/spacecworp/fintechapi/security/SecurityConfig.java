@@ -25,11 +25,11 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/api/v1/spacecworp-oauth/**"))
+                        .ignoringRequestMatchers("/api/v1/spacecworp-oauth/**", "/api/v1/leads"))
                 .httpBasic(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/leads").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/spacecworp-oauth/.well-known/openid-configuration").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/spacecworp-oauth/authorize", "/api/v1/spacecworp-oauth/token", "/api/v1/spacecworp-oauth/introspect", "/api/v1/spacecworp-oauth/revoke").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/cloud-engine/shell").permitAll()

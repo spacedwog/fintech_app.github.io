@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Conheça as competências em Customer Success, Design Orientado a Objetos, DevOps, Agile, Operações e normalização de banco de dados." />
+  <title>Competências e contato — Spacecworp</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:400,500,600,700" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+  <style>
+    :root { color-scheme: light; --ink:#211b3b; --muted:#665f78; --primary:#7045b5; --line:#e7e2ef; --bg:#f8f7fb; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink); font-family:Poppins,Arial,sans-serif; }
+    header, main, footer { max-width:1100px; margin:auto; padding:24px; } header { display:flex; justify-content:space-between; align-items:center; }
+    a { color:var(--primary); } .brand { color:var(--ink); font-weight:700; text-decoration:none; }
+    .hero { padding:54px 24px 30px; text-align:center; } .hero h1 { font-size:clamp(2rem,5vw,3rem); margin:0 0 12px; } .hero p { color:var(--muted); max-width:730px; margin:auto; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin:28px 0 44px; }
+    .card, .form-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 8px 26px #2414470b; }
+    .card i { color:var(--primary); font-size:23px; } .card h2 { font-size:17px; margin:12px 0 8px; } .card p, .form-card p { color:var(--muted); font-size:14px; line-height:1.6; margin-bottom:0; }
+    .section-title { font-size:26px; } .form-card { max-width:700px; margin:0 auto 50px; padding:28px; } .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    label { display:block; font-size:13px; font-weight:600; margin:12px 0 6px; } input, textarea { width:100%; border:1px solid #d6d1df; border-radius:9px; font:inherit; padding:11px; }
+    textarea { min-height:110px; resize:vertical; } .consent { display:flex; align-items:flex-start; gap:9px; color:var(--muted); font-size:12px; margin:16px 0; }
+    .consent input { width:auto; margin-top:4px; } button { background:var(--primary); color:white; border:0; border-radius:9px; padding:12px 18px; font:inherit; font-weight:600; cursor:pointer; }
+    button:disabled { opacity:.65; cursor:wait; } #form-status { min-height:24px; margin-top:12px; } .hp { position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; }
+    footer { color:var(--muted); font-size:12px; text-align:center; } @media(max-width:600px){header{padding:18px}.form-grid{grid-template-columns:1fr}.form-card{padding:20px}}
+  </style>
+</head>
+<body>
+  <header><a class="brand" href="index.html"><i class="fa fa-university"></i> Spacecworp</a><a href="index.html">Voltar ao início</a></header>
+  <main>
+    <section class="hero"><h1>Competências para construir e operar produtos digitais</h1><p>Explore os temas incluídos no catálogo e fale com nossa equipe para saber mais sobre a plataforma e suas soluções.</p></section>
+    <section aria-label="Catálogo de competências" class="grid">
+      <article class="card"><i class="fa fa-heart"></i><h2>Customer Success</h2><p>Jornada do cliente, onboarding, adoção, retenção e acompanhamento de indicadores de sucesso.</p></article>
+      <article class="card"><i class="fa fa-cubes"></i><h2>Design Orientado a Objetos</h2><p>Modelagem de responsabilidades, abstrações, coesão, baixo acoplamento e princípios SOLID.</p></article>
+      <article class="card"><i class="fa fa-gears"></i><h2>Fundamentos DevOps</h2><p>Integração e entrega contínuas, automação, observabilidade e colaboração entre desenvolvimento e operações.</p></article>
+      <article class="card"><i class="fa fa-refresh"></i><h2>Desenvolvimento Ágil em Software</h2><p>Scrum, Kanban, ciclos iterativos, priorização de valor e melhoria contínua.</p></article>
+      <article class="card"><i class="fa fa-tasks"></i><h2>Fundamentos de Gestão de Operação</h2><p>Processos, capacidade, qualidade de serviço, gestão de incidentes e melhoria operacional.</p></article>
+      <article class="card"><i class="fa fa-database"></i><h2>Normalização de Banco de Dados (5N)</h2><p>Formas normais de 1ª a 5ª: dependências funcionais, redução de redundância e consistência relacional.</p></article>
+    </section>
+    <section class="form-card" aria-labelledby="contact-title">
+      <h2 class="section-title" id="contact-title">Quer saber mais? Fale com a gente</h2>
+      <p>Preencha o formulário. Enviaremos uma confirmação e nossa equipe receberá seu pedido de contato. O envio depende da disponibilidade do serviço.</p>
+      <form id="lead-form">
+        <div class="form-grid">
+          <div><label for="lead-name">Nome *</label><input id="lead-name" name="name" autocomplete="name" maxlength="100" required /></div>
+          <div><label for="lead-email">E-mail *</label><input id="lead-email" name="email" type="email" autocomplete="email" maxlength="254" required /></div>
+        </div>
+        <label for="lead-phone">Telefone (opcional)</label><input id="lead-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" />
+        <label for="lead-message">Como podemos ajudar?</label><textarea id="lead-message" name="message" maxlength="1000"></textarea>
+        <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+        <label class="consent"><input id="lead-consent" type="checkbox" required /><span>Autorizo o uso destes dados para responder ao meu contato. Li a política de privacidade. *</span></label>
+        <button id="lead-submit" type="submit">Enviar contato</button>
+        <p id="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+  <footer>Seus dados são usados para atender este pedido de contato, conforme a política de privacidade aplicável.</footer>
+  <script>
+    (function () {
+      var form = document.getElementById('lead-form');
+      var button = document.getElementById('lead-submit');
+      var status = document.getElementById('form-status');
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        button.disabled = true;
+        status.textContent = 'Enviando…';
+        var payload = {
+          name: document.getElementById('lead-name').value.trim(),
+          email: document.getElementById('lead-email').value.trim(),
+          phone: document.getElementById('lead-phone').value.trim(),
+          message: document.getElementById('lead-message').value.trim(),
+          consent: document.getElementById('lead-consent').checked,
+          website: form.elements.website.value.trim()
+        };
+        try {
+          var response = await fetch('/api/v1/leads', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+          var result = await response.json().catch(function () { return {}; });
+          if (!response.ok) throw new Error(result.message || 'Não foi possível enviar agora.');
+          status.textContent = result.message || 'Contato recebido.';
+          form.reset();
+        } catch (error) {
+          status.textContent = error.message || 'Serviço indisponível. Tente novamente mais tarde.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
